@@ -283,6 +283,119 @@ body {
   margin-top: 4px;
 }
 
+/* ==================== CALENDAR ==================== */
+.cal-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+.cal-nav {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xs);
+  overflow: hidden;
+}
+.cal-nav-btn {
+  padding: 5px 10px;
+  font-size: 12px;
+  color: var(--text3);
+  cursor: pointer;
+  border: none;
+  background: none;
+  font-family: inherit;
+  transition: all 0.15s;
+}
+.cal-nav-btn:hover { color: var(--text); background: var(--surface2); }
+.cal-period {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  min-width: 140px;
+  text-align: center;
+}
+.cal-today-btn {
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--accent);
+  background: var(--accent-dim);
+  border: none;
+  border-radius: var(--radius-xs);
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.15s;
+}
+.cal-today-btn:hover { background: var(--accent); color: #fff; }
+.cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.cal-dow {
+  padding: 8px 4px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--text3);
+  text-align: center;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+.cal-cell {
+  min-height: 90px;
+  padding: 6px;
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  background: var(--bg);
+  vertical-align: top;
+  transition: background 0.1s;
+}
+.cal-cell:nth-child(7n) { border-right: none; }
+.cal-cell:hover { background: var(--surface); }
+.cal-cell.outside { opacity: 0.35; }
+.cal-cell.today { background: var(--accent-dim); }
+.cal-day-num {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text3);
+  margin-bottom: 4px;
+}
+.cal-cell.today .cal-day-num { color: var(--accent); }
+.cal-task {
+  font-size: 10px;
+  padding: 3px 5px;
+  margin-bottom: 2px;
+  border-radius: 3px;
+  background: var(--surface2);
+  color: var(--text2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+  transition: background 0.1s;
+  border-left: 2px solid var(--border);
+}
+.cal-task:hover { background: var(--surface3); }
+.cal-task.done { opacity: 0.4; text-decoration: line-through; }
+.cal-task.pri-urgent { border-left-color: var(--red); }
+.cal-task.pri-important { border-left-color: var(--orange); }
+.cal-task-more {
+  font-size: 9px;
+  color: var(--text3);
+  padding: 2px 5px;
+  cursor: pointer;
+}
+.cal-task-more:hover { color: var(--accent); }
+/* Week view: taller cells */
+.cal-grid.week-view .cal-cell { min-height: 200px; }
+
 .stat-card {
   background: var(--surface);
   border: 1px solid var(--border);
@@ -1367,6 +1480,10 @@ body {
   .chat-panel { width: 100vw; right: -100vw; }
   .chat-toggle { bottom: 16px; right: 16px; width: 44px; height: 44px; font-size: 18px; }
   .modal { width: 95vw !important; padding: 20px !important; }
+  .cal-cell { min-height: 60px; padding: 4px; }
+  .cal-grid.week-view .cal-cell { min-height: 120px; }
+  .cal-task { font-size: 9px; padding: 2px 4px; }
+  .cal-period { font-size: 11px; min-width: 110px; }
 }
 </style>
 </head>
@@ -1489,6 +1606,8 @@ let chatContext = null;
 let chatHistory = []; // { role: 'user'|'assistant', content: string }
 let projectViewMode = {}; // projectId -> 'list' | 'board'
 let showProjectBg = {}; // projectId -> boolean
+let dashViewMode = 'list'; // 'list' | 'week' | 'month'
+let calendarOffset = 0; // weeks or months offset from current
 
 // ============================================================
 // CRUD
@@ -1613,8 +1732,8 @@ function render() {
     case 'dashboard':
       $('#viewTitle').textContent = 'Dashboard';
       $('#viewSub').textContent = `${activeTasks().length} active tasks across ${data.projects.length} projects`;
-      ha.innerHTML = '<button class="btn btn-sm" onclick="startFocus()">◎ Focus</button><button class="btn btn-sm" onclick="toggleChat()">✦ Ask AI</button><button class="btn btn-primary btn-sm" onclick="openNewProject()">+ Project</button>';
-      c.innerHTML = renderDashboard();
+      ha.innerHTML = `<div class="view-toggle"><button class="view-toggle-btn ${dashViewMode==='list'?'active':''}" onclick="dashViewMode='list';calendarOffset=0;render()">List</button><button class="view-toggle-btn ${dashViewMode==='week'?'active':''}" onclick="dashViewMode='week';calendarOffset=0;render()">Week</button><button class="view-toggle-btn ${dashViewMode==='month'?'active':''}" onclick="dashViewMode='month';calendarOffset=0;render()">Month</button></div><button class="btn btn-sm" onclick="startFocus()">◎ Focus</button><button class="btn btn-sm" onclick="toggleChat()">✦ Ask AI</button><button class="btn btn-primary btn-sm" onclick="openNewProject()">+ Project</button>`;
+      c.innerHTML = dashViewMode === 'list' ? renderDashboard() : renderCalendar();
       break;
     case 'project':
       const p = data.projects.find(x => x.id === currentProject);
@@ -1811,6 +1930,131 @@ function renderDashboard() {
     html += '</div>';
   }
   html += '</div>';
+
+  return html;
+}
+
+// ============================================================
+// CALENDAR VIEW
+// ============================================================
+function calNav(dir) { calendarOffset += dir; render(); }
+function calToday() { calendarOffset = 0; render(); }
+
+function localISO(d) { return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0'); }
+
+function renderCalendar() {
+  const isWeek = dashViewMode === 'week';
+  const today = new Date(); today.setHours(0,0,0,0);
+  const todayISO = localISO(today);
+
+  // Compute the anchor date based on offset
+  let anchor = new Date(today);
+  if (isWeek) {
+    anchor.setDate(anchor.getDate() + calendarOffset * 7);
+  } else {
+    anchor.setMonth(anchor.getMonth() + calendarOffset);
+  }
+
+  // Determine date range to display
+  let startDate, endDate, periodLabel;
+  if (isWeek) {
+    // Start of week (Sunday)
+    startDate = new Date(anchor);
+    startDate.setDate(startDate.getDate() - startDate.getDay());
+    endDate = new Date(startDate);
+    endDate.setDate(endDate.getDate() + 6);
+    const fmt = (d) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    periodLabel = `${fmt(startDate)} — ${fmt(endDate)}, ${endDate.getFullYear()}`;
+  } else {
+    // Full month grid
+    const year = anchor.getFullYear(), month = anchor.getMonth();
+    const firstOfMonth = new Date(year, month, 1);
+    const lastOfMonth = new Date(year, month + 1, 0);
+    startDate = new Date(firstOfMonth);
+    startDate.setDate(startDate.getDate() - startDate.getDay()); // back to Sunday
+    endDate = new Date(lastOfMonth);
+    endDate.setDate(endDate.getDate() + (6 - endDate.getDay())); // forward to Saturday
+    periodLabel = anchor.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+  }
+
+  // Build date->tasks map
+  const tasksByDate = {};
+  data.tasks.forEach(t => {
+    if (!t.dueDate) return;
+    if (!tasksByDate[t.dueDate]) tasksByDate[t.dueDate] = [];
+    tasksByDate[t.dueDate].push(t);
+  });
+
+  // Navigation header
+  let html = `<div class="cal-header">
+    <div class="cal-nav">
+      <button class="cal-nav-btn" onclick="calNav(-1)">‹</button>
+      <div class="cal-period">${periodLabel}</div>
+      <button class="cal-nav-btn" onclick="calNav(1)">›</button>
+    </div>
+    ${calendarOffset !== 0 ? '<button class="cal-today-btn" onclick="calToday()">Today</button>' : ''}
+  </div>`;
+
+  // Day-of-week headers
+  const dows = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  html += `<div class="cal-grid${isWeek ? ' week-view' : ''}">`;
+  dows.forEach(d => { html += `<div class="cal-dow">${d}</div>`; });
+
+  // Cells
+  const cursor = new Date(startDate);
+  const anchorMonth = isWeek ? -1 : anchor.getMonth();
+  const MAX_VISIBLE = isWeek ? 10 : 3;
+
+  while (cursor <= endDate) {
+    const iso = localISO(cursor);
+    const isToday = iso === todayISO;
+    const isOutside = !isWeek && cursor.getMonth() !== anchorMonth;
+    const tasks = tasksByDate[iso] || [];
+    const sorted = tasks.sort((a,b) => {
+      if (a.status === 'done' && b.status !== 'done') return 1;
+      if (a.status !== 'done' && b.status === 'done') return -1;
+      const po = { urgent: 0, important: 1, normal: 2, low: 3 };
+      return (po[a.priority]||2) - (po[b.priority]||2);
+    });
+
+    html += `<div class="cal-cell${isToday ? ' today' : ''}${isOutside ? ' outside' : ''}">`;
+    html += `<div class="cal-day-num">${cursor.getDate()}</div>`;
+
+    sorted.slice(0, MAX_VISIBLE).forEach(t => {
+      const proj = data.projects.find(p => p.id === t.project);
+      const priClass = t.status !== 'done' && (t.priority === 'urgent' || t.priority === 'important') ? ` pri-${t.priority}` : '';
+      const doneClass = t.status === 'done' ? ' done' : '';
+      html += `<div class="cal-task${priClass}${doneClass}" onclick="expandedTask=expandedTask==='${t.id}'?null:'${t.id}';render()" title="${esc(t.title)}${proj ? ' — '+esc(proj.name) : ''}">`;
+      if (proj) html += `<span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:${proj.color};margin-right:3px;vertical-align:middle"></span>`;
+      html += `${esc(t.title)}</div>`;
+    });
+
+    if (sorted.length > MAX_VISIBLE) {
+      html += `<div class="cal-task-more" onclick="expandedTask=null;render()">+${sorted.length - MAX_VISIBLE} more</div>`;
+    }
+
+    html += `</div>`;
+    cursor.setDate(cursor.getDate() + 1);
+  }
+  html += `</div>`;
+
+  // Expanded task detail below calendar
+  if (expandedTask) {
+    const et = data.tasks.find(t => t.id === expandedTask);
+    if (et) {
+      html += `<div style="margin-top:16px">${renderTaskExpanded(et, true)}</div>`;
+    }
+  }
+
+  // Unscheduled tasks section
+  const unscheduled = data.tasks.filter(t => !t.dueDate && t.status !== 'done');
+  if (unscheduled.length > 0) {
+    html += `<div class="section" style="margin-top:24px"><div class="section-header"><div class="section-title">Unscheduled</div><div class="section-count">${unscheduled.length}</div><div class="section-line"></div></div>`;
+    html += `<div style="font-size:11px;color:var(--text3);margin-bottom:10px">Tasks without a due date</div>`;
+    sortTasks(unscheduled).slice(0, 10).forEach(t => { html += renderTaskRow(t, true); });
+    if (unscheduled.length > 10) html += `<div style="font-size:11px;color:var(--text3);padding:8px 0">+${unscheduled.length - 10} more unscheduled tasks</div>`;
+    html += `</div>`;
+  }
 
   return html;
 }
