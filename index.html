@@ -563,6 +563,12 @@ body {
 .tag-chip.selected { border-color: var(--text); box-shadow: 0 0 0 1px var(--text); }
 .tag-add-input { font-size: 11px; padding: 2px 8px; border: 1px dashed var(--border); border-radius: 10px; background: transparent; color: var(--text2); width: 80px; outline: none; font-family: inherit; }
 .tag-add-input:focus { border-color: var(--accent); }
+.bulk-bar { position: fixed; bottom: 0; left: 0; right: 0; background: var(--bg); border-top: 1px solid var(--border); padding: 10px 20px; display: flex; align-items: center; gap: 10px; z-index: 80; box-shadow: 0 -2px 12px rgba(0,0,0,0.15); animation: toastIn 0.2s ease; }
+.bulk-bar-count { font-size: 13px; font-weight: 600; color: var(--accent); min-width: 80px; }
+.bulk-check { width: 14px; height: 14px; border-radius: 3px; border: 1.5px solid var(--border2); cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 9px; color: #fff; flex-shrink: 0; transition: all 0.15s; }
+.bulk-check.on { background: var(--accent); border-color: var(--accent); }
+.btn-active { background: var(--accent) !important; color: #fff !important; }
+.smart-date-preview { display: none; font-size: 11px; padding: 4px 0; color: var(--text3); }
 .task-title-editable { cursor: text; border-radius: 3px; padding: 1px 3px; margin: -1px -3px; transition: background 0.15s; }
 .task-title-editable:hover { background: var(--surface3); }
 .task-title-editable:focus { background: var(--surface); outline: 1px solid var(--accent); }
@@ -1922,6 +1928,8 @@ let settings = loadSettings();
 let currentView = 'dashboard';
 let currentProject = null;
 let expandedTask = null;
+let bulkMode = false;
+let bulkSelected = new Set();
 let showCompleted = {};
 let chatContext = null;
 let chatHistory = []; // { role: 'user'|'assistant', content: string }
@@ -2129,7 +2137,7 @@ function render() {
     case 'dashboard':
       $('#viewTitle').textContent = 'Dashboard';
       $('#viewSub').textContent = `${activeTasks().length} active tasks across ${data.projects.length} projects`;
-      ha.innerHTML = `<div class="view-toggle"><button class="view-toggle-btn ${dashViewMode==='list'?'active':''}" onclick="dashViewMode='list';calendarOffset=0;render()">List</button><button class="view-toggle-btn ${dashViewMode==='week'?'active':''}" onclick="dashViewMode='week';calendarOffset=0;render()">Week</button><button class="view-toggle-btn ${dashViewMode==='month'?'active':''}" onclick="dashViewMode='month';calendarOffset=0;render()">Month</button></div><button class="btn btn-sm" onclick="startFocus()">◎ Focus</button><button class="btn btn-sm" onclick="toggleChat()">✦ Ask AI</button><button class="btn btn-primary btn-sm" onclick="openNewProject()">+ Project</button>`;
+      ha.innerHTML = `<div class="view-toggle"><button class="view-toggle-btn ${dashViewMode==='list'?'active':''}" onclick="dashViewMode='list';calendarOffset=0;render()">List</button><button class="view-toggle-btn ${dashViewMode==='week'?'active':''}" onclick="dashViewMode='week';calendarOffset=0;render()">Week</button><button class="view-toggle-btn ${dashViewMode==='month'?'active':''}" onclick="dashViewMode='month';calendarOffset=0;render()">Month</button></div><button class="btn btn-sm${bulkMode?' btn-active':''}" onclick="toggleBulkMode()" title="Select multiple tasks">☰ Bulk</button><button class="btn btn-sm" onclick="startFocus()">◎ Focus</button><button class="btn btn-sm" onclick="toggleChat()">✦ Ask AI</button><button class="btn btn-primary btn-sm" onclick="openNewProject()">+ Project</button>`;
       c.innerHTML = dashViewMode === 'list' ? renderDashboard() : renderCalendar();
       break;
     case 'project':
@@ -2138,7 +2146,7 @@ function render() {
       $('#viewTitle').textContent = p.name;
       $('#viewSub').textContent = '';
       const vm = projectViewMode[p.id] || 'list';
-      ha.innerHTML = `<div class="view-toggle"><button class="view-toggle-btn ${vm==='list'?'active':''}" onclick="projectViewMode['${p.id}']='list';render()">List</button><button class="view-toggle-btn ${vm==='board'?'active':''}" onclick="projectViewMode['${p.id}']='board';render()">Board</button></div><button class="btn btn-sm" onclick="openProjectChat('${p.id}')">✦ AI</button><button class="btn btn-primary btn-sm" onclick="openNewTask('${p.id}')">+ Task</button><div class="dropdown" style="position:relative"><button class="btn btn-sm" onclick="this.parentElement.classList.toggle('open')">···</button><div class="dropdown-menu"><button onclick="startFocus('${p.id}');this.closest('.dropdown').classList.remove('open')">◎ Focus Mode</button><button onclick="aiReorganize('${p.id}');this.closest('.dropdown').classList.remove('open')">✦ Reorganize</button><button onclick="openEditProject('${p.id}');this.closest('.dropdown').classList.remove('open')">Edit Project</button></div></div>`;
+      ha.innerHTML = `<div class="view-toggle"><button class="view-toggle-btn ${vm==='list'?'active':''}" onclick="projectViewMode['${p.id}']='list';render()">List</button><button class="view-toggle-btn ${vm==='board'?'active':''}" onclick="projectViewMode['${p.id}']='board';render()">Board</button></div><button class="btn btn-sm${bulkMode?' btn-active':''}" onclick="toggleBulkMode()" title="Select multiple tasks">☰ Bulk</button><button class="btn btn-sm" onclick="openProjectChat('${p.id}')">✦ AI</button><button class="btn btn-primary btn-sm" onclick="openNewTask('${p.id}')">+ Task</button><div class="dropdown" style="position:relative"><button class="btn btn-sm" onclick="this.parentElement.classList.toggle('open')">···</button><div class="dropdown-menu"><button onclick="startFocus('${p.id}');this.closest('.dropdown').classList.remove('open')">◎ Focus Mode</button><button onclick="aiReorganize('${p.id}');this.closest('.dropdown').classList.remove('open')">✦ Reorganize</button><button onclick="openEditProject('${p.id}');this.closest('.dropdown').classList.remove('open')">Edit Project</button></div></div>`;
       c.innerHTML = renderProject(p);
       break;
     case 'dump':
@@ -2163,6 +2171,7 @@ function render() {
   }
   $('#headerActions').innerHTML = '<button class="btn btn-sm btn-ghost" onclick="openSearch()" style="color:var(--text3);font-size:11px">&#8984;K</button>' + $('#headerActions').innerHTML;
   attachListeners();
+  renderBulkBar();
 }
 
 function renderSidebar() {
@@ -2274,8 +2283,31 @@ function renderDashboard() {
         <div class="briefing-date">${new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</div>
       </div>
       ${cachedBriefing ? `<div class="briefing-body" id="briefingBody">${cachedBriefing}</div>` : ''}
-      <button class="briefing-generate" onclick="generateAIBriefing()" id="briefingBtn">${cachedBriefing ? '↻ Refresh' : '✦ Generate Briefing'}</button>
+      <div style="display:flex;gap:8px">
+        <button class="briefing-generate" onclick="generateAIBriefing()" id="briefingBtn">${cachedBriefing ? '↻ Refresh' : '✦ Generate Briefing'}</button>
+        <button class="briefing-generate" onclick="planMyDay()" id="planBtn" style="color:var(--accent)">◎ Plan My Day</button>
+      </div>
     </div>`;
+
+  // Daily Plan (if generated)
+  const planKey = 'whiteboard_plan_' + todayStr();
+  const cachedPlan = localStorage.getItem(planKey);
+  if (cachedPlan) {
+    try {
+      const plan = JSON.parse(cachedPlan);
+      html += `<div class="section"><div class="section-header"><div class="section-title" style="color:var(--accent)">Today's Plan</div><div class="section-count">${plan.length}</div><div class="section-line"></div><span style="font-size:10px;color:var(--text3);cursor:pointer" onclick="localStorage.removeItem('${planKey}');render()">clear</span></div>`;
+      plan.forEach((p, i) => {
+        const t = data.tasks.find(x => x.id === p.id);
+        if (!t) return;
+        html += `<div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:2px">
+          <span style="font-size:11px;color:var(--text3);min-width:18px;padding-top:10px">${i + 1}.</span>
+          <div style="flex:1">${renderTaskRow(t, true)}</div>
+        </div>`;
+        if (p.why) html += `<div style="margin-left:28px;font-size:11px;color:var(--text3);margin-bottom:8px;margin-top:-4px;font-style:italic">↳ ${esc(p.why)}</div>`;
+      });
+      html += `</div>`;
+    } catch {}
+  }
   }
 
   // Urgent section
@@ -2639,6 +2671,7 @@ function renderTaskRow(t, showProject = false) {
   const priClass = !isDone && (t.priority === 'urgent' || t.priority === 'important') ? ` pri-${t.priority}` : '';
   const blocked = !isDone && isBlocked(t);
   return `<div class="task-row${priClass}" data-task="${t.id}"${blocked ? ' style="opacity:0.55"' : ''}>
+    ${bulkMode ? `<div class="bulk-check${bulkSelected.has(t.id) ? ' on' : ''}" data-bulk="${t.id}">${bulkSelected.has(t.id) ? '✓' : ''}</div>` : ''}
     <div class="task-check ${isDone ? 'done' : ''}" data-toggle="${t.id}"></div>
     <div class="task-body">
       <div class="task-title ${isDone ? 'done-text' : ''}" data-inline-edit="${t.id}">${blocked ? '<span style="color:var(--red);font-size:10px;margin-right:4px" title="Blocked">◆</span>' : ''}${esc(t.title)}</div>
@@ -2784,6 +2817,121 @@ function addTagToPicker(input) {
 // ============================================================
 // INLINE TITLE EDITING
 // ============================================================
+// ============================================================
+// BULK ACTIONS
+// ============================================================
+function toggleBulkMode() {
+  bulkMode = !bulkMode;
+  bulkSelected.clear();
+  render();
+}
+
+function renderBulkBar() {
+  const existing = document.getElementById('bulkBar');
+  if (existing) existing.remove();
+  if (!bulkMode || bulkSelected.size === 0) return;
+
+  const bar = document.createElement('div');
+  bar.id = 'bulkBar';
+  bar.className = 'bulk-bar';
+  const projOpts = data.projects.map(p => `<option value="${p.id}">${esc(p.name)}</option>`).join('');
+  bar.innerHTML = `
+    <div class="bulk-bar-count">${bulkSelected.size} selected</div>
+    <button class="btn btn-sm" onclick="bulkAction('done')">✓ Done</button>
+    <button class="btn btn-sm" onclick="bulkAction('todo')">○ To Do</button>
+    <select class="form-select" style="font-size:11px;padding:4px 8px;max-width:140px" onchange="if(this.value){bulkAction('move',this.value);this.value=''}">
+      <option value="">Move to...</option>${projOpts}
+    </select>
+    <select class="form-select" style="font-size:11px;padding:4px 8px;max-width:110px" onchange="if(this.value){bulkAction('priority',this.value);this.value=''}">
+      <option value="">Priority...</option><option value="urgent">Urgent</option><option value="important">Important</option><option value="normal">Normal</option><option value="low">Low</option>
+    </select>
+    <button class="btn btn-sm" style="color:var(--red)" onclick="bulkAction('delete')">Delete</button>
+    <div style="flex:1"></div>
+    <button class="btn btn-sm" onclick="toggleBulkMode()">Cancel</button>
+  `;
+  document.body.appendChild(bar);
+}
+
+function bulkAction(action, value) {
+  const ids = [...bulkSelected];
+  if (!ids.length) return;
+  pushUndo('Bulk ' + action);
+
+  if (action === 'delete') {
+    ids.forEach(id => { data.tasks = data.tasks.filter(t => t.id !== id); });
+    saveData(data);
+    showToast(`Deleted ${ids.length} tasks`);
+  } else if (action === 'done' || action === 'todo') {
+    ids.forEach(id => updateTask(id, { status: action }));
+    showToast(`${ids.length} tasks → ${action}`);
+  } else if (action === 'move') {
+    ids.forEach(id => updateTask(id, { project: value }));
+    const proj = data.projects.find(p => p.id === value);
+    showToast(`Moved ${ids.length} to ${proj ? proj.name : 'project'}`);
+  } else if (action === 'priority') {
+    ids.forEach(id => updateTask(id, { priority: value }));
+    showToast(`${ids.length} tasks → ${value}`);
+  }
+
+  bulkSelected.clear();
+  render();
+}
+
+function attachBulkListeners() {
+  if (!bulkMode) return;
+  document.querySelectorAll('[data-bulk]').forEach(el => {
+    el.onclick = (e) => {
+      e.stopPropagation();
+      const id = el.dataset.bulk;
+      if (bulkSelected.has(id)) bulkSelected.delete(id);
+      else bulkSelected.add(id);
+      render();
+    };
+  });
+}
+
+// Smart date input — natural language on desktop, native picker on mobile
+const isMobileDevice = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
+function smartDateInput(id, value) {
+  if (isMobileDevice) return `<input class="form-input" id="${id}" type="date" value="${value || ''}">`;
+  return `<div style="position:relative">
+    <input class="form-input" id="${id}" type="text" value="${value || ''}" placeholder="tomorrow, next friday, mar 20, or YYYY-MM-DD" autocomplete="off" oninput="previewSmartDate('${id}')">
+    <div id="${id}_preview" class="smart-date-preview"></div>
+  </div>`;
+}
+function previewSmartDate(id) {
+  const inp = document.getElementById(id);
+  const prev = document.getElementById(id + '_preview');
+  if (!inp || !prev) return;
+  const val = inp.value.trim();
+  if (!val) { prev.innerHTML = ''; prev.style.display = 'none'; return; }
+  // Try ISO date first
+  if (/^\d{4}-\d{2}-\d{2}$/.test(val)) {
+    const d = new Date(val + 'T12:00:00');
+    prev.innerHTML = `<span style="color:var(--green)">${d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}</span>`;
+    prev.style.display = 'block';
+    return;
+  }
+  const result = parseNaturalDate(val);
+  if (result.dueDate) {
+    const d = new Date(result.dueDate + 'T12:00:00');
+    prev.innerHTML = `<span style="color:var(--green)">${d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}</span>`;
+    prev.style.display = 'block';
+  } else {
+    prev.innerHTML = '';
+    prev.style.display = 'none';
+  }
+}
+function resolveSmartDate(id) {
+  const inp = document.getElementById(id);
+  if (!inp) return '';
+  const val = inp.value.trim();
+  if (!val) return '';
+  if (/^\d{4}-\d{2}-\d{2}$/.test(val)) return val;
+  const result = parseNaturalDate(val);
+  return result.dueDate || '';
+}
+
 function attachInlineEdit() {
   document.querySelectorAll('[data-inline-edit]').forEach(el => {
     el.addEventListener('dblclick', (e) => {
@@ -3092,6 +3240,7 @@ function attachListeners() {
   // Inline editing + tooltips
   attachInlineEdit();
   attachTooltips();
+  attachBulkListeners();
 }
 
 // Sidebar nav
@@ -3373,7 +3522,7 @@ function openNewTask(projectId = '') {
     </div>
     <div class="form-row">
       <div class="form-group"><label class="form-label">Project</label><select class="form-select" id="fProject"><option value="">None</option>${projOpts}</select></div>
-      <div class="form-group"><label class="form-label">Due Date</label><input class="form-input" id="fDue" type="date"></div>
+      <div class="form-group"><label class="form-label">Due Date</label>${smartDateInput('fDue', '')}</div>
     </div>
     <div class="modal-actions"><button class="btn" onclick="closeModal()">Cancel</button><button class="btn btn-primary" onclick="saveNewTask()">Add</button></div>
   </div></div>`;
@@ -3384,7 +3533,7 @@ function openNewTask(projectId = '') {
 function saveNewTask() {
   const title = $('#fTitle').value.trim();
   if (!title) return;
-  addTask(createTask({ title, notes: $('#fNotes').value.trim(), priority: $('#fPriority').value, horizon: $('#fHorizon').value, project: $('#fProject').value, dueDate: $('#fDue').value }));
+  addTask(createTask({ title, notes: $('#fNotes').value.trim(), priority: $('#fPriority').value, horizon: $('#fHorizon').value, project: $('#fProject').value, dueDate: resolveSmartDate('fDue') }));
   closeModal();
   render();
 }
@@ -3403,7 +3552,7 @@ function openEditTask(id) {
     </div>
     <div class="form-row">
       <div class="form-group"><label class="form-label">Project</label><select class="form-select" id="fProject"><option value="">None</option>${projOpts}</select></div>
-      <div class="form-group"><label class="form-label">Due Date</label><input class="form-input" id="fDue" type="date" value="${t.dueDate||''}"></div>
+      <div class="form-group"><label class="form-label">Due Date</label>${smartDateInput('fDue', t.dueDate||'')}</div>
     </div>
     <div class="form-row">
       <div class="form-group"><label class="form-label">Repeats</label><select class="form-select" id="fRecurrence"><option value="" ${!t.recurrence?'selected':''}>Never</option><option value="daily" ${t.recurrence==='daily'?'selected':''}>Daily</option><option value="weekly" ${t.recurrence==='weekly'?'selected':''}>Weekly</option><option value="monthly" ${t.recurrence==='monthly'?'selected':''}>Monthly</option></select></div>
@@ -3429,7 +3578,7 @@ function openEditTask(id) {
 function saveEditTask(id) {
   const tags = [...document.querySelectorAll('#fTagPicker .tag-chip.selected')].map(el => el.dataset.tag).filter(Boolean);
   const blockedBy = [...document.querySelectorAll('#fBlockedBy [data-dep]')].map(el => el.dataset.dep).filter(Boolean);
-  updateTask(id, { title: $('#fTitle').value.trim(), notes: $('#fNotes').value.trim(), status: $('#fStatus').value, priority: $('#fPriority').value, project: $('#fProject').value, dueDate: $('#fDue').value, recurrence: $('#fRecurrence').value, phase: $('#fPhase').value.trim(), tags, blockedBy });
+  updateTask(id, { title: $('#fTitle').value.trim(), notes: $('#fNotes').value.trim(), status: $('#fStatus').value, priority: $('#fPriority').value, project: $('#fProject').value, dueDate: resolveSmartDate('fDue'), recurrence: $('#fRecurrence').value, phase: $('#fPhase').value.trim(), tags, blockedBy });
   closeModal();
   render();
 }
@@ -3751,6 +3900,7 @@ async function callAI(prompt, opts = {}) {
 // ============================================================
 let dumpAttachments = [];
 let dumpAbort = null; // AbortController for cancelling brainstorm
+let dumpMode = 'brainstorm'; // 'brainstorm' or 'meeting'
 
 function saveDumpDraft() { const ta = document.getElementById('dumpText'); if (ta) localStorage.setItem(DUMP_DRAFT_KEY, ta.value); }
 function loadDumpDraft() { return localStorage.getItem(DUMP_DRAFT_KEY) || ''; }
@@ -3759,16 +3909,26 @@ function clearDumpDraft() { localStorage.removeItem(DUMP_DRAFT_KEY); }
 function renderDump() {
   const hasKey = !!settings.apiKey;
   const draft = esc(loadDumpDraft());
+  const isMeeting = dumpMode === 'meeting';
+  const placeholder = isMeeting
+    ? "Paste meeting notes, transcript, or recording summary...\n\ne.g. Kickoff call with Acme Corp — March 12\n\nAttendees: Sarah, Mike, Drew\n\nDiscussed timeline for Q2 launch. Sarah will send revised deck by Friday. Need to finalize budget before next meeting. Mike raised concern about API rate limits — Drew to investigate. Next sync: March 19."
+    : "just let it flow... redesign is going well, finished the header and nav today. need to start on the dashboard next week. dentist called, moved to friday. cancel old hosting — we migrated. groceries: milk, eggs. sarah said investor deck needs to go out by wednesday, urgent...";
+  const desc = isMeeting
+    ? `Paste meeting notes, transcripts, or call summaries. AI extracts action items, decisions, deadlines, and follow-ups — assigns them to the right projects with owners and due dates.`
+    : `Just let it out — stream of consciousness, project updates, documents, whatever's on your mind.<br>AI reads through everything, extracts every task and detail, spots patterns with your existing work, organizes it all by project and priority.`;
   return `<div class="dump-area">
+    <div style="display:flex;gap:4px;margin-bottom:14px">
+      <button class="view-toggle-btn ${!isMeeting?'active':''}" onclick="dumpMode='brainstorm';render()">Brainstorm</button>
+      <button class="view-toggle-btn ${isMeeting?'active':''}" onclick="dumpMode='meeting';render()">Meeting Notes</button>
+    </div>
     <p style="font-size:13px;color:var(--text3);margin-bottom:16px;line-height:1.6">
-      Just let it out — stream of consciousness, project updates, meeting notes, documents, whatever's on your mind.<br>
-      AI reads through everything, extracts every task and detail, spots patterns with your existing work, organizes it all by project and priority, and flags anything that needs your attention.
+      ${desc}
       ${!hasKey ? '<br><span style="color:var(--orange)">Add a Claude API key in Settings for AI parsing.</span>' : ''}
     </p>
-    <textarea class="dump-textarea" id="dumpText" placeholder="just let it flow... redesign is going well, finished the header and nav today. need to start on the dashboard next week. dentist called, moved to friday. cancel old hosting — we migrated. groceries: milk, eggs. sarah said investor deck needs to go out by wednesday, urgent...">${draft}</textarea>
+    <textarea class="dump-textarea" id="dumpText" placeholder="${placeholder}">${draft}</textarea>
     <div id="dumpAttachmentList" class="dump-attachments"></div>
     <div class="dump-bar">
-      <button class="btn btn-primary" onclick="processDump()">${hasKey ? '✦ Analyze & Organize' : '+ Add Tasks'}</button>
+      <button class="btn btn-primary" onclick="processDump()">${hasKey ? (isMeeting ? '✦ Extract Action Items' : '✦ Analyze & Organize') : '+ Add Tasks'}</button>
       <button class="btn" onclick="document.getElementById('dumpFileInput').click()">Attach File</button>
       <input type="file" id="dumpFileInput" multiple accept=".txt,.md,.csv,.json,.html,.pdf,.docx,.xlsx,.xls,.log" style="display:none" onchange="handleFileAttach(this.files)">
       <div id="dumpStatus"></div>
@@ -3860,7 +4020,8 @@ async function processDump() {
   pushUndo('Brainstorm');
   dumpAbort = new AbortController();
   const statusEl = $('#dumpStatus');
-  if (statusEl) statusEl.innerHTML = '<div class="ai-status"><div class="spinner"></div>Analyzing document — extracting all tasks, context, and project details...<button class="btn btn-sm" style="margin-left:12px;font-size:10px;color:var(--red);border-color:var(--red)" onclick="cancelDump()">Cancel</button></div>';
+  const statusMsg = dumpMode === 'meeting' ? 'Parsing meeting notes — extracting action items, decisions, and follow-ups...' : 'Analyzing document — extracting all tasks, context, and project details...';
+  if (statusEl) statusEl.innerHTML = `<div class="ai-status"><div class="spinner"></div>${statusMsg}<button class="btn btn-sm" style="margin-left:12px;font-size:10px;color:var(--red);border-color:var(--red)" onclick="cancelDump()">Cancel</button></div>`;
 
   const existingTasks = data.tasks.map(t => ({ id: t.id, title: t.title, project: t.project, priority: t.priority, status: t.status, notes: t.notes }));
   const existingProjects = data.projects.map(p => ({ id: p.id, name: p.name, description: (p.description || '').slice(0, 200) }));
@@ -3870,7 +4031,17 @@ async function processDump() {
   const existingCompact = existingTasks.map(t => `${t.id}|${t.title}|${t.status}|${(t.notes||'').slice(0,60)}`).join('\n');
   const projectCompact = existingProjects.map(p => `${p.id}|${p.name}`).join('\n');
 
-  const prompt = `You are the world's best executive assistant. You have been handed a brainstorm — it could be a stream of consciousness, a formal project document, meeting notes, a status update, or anything in between. Your job: extract EVERYTHING useful and organize it perfectly.
+  const meetingPreamble = dumpMode === 'meeting' ? `You are parsing MEETING NOTES. Focus on:
+1. ACTION ITEMS — who needs to do what, by when. Every "will do", "needs to", "should", "agreed to" = a task.
+2. DECISIONS MADE — capture as project background updates, not tasks.
+3. DEADLINES mentioned — attach due dates to the relevant tasks.
+4. FOLLOW-UPS — "next meeting", "circle back", "revisit" = tasks with appropriate dates.
+5. OPEN QUESTIONS — unresolved items that need answers = tasks with notes.
+6. If someone is assigned ("Sarah will..."), note the owner in the task notes.
+7. Keep task count tight: 3-12 action items per meeting is typical. Don't create tasks for discussion points or FYI items.
+
+` : '';
+  const prompt = `${meetingPreamble}You are the world's best executive assistant. You have been handed a brainstorm — it could be a stream of consciousness, a formal project document, meeting notes, a status update, or anything in between. Your job: extract EVERYTHING useful and organize it perfectly.
 
 ## YOUR EXTRACTION PHILOSOPHY
 - Extract ACTIONABLE items — things someone needs to DO, DECIDE, or TRACK.
@@ -4857,6 +5028,58 @@ Keep it under 200 words. Be encouraging but honest.`;
 // ============================================================
 // DAILY BRIEFING
 // ============================================================
+async function planMyDay() {
+  if (!settings.apiKey) { showToast('Add a Claude API key in Settings first', true); return; }
+  const btn = document.getElementById('planBtn');
+  if (btn) btn.innerHTML = '<div class="spinner"></div> Planning...';
+
+  const ctx = buildAIContext('all');
+  const active = data.tasks.filter(t => t.status !== 'done');
+  const taskList = active.map(t => {
+    const proj = data.projects.find(p => p.id === t.project);
+    return `${t.id}|${t.title}|${t.priority}|${t.status}|${t.dueDate || 'no date'}|${proj ? proj.name : 'unassigned'}|${isBlocked(t) ? 'BLOCKED' : 'ready'}`;
+  }).join('\n');
+
+  const prompt = `${AI_PERSONA}
+
+Plan the user's day. Pick 5-8 tasks they should focus on TODAY, in the order they should do them.
+
+${ctx}
+
+ALL ACTIVE TASKS (id|title|priority|status|due|project|blocked):
+${taskList}
+
+RULES:
+- Pick tasks that are ACTUALLY doable today — not blocked, not vague multi-day efforts
+- Put urgent/overdue first, then high-impact, then quick wins
+- Consider energy: harder tasks earlier, lighter tasks later
+- Include at least one in-progress task (momentum matters)
+- Skip blocked tasks
+- If a task has subtasks, it's fine to include it — just note which subtask to start with
+
+Return ONLY a JSON array, no other text:
+[
+  { "id": "task_id", "why": "brief reason — 8 words max" },
+  ...
+]`;
+
+  try {
+    const reply = await callAI(prompt, { maxTokens: 512 });
+    const json = JSON.parse(reply.replace(/```json?\s*/g, '').replace(/```/g, '').trim());
+    if (Array.isArray(json) && json.length) {
+      // Validate IDs exist
+      const valid = json.filter(p => data.tasks.find(t => t.id === p.id));
+      localStorage.setItem('whiteboard_plan_' + todayStr(), JSON.stringify(valid));
+      render();
+      showToast(`Day planned: ${valid.length} tasks`);
+    }
+  } catch (err) {
+    console.error('Plan error:', err);
+    showToast('Planning failed — try again', true);
+  }
+  if (btn) btn.textContent = '◎ Plan My Day';
+}
+
 async function generateAIBriefing() {
   if (!settings.apiKey) return;
   const btn = document.getElementById('briefingBtn');
