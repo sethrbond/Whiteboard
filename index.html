@@ -7,6 +7,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 
@@ -1485,9 +1486,110 @@ body {
   .cal-task { font-size: 9px; padding: 2px 4px; }
   .cal-period { font-size: 11px; min-width: 110px; }
 }
+
+/* ==================== AUTH SCREEN ==================== */
+.auth-screen {
+  position: fixed; inset: 0; z-index: 200;
+  background: var(--bg);
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'Inter', sans-serif;
+}
+.auth-card {
+  width: 380px; max-width: 90vw;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 36px 32px;
+}
+.auth-logo {
+  text-align: center; margin-bottom: 28px;
+}
+.auth-logo-mark {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 44px; height: 44px; border-radius: 10px;
+  background: var(--accent-dim); color: var(--accent);
+  font-size: 20px; font-weight: 700; margin-bottom: 12px;
+}
+.auth-logo-text {
+  font-size: 20px; font-weight: 700; color: var(--text);
+}
+.auth-logo-sub {
+  font-size: 12px; color: var(--text3); margin-top: 4px;
+}
+.auth-input {
+  width: 100%; padding: 10px 12px; font-size: 13px;
+  background: var(--bg); border: 1px solid var(--border);
+  border-radius: var(--radius-xs); color: var(--text);
+  font-family: inherit; margin-bottom: 12px;
+  outline: none; transition: border-color 0.15s;
+  box-sizing: border-box;
+}
+.auth-input:focus { border-color: var(--accent); }
+.auth-btn {
+  width: 100%; padding: 10px; font-size: 13px; font-weight: 600;
+  background: var(--accent); color: #fff; border: none;
+  border-radius: var(--radius-xs); cursor: pointer;
+  font-family: inherit; transition: opacity 0.15s;
+}
+.auth-btn:hover { opacity: 0.9; }
+.auth-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.auth-switch {
+  text-align: center; margin-top: 16px;
+  font-size: 12px; color: var(--text3);
+}
+.auth-switch a {
+  color: var(--accent); cursor: pointer; text-decoration: none;
+}
+.auth-switch a:hover { text-decoration: underline; }
+.auth-error {
+  background: var(--red-dim); color: var(--red);
+  font-size: 11px; padding: 8px 10px;
+  border-radius: var(--radius-xs); margin-bottom: 12px;
+}
+.auth-msg {
+  background: rgba(74,222,128,0.08); color: var(--green);
+  font-size: 11px; padding: 8px 10px;
+  border-radius: var(--radius-xs); margin-bottom: 12px;
+}
+.sync-dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  display: inline-block; margin-right: 6px;
+  vertical-align: middle;
+}
+.sync-dot.synced { background: var(--green); }
+.sync-dot.syncing { background: var(--orange); animation: pulse 1s infinite; }
+.sync-dot.offline { background: var(--red); }
+@keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.4; } }
 </style>
 </head>
 <body>
+
+<!-- Auth Screen -->
+<div class="auth-screen" id="authScreen">
+  <div class="auth-card">
+    <div class="auth-logo">
+      <div class="auth-logo-mark">W</div>
+      <div class="auth-logo-text">Whiteboard</div>
+      <div class="auth-logo-sub">AI-powered productivity command center</div>
+    </div>
+    <div id="authError"></div>
+    <div id="authMsg"></div>
+    <form id="authForm" onsubmit="handleAuth(event)">
+      <input class="auth-input" id="authEmail" type="email" placeholder="Email" required autocomplete="email">
+      <input class="auth-input" id="authPassword" type="password" placeholder="Password" required minlength="6" autocomplete="current-password">
+      <button class="auth-btn" type="submit" id="authBtn">Sign In</button>
+    </form>
+    <div class="auth-switch">
+      <span id="authSwitchText">Don't have an account?</span>
+      <a id="authSwitchLink" onclick="toggleAuthMode()">Sign Up</a>
+      <span style="margin-left:8px">·</span>
+      <a style="margin-left:8px" onclick="showForgotPassword()">Forgot password?</a>
+    </div>
+    <div style="text-align:center;margin-top:16px">
+      <a style="font-size:11px;color:var(--text3);cursor:pointer" onclick="skipAuth()">Continue without account</a>
+    </div>
+  </div>
+</div>
 
 <div class="sidebar" id="sidebar">
   <div class="sidebar-logo">
@@ -1524,6 +1626,10 @@ body {
     </div>
     <div style="padding:8px 12px;margin-top:6px;display:flex;align-items:center;gap:6px;font-size:10px;color:var(--text3);cursor:pointer;border-radius:var(--radius-sm);transition:background 0.1s" onclick="openSearch()" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background=''">
       <span>⌘K</span><span style="opacity:0.5">Search & commands</span>
+    </div>
+    <div id="syncBar" style="padding:8px 12px;display:flex;align-items:center;justify-content:space-between;font-size:10px;color:var(--text3)">
+      <span><span class="sync-dot synced" id="syncDot"></span><span id="syncLabel">Synced</span></span>
+      <a style="color:var(--text3);cursor:pointer;font-size:10px" onclick="signOut()">Sign Out</a>
     </div>
   </div>
 </div>
@@ -1562,6 +1668,189 @@ body {
 
 <script>
 // ============================================================
+// SUPABASE
+// ============================================================
+const SUPABASE_URL = 'https://puchukhutxtilniqtlnt.supabase.co';
+const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB1Y2h1a2h1dHh0aWxuaXF0bG50Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMzMzU2NTksImV4cCI6MjA4ODkxMTY1OX0.tcVL3-60NrLV8A02oT36lo1PfzHR0lPPHwAmt3wHkS8';
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+let currentUser = null;
+let syncStatus = 'offline'; // 'synced' | 'syncing' | 'offline'
+let syncTimer = null;
+
+// --- Auth ---
+let authMode = 'login'; // 'login' | 'signup' | 'forgot'
+
+async function initAuth() {
+  const { data: { session } } = await sb.auth.getSession();
+  if (session) {
+    currentUser = session.user;
+    await loadFromCloud();
+    showApp();
+  }
+  sb.auth.onAuthStateChange((event, session) => {
+    if (event === 'SIGNED_IN' && session) {
+      currentUser = session.user;
+      loadFromCloud().then(() => showApp());
+    } else if (event === 'SIGNED_OUT') {
+      currentUser = null;
+      document.getElementById('authScreen').style.display = 'flex';
+      document.querySelector('.sidebar').style.display = '';
+    }
+  });
+}
+
+function showApp() {
+  document.getElementById('authScreen').style.display = 'none';
+  ensureLifeProject();
+  render();
+}
+
+function skipAuth() {
+  currentUser = null;
+  showApp();
+}
+
+async function handleAuth(e) {
+  e.preventDefault();
+  const email = document.getElementById('authEmail').value.trim();
+  const password = document.getElementById('authPassword').value;
+  const btn = document.getElementById('authBtn');
+  const errEl = document.getElementById('authError');
+  const msgEl = document.getElementById('authMsg');
+  errEl.innerHTML = ''; msgEl.innerHTML = '';
+  btn.disabled = true; btn.textContent = authMode === 'signup' ? 'Creating...' : 'Signing in...';
+
+  try {
+    if (authMode === 'forgot') {
+      const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin });
+      if (error) throw error;
+      msgEl.innerHTML = '<div class="auth-msg">Check your email for a reset link.</div>';
+      btn.disabled = false; btn.textContent = 'Send Reset Link';
+      return;
+    }
+    if (authMode === 'signup') {
+      const { error } = await sb.auth.signUp({ email, password });
+      if (error) throw error;
+      msgEl.innerHTML = '<div class="auth-msg">Check your email to confirm your account.</div>';
+    } else {
+      const { error } = await sb.auth.signInWithPassword({ email, password });
+      if (error) throw error;
+    }
+  } catch (err) {
+    errEl.innerHTML = `<div class="auth-error">${esc(err.message)}</div>`;
+  }
+  btn.disabled = false;
+  btn.textContent = authMode === 'signup' ? 'Sign Up' : 'Sign In';
+}
+
+function toggleAuthMode() {
+  const errEl = document.getElementById('authError');
+  const msgEl = document.getElementById('authMsg');
+  errEl.innerHTML = ''; msgEl.innerHTML = '';
+  if (authMode === 'login') {
+    authMode = 'signup';
+    document.getElementById('authBtn').textContent = 'Sign Up';
+    document.getElementById('authSwitchText').textContent = 'Already have an account?';
+    document.getElementById('authSwitchLink').textContent = 'Sign In';
+    document.getElementById('authPassword').setAttribute('autocomplete', 'new-password');
+  } else {
+    authMode = 'login';
+    document.getElementById('authBtn').textContent = 'Sign In';
+    document.getElementById('authSwitchText').textContent = "Don't have an account?";
+    document.getElementById('authSwitchLink').textContent = 'Sign Up';
+    document.getElementById('authPassword').setAttribute('autocomplete', 'current-password');
+  }
+}
+
+function showForgotPassword() {
+  authMode = 'forgot';
+  document.getElementById('authBtn').textContent = 'Send Reset Link';
+  document.getElementById('authPassword').style.display = 'none';
+  document.getElementById('authSwitchText').textContent = 'Remember your password?';
+  document.getElementById('authSwitchLink').textContent = 'Sign In';
+  document.getElementById('authSwitchLink').onclick = () => {
+    authMode = 'login';
+    document.getElementById('authPassword').style.display = '';
+    document.getElementById('authBtn').textContent = 'Sign In';
+    document.getElementById('authSwitchText').textContent = "Don't have an account?";
+    document.getElementById('authSwitchLink').textContent = 'Sign Up';
+    document.getElementById('authSwitchLink').onclick = toggleAuthMode;
+    document.getElementById('authError').innerHTML = '';
+    document.getElementById('authMsg').innerHTML = '';
+  };
+}
+
+async function signOut() {
+  await sb.auth.signOut();
+  currentUser = null;
+  document.getElementById('authScreen').style.display = 'flex';
+}
+
+// --- Cloud Sync ---
+async function loadFromCloud() {
+  if (!currentUser) return;
+  try {
+    const { data: row, error } = await sb.from('user_data').select('*').eq('user_id', currentUser.id).single();
+    if (error) { console.error('Cloud load error:', error); return; }
+    if (row) {
+      // Merge: cloud data wins if it exists and has content
+      if (row.tasks && row.tasks.length > 0) data.tasks = row.tasks;
+      if (row.projects && row.projects.length > 0) data.projects = row.projects;
+      if (row.habits && row.habits.length > 0) data.habits = row.habits;
+      if (row.ai_memory && row.ai_memory.length > 0) saveAIMemory(row.ai_memory);
+      if (row.settings && row.settings.apiKey) { settings = { ...settings, ...row.settings }; saveSettings(settings); }
+      saveData(data);
+      syncStatus = 'synced';
+    } else {
+      // First login — push local data up
+      await syncToCloud();
+    }
+  } catch (e) { console.error('Cloud load failed:', e); syncStatus = 'offline'; }
+}
+
+function scheduleSyncToCloud() {
+  if (!currentUser) return;
+  syncStatus = 'syncing';
+  updateSyncDot();
+  clearTimeout(syncTimer);
+  syncTimer = setTimeout(() => syncToCloud(), 2000);
+}
+
+async function syncToCloud() {
+  if (!currentUser) return;
+  syncStatus = 'syncing';
+  updateSyncDot();
+  try {
+    const { error } = await sb.from('user_data').upsert({
+      user_id: currentUser.id,
+      tasks: data.tasks,
+      projects: data.projects,
+      habits: data.habits,
+      ai_memory: getAIMemory(),
+      settings: { apiKey: settings.apiKey, aiModel: settings.aiModel }
+    }, { onConflict: 'user_id' });
+    if (error) throw error;
+    syncStatus = 'synced';
+  } catch (e) {
+    console.error('Sync error:', e);
+    syncStatus = 'offline';
+  }
+  updateSyncDot();
+}
+
+function updateSyncDot() {
+  const dot = document.getElementById('syncDot');
+  const label = document.getElementById('syncLabel');
+  const bar = document.getElementById('syncBar');
+  if (bar) bar.style.display = currentUser ? 'flex' : 'none';
+  if (dot) {
+    dot.className = 'sync-dot ' + syncStatus;
+    dot.title = syncStatus === 'synced' ? 'Synced to cloud' : syncStatus === 'syncing' ? 'Syncing...' : 'Offline — using local storage';
+  }
+  if (label) label.textContent = syncStatus === 'synced' ? 'Synced' : syncStatus === 'syncing' ? 'Syncing...' : 'Offline';
+}
+
+// ============================================================
 // DATA
 // ============================================================
 const STORE_KEY = 'taskboard_data';
@@ -1577,7 +1866,7 @@ function loadSettings() {
   try { return { ...DEFAULT_SETTINGS, ...JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}') }; }
   catch { return { ...DEFAULT_SETTINGS }; }
 }
-function saveSettings(s) { localStorage.setItem(SETTINGS_KEY, JSON.stringify(s)); }
+function saveSettings(s) { localStorage.setItem(SETTINGS_KEY, JSON.stringify(s)); scheduleSyncToCloud(); }
 
 function loadData() {
   try {
@@ -1594,6 +1883,7 @@ function loadData() {
 function saveData(d) {
   try { localStorage.setItem(STORE_KEY, JSON.stringify(d)); }
   catch (e) { showToast('Storage full — export your data from Settings', true); console.error('Save failed:', e); }
+  scheduleSyncToCloud();
 }
 
 let data = loadData();
@@ -2776,6 +3066,7 @@ function getAIMemory() {
 }
 function saveAIMemory(mem) {
   try { localStorage.setItem('whiteboard_ai_memory', JSON.stringify(mem.slice(-50))); } catch(e) { console.error('Memory save error:', e); }
+  scheduleSyncToCloud();
 }
 
 // --- Unified Context Builder ---
@@ -4410,9 +4701,8 @@ function processRecurringTasks() {
 // ============================================================
 // INIT
 // ============================================================
-ensureLifeProject();
 processRecurringTasks();
-render();
+initAuth();
 </script>
 </body>
 </html>
