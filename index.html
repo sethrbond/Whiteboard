@@ -1070,7 +1070,7 @@ body {
   font-size: 20px;
   cursor: pointer;
   box-shadow: 0 4px 20px rgba(129,140,248,0.4);
-  z-index: 50;
+  z-index: 60;
   transition: transform 0.2s, box-shadow 0.2s;
   display: flex;
   align-items: center;
@@ -1481,15 +1481,22 @@ body {
   .chat-panel { width: 100vw; right: -100vw; }
   .chat-toggle { bottom: 16px; right: 16px; width: 44px; height: 44px; font-size: 18px; }
   .modal { width: 95vw !important; padding: 20px !important; }
+  .kanban { grid-template-columns: 1fr !important; }
   .cal-cell { min-height: 60px; padding: 4px; }
   .cal-grid.week-view .cal-cell { min-height: 120px; }
   .cal-task { font-size: 9px; padding: 2px 4px; }
   .cal-period { font-size: 11px; min-width: 110px; }
+  .cal-nav-btn { padding: 10px 14px; min-height: 44px; }
+  .task-check { width: 24px !important; height: 24px !important; }
+  .task-action-btn { width: 36px; height: 36px; }
+  .task-row .task-actions { display: flex !important; }
+  .task-row .task-tags { display: none; }
+  .mobile-hamburger { width: 44px !important; height: 44px !important; }
 }
 
 /* ==================== AUTH SCREEN ==================== */
 .auth-screen {
-  position: fixed; inset: 0; z-index: 200;
+  position: fixed; inset: 0; z-index: 300;
   background: var(--bg);
   display: flex; align-items: center; justify-content: center;
   font-family: 'Inter', sans-serif;
@@ -1565,7 +1572,7 @@ body {
 <body>
 
 <!-- Auth Screen -->
-<div class="auth-screen" id="authScreen">
+<div class="auth-screen" id="authScreen" role="dialog" aria-modal="true" aria-label="Sign in to Whiteboard">
   <div class="auth-card">
     <div class="auth-logo">
       <div class="auth-logo-mark">W</div>
@@ -1575,8 +1582,8 @@ body {
     <div id="authError"></div>
     <div id="authMsg"></div>
     <form id="authForm" onsubmit="handleAuth(event)">
-      <input class="auth-input" id="authEmail" type="email" placeholder="Email" required autocomplete="email">
-      <input class="auth-input" id="authPassword" type="password" placeholder="Password" required minlength="6" autocomplete="current-password">
+      <input class="auth-input" id="authEmail" type="email" placeholder="Email" required autocomplete="email" aria-label="Email">
+      <input class="auth-input" id="authPassword" type="password" placeholder="Password" required minlength="6" autocomplete="current-password" aria-label="Password">
       <button class="auth-btn" type="submit" id="authBtn">Sign In</button>
     </form>
     <div class="auth-switch">
@@ -1654,7 +1661,7 @@ body {
   <div class="chat-header">
     <span style="font-size:16px">✦</span>
     <div class="chat-header-title" id="chatTitle">AI Assistant</div>
-    <button class="chat-close" onclick="toggleChat()">&times;</button>
+    <button class="chat-close" onclick="toggleChat()" aria-label="Close chat">&times;</button>
   </div>
   <div class="chat-messages" id="chatMessages">
     <div class="chat-msg ai">Hey! I'm your AI assistant. Ask me anything about your projects, tasks, or schedule.</div>
@@ -1664,7 +1671,7 @@ body {
     <button class="chat-send" onclick="sendChat()">Send</button>
   </div>
 </div>
-<button class="chat-toggle" id="chatToggle" onclick="toggleChat()" title="AI Assistant">✦</button>
+<button class="chat-toggle" id="chatToggle" onclick="toggleChat()" title="AI Assistant" aria-label="Open AI Assistant">✦</button>
 
 <script>
 // ============================================================
@@ -1908,8 +1915,8 @@ function genId(prefix = 't') { return prefix + '_' + Date.now() + '_' + Math.ran
 function createTask(o = {}) {
   return {
     id: genId('t'), title: '', notes: '', status: 'todo',
-    priority: 'normal', horizon: 'short', interest: 3,
-    project: '', goal: '', dueDate: '', phase: '',
+    priority: 'normal', horizon: 'short',
+    project: '', dueDate: '', phase: '',
     recurrence: '', // 'daily', 'weekly', 'monthly', or ''
     subtasks: [], // [{ id, title, done }]
     createdAt: new Date().toISOString(), completedAt: null,
@@ -3769,7 +3776,7 @@ ${text}`;
           const t = createTask({
             title: item.title, notes: item.notes || '',
             priority: item.priority || 'normal', horizon: item.horizon || 'short',
-            interest: item.interest || 3, dueDate: item.dueDate || '',
+            dueDate: item.dueDate || '',
             project: projId, phase: item.phase || '',
             status: taskStatus, subtasks: st,
             recurrence: item.recurrence || '',
@@ -4147,7 +4154,7 @@ function relativeTime(isoStr) {
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
-function esc(s) { return s ? String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') : ''; }
+function esc(s) { return s ? String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;') : ''; }
 
 function showToast(msg, isError = false, isSuccess = false) {
   document.querySelectorAll('.toast').forEach(t => t.remove());
@@ -4385,15 +4392,8 @@ Write a weekly review with these sections:
 Keep it under 200 words. Be encouraging but honest.`;
 
   try {
-    const resp = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-api-key': settings.apiKey, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
-      body: JSON.stringify({ model: settings.aiModel, max_tokens: 1024, messages: [{ role: 'user', content: prompt }] }),
-    });
-    if (!resp.ok) throw new Error(`API ${resp.status}`);
-    const result = await resp.json();
-    let text = result.content[0].text;
-    text = esc(text).replace(/\n/g, '<br>').replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+    let text = await callAI(prompt, { maxTokens: 1024 });
+    text = esc(text).replace(/^[-•*]\s*/gm, '').replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br>');
     const reviewKey = 'whiteboard_review_' + weekStart;
     localStorage.setItem(reviewKey, text);
     if (body) body.innerHTML = text;
@@ -4431,7 +4431,7 @@ Keep it short. No fluff. Reference specific task names.`;
 
   try {
     let text = await callAI(prompt, { maxTokens: 1024 });
-    text = esc(text).replace(/\n/g, '<br>').replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/^[-•]\s*/gm, '');
+    text = esc(text).replace(/^[-•*]\s*/gm, '').replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br>');
     const briefingKey = 'whiteboard_briefing_' + todayStr();
     localStorage.setItem(briefingKey, text);
     if (body) body.innerHTML = text;
