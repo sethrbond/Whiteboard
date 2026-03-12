@@ -3892,7 +3892,7 @@ Be conversational. Reference REAL task names. Keep it short.`;
 
     // Open chat panel with the follow-up — add to chat history so replies have context
     chatContext = null;
-    chatHistory = [{ role: 'assistant', content: 'I just organized your brainstorm. ' + reply }];
+    chatHistory = [{ role: 'user', content: 'I just submitted a brainstorm.' }, { role: 'assistant', content: 'I just organized your brainstorm. ' + reply }];
     document.getElementById('chatTitle').textContent = 'AI Assistant';
     const messagesEl = document.getElementById('chatMessages');
     messagesEl.innerHTML = `<div class="chat-msg ai">I just organized your brainstorm. ${formatted}</div>`;
@@ -3970,7 +3970,7 @@ Rules:
       if (c.changes.notes && t.notes !== c.changes.notes) { updates.notes = t.notes ? t.notes + '\n' + c.changes.notes : c.changes.notes; desc.push('added notes'); }
 
       if (c.changes.project) {
-        const proj = data.projects.find(p => p.name.toLowerCase() === c.changes.project.toLowerCase());
+        const proj = matchProject(c.changes.project);
         if (proj && proj.id !== t.project) { updates.project = proj.id; desc.push(`moved → ${proj.name}`); }
       }
 
@@ -4388,7 +4388,7 @@ OVERDUE (${overdue.length}): ${overdue.map(t => t.title + ' (due ' + t.dueDate +
 
 PROJECTS: ${data.projects.map(p => p.name + ': ' + activeTasks(p.id).length + ' active').join('; ')}
 
-HABITS: ${data.habits.map(h => { const week = getWeekDates(0); const done = week.filter(d => h.completions[ds(d)]).length; return h.name + ' ' + done + '/7'; }).join('; ') || 'none'}
+HABITS: ${data.habits.map(h => { const week = getWeekDates(0); const done = week.filter(d => h.completions[ds(d)]).length; const target = h.frequency === 'daily' ? 7 : (h.targetCount || 7); return h.name + ' ' + done + '/' + target; }).join('; ') || 'none'}
 
 Write a weekly review with these sections:
 1. **Wins** — What was accomplished, celebrate progress
@@ -4510,7 +4510,7 @@ ${context}`;
     const loading = document.getElementById('chatLoading');
     if (loading) loading.remove();
 
-    const cleanReply = reply.replace(/```actions[\s\S]*?```/g, '').trim();
+    const cleanReply = reply.replace(/```(?:actions|json)[\s\S]*?```/g, '').trim();
     let insightHtml = insights.map(i => `<div style="font-size:11px;color:${i.severity === 'warning' ? 'var(--orange)' : 'var(--accent)'};margin-top:6px;padding:6px 8px;background:var(--surface2);border-radius:var(--radius-xs)">💡 ${esc(i.text)}</div>`).join('');
 
     if (cleanReply) {
@@ -4624,6 +4624,7 @@ Return EXACTLY this format:
 
   try {
     const bg = await callAI(prompt, { maxTokens: 1024 });
+    pushUndo('Regenerate background: ' + p.name);
     updateProject(p.id, { background: bg });
     showProjectBg[p.id] = true;
     render();
@@ -4688,7 +4689,7 @@ Tasks:\n${taskList}
 Return JSON: { "title": "exact task title", "reason": "one sentence why this one" }`, { maxTokens: 256 });
       const json = JSON.parse(reply.replace(/```json?\s*/g, '').replace(/```/g, '').trim());
       const pick = (json.title || '').replace(/^["'\s]+|["'\s]+$/g, '').trim();
-      const match = active.find(t => t.title.toLowerCase().includes(pick.toLowerCase().slice(0, 20))) || active.find(t => pick.toLowerCase().includes(t.title.toLowerCase().slice(0, 20)));
+      const match = matchTask(pick) || active.find(t => t.title.toLowerCase().includes(pick.toLowerCase().slice(0, 20)));
       if (match) { openFocusView(match.id, json.reason); return; }
     } catch (e) { console.error('Focus pick error:', e); }
   }
