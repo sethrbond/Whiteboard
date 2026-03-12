@@ -1375,6 +1375,10 @@ body {
   box-shadow: 0 0 0 3px var(--accent-dim);
 }
 .quick-capture-input::placeholder { color: var(--text3); }
+.subtask-progress { display: flex; align-items: center; gap: 6px; margin-top: 3px; font-size: 10px; color: var(--text3); }
+.subtask-bar { flex: 0 0 48px; height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; }
+.subtask-bar-fill { height: 100%; border-radius: 2px; background: var(--accent); transition: width 0.3s ease; }
+.subtask-bar-fill.complete { background: var(--green); }
 .quick-capture-project {
   padding: 8px 12px;
   background: var(--surface);
@@ -2602,7 +2606,7 @@ function renderTaskRow(t, showProject = false) {
     <div class="task-body">
       <div class="task-title ${isDone ? 'done-text' : ''}">${esc(t.title)}</div>
       ${t.notes ? `<div class="task-note">${esc(t.notes)}</div>` : ''}
-      ${t.subtasks && t.subtasks.length ? `<div style="font-size:10px;color:var(--text3);margin-top:2px">${t.subtasks.filter(s=>s.done).length}/${t.subtasks.length} subtasks</div>` : ''}
+      ${t.subtasks && t.subtasks.length ? renderSubtaskProgress(t.subtasks) : ''}
       ${taskNudge(t)}
     </div>
     <div class="task-tags">
@@ -2652,6 +2656,14 @@ function renderTaskExpanded(t, showProject = false) {
     <input class="task-cmd" data-cmd="${t.id}" placeholder="Type: complete, update, deadline friday, move to [project]..." onkeydown="if(event.key==='Enter')runTaskCmd('${t.id}',this.value)">
   </div>`;
   return html;
+}
+
+function renderSubtaskProgress(subtasks) {
+  const done = subtasks.filter(s => s.done).length;
+  const total = subtasks.length;
+  const pct = Math.round((done / total) * 100);
+  const cls = done === total ? ' complete' : '';
+  return `<div class="subtask-progress"><div class="subtask-bar"><div class="subtask-bar-fill${cls}" style="width:${pct}%"></div></div><span>${done}/${total}</span></div>`;
 }
 
 function renderPriorityTag(p) {
@@ -2834,6 +2846,7 @@ document.querySelectorAll('.nav-item[data-action]').forEach(n => {
 
 // Keyboard
 document.addEventListener('keydown', (e) => {
+  if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === 'k') { e.preventDefault(); openQuickAdd(); return; }
   if ((e.metaKey || e.ctrlKey) && e.key === 'k') { e.preventDefault(); openSearch(); return; }
   if ((e.metaKey || e.ctrlKey) && e.key === 'z') { e.preventDefault(); undo(); return; }
   if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') {
@@ -2896,6 +2909,7 @@ function renderSearchResults(query) {
   const cmdQ = isCmd ? q.slice(1).trim() : q;
   const commands = [
     { icon: '✦', label: 'New Task', hint: 'n', action: `closeModal();openNewTask(currentProject||'')` },
+    { icon: '+', label: 'Quick Add', hint: '⇧⌘K', action: 'closeModal();openQuickAdd()' },
     { icon: '+', label: 'New Project', hint: '', action: 'closeModal();openNewProject()' },
     { icon: '↯', label: 'Brainstorm', hint: 'd', action: `closeModal();setView('dump')` },
     { icon: '◎', label: 'Focus Mode', hint: '', action: 'closeModal();startFocus()' },
@@ -4173,32 +4187,57 @@ function showToast(msg, isError = false, isSuccess = false) {
 }
 
 // ============================================================
-// QUICK CAPTURE
+// NATURAL LANGUAGE DATE PARSER
 // ============================================================
-function quickAddFromCapture() {
-  const input = document.getElementById('quickCapture');
-  const projectSel = document.getElementById('quickCaptureProject');
-  if (!input || !input.value.trim()) return;
-  let raw = input.value.trim();
-  const proj = projectSel ? projectSel.value : getLifeProjectId();
-
-  // Parse priority markers
-  let priority = 'normal';
-  if (/!{3}|urgent/i.test(raw)) { priority = 'urgent'; raw = raw.replace(/!{3}|urgent/gi, '').trim(); }
-  else if (/!{2}|important/i.test(raw)) { priority = 'important'; raw = raw.replace(/!{2}|important/gi, '').trim(); }
-  else if (/!{1}/g.test(raw)) { raw = raw.replace(/!/g, '').trim(); }
-
-  // Parse dates
-  let dueDate = '';
+function parseNaturalDate(text) {
   const today = new Date(); today.setHours(0,0,0,0);
   const dayNames = ['sunday','monday','tuesday','wednesday','thursday','friday','saturday'];
   const shortDays = ['sun','mon','tue','wed','thu','fri','sat'];
+  const monthNames = ['january','february','march','april','may','june','july','august','september','october','november','december'];
+  const shortMonths = ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'];
+  let raw = text;
+  let dueDate = '';
 
-  // "today", "tomorrow"
-  if (/\btoday\b/i.test(raw)) { dueDate = todayStr(); raw = raw.replace(/\btoday\b/i, '').trim(); }
-  else if (/\btomorrow\b/i.test(raw)) { const d = new Date(today); d.setDate(d.getDate()+1); dueDate = d.toISOString().slice(0,10); raw = raw.replace(/\btomorrow\b/i, '').trim(); }
+  // "today"
+  if (/\btoday\b/i.test(raw)) { dueDate = localISO(today); raw = raw.replace(/\btoday\b/i, '').trim(); }
+  // "tomorrow"
+  else if (/\btomorrow\b/i.test(raw)) { const d = new Date(today); d.setDate(d.getDate()+1); dueDate = localISO(d); raw = raw.replace(/\btomorrow\b/i, '').trim(); }
+  // "next week" (next Monday)
+  else if (/\bnext\s+week\b/i.test(raw)) { const d = new Date(today); d.setDate(d.getDate() + (8 - d.getDay()) % 7 || 7); dueDate = localISO(d); raw = raw.replace(/\bnext\s+week\b/i, '').trim(); }
+  // "end of month"
+  else if (/\bend\s+of\s+month\b/i.test(raw)) { const d = new Date(today.getFullYear(), today.getMonth()+1, 0); dueDate = localISO(d); raw = raw.replace(/\bend\s+of\s+month\b/i, '').trim(); }
+  // "in N days/weeks"
+  else if (/\bin\s+(\d+)\s+(day|days|week|weeks)\b/i.test(raw)) {
+    const m = raw.match(/\bin\s+(\d+)\s+(day|days|week|weeks)\b/i);
+    const n = parseInt(m[1]); const d = new Date(today);
+    if (/week/i.test(m[2])) d.setDate(d.getDate() + n * 7); else d.setDate(d.getDate() + n);
+    dueDate = localISO(d); raw = raw.replace(m[0], '').trim();
+  }
+  // "month day" or "month day, year": "mar 20", "march 20", "Jan 5 2027"
   else {
-    // Day names: "friday", "next monday"
+    const monthPat = `(${monthNames.join('|')}|${shortMonths.join('|')})`;
+    const mdMatch = raw.match(new RegExp(`\\b${monthPat}\\s+(\\d{1,2})(?:(?:st|nd|rd|th))?(?:[,\\s]+(\\d{4}))?\\b`, 'i'));
+    if (mdMatch) {
+      let mi = monthNames.indexOf(mdMatch[1].toLowerCase());
+      if (mi === -1) mi = shortMonths.indexOf(mdMatch[1].toLowerCase());
+      const day = parseInt(mdMatch[2]);
+      const year = mdMatch[3] ? parseInt(mdMatch[3]) : (new Date(today.getFullYear(), mi, day) >= today ? today.getFullYear() : today.getFullYear() + 1);
+      const d = new Date(year, mi, day);
+      if (!isNaN(d.getTime()) && d.getDate() === day) { dueDate = localISO(d); raw = raw.replace(mdMatch[0], '').trim(); }
+    }
+  }
+  // "M/D" or "M/D/YYYY": "3/20", "3/20/2027"
+  if (!dueDate) {
+    const slashMatch = raw.match(/\b(\d{1,2})\/(\d{1,2})(?:\/(\d{4}))?\b/);
+    if (slashMatch) {
+      const mi = parseInt(slashMatch[1]) - 1, day = parseInt(slashMatch[2]);
+      const year = slashMatch[3] ? parseInt(slashMatch[3]) : (new Date(today.getFullYear(), mi, day) >= today ? today.getFullYear() : today.getFullYear() + 1);
+      const d = new Date(year, mi, day);
+      if (!isNaN(d.getTime()) && d.getDate() === day && mi >= 0 && mi <= 11) { dueDate = localISO(d); raw = raw.replace(slashMatch[0], '').trim(); }
+    }
+  }
+  // Day names: "friday", "next monday", "next fri"
+  if (!dueDate) {
     const dayMatch = raw.match(new RegExp(`\\b(?:next\\s+)?(${dayNames.join('|')}|${shortDays.join('|')})\\b`, 'i'));
     if (dayMatch) {
       const dayStr = dayMatch[1].toLowerCase();
@@ -4209,23 +4248,96 @@ function quickAddFromCapture() {
         let diff = targetDay - d.getDay();
         if (diff <= 0 || dayMatch[0].toLowerCase().startsWith('next')) diff += 7;
         d.setDate(d.getDate() + diff);
-        dueDate = d.toISOString().slice(0,10);
-        raw = raw.replace(dayMatch[0], '').trim();
+        dueDate = localISO(d); raw = raw.replace(dayMatch[0], '').trim();
       }
     }
   }
 
+  return { dueDate, cleaned: raw };
+}
+
+// ============================================================
+// QUICK CAPTURE
+// ============================================================
+function parseQuickInput(raw) {
+  // Parse priority markers
+  let priority = 'normal';
+  if (/!{3}|\burgent\b/i.test(raw)) { priority = 'urgent'; raw = raw.replace(/!{3}|\burgent\b/gi, '').trim(); }
+  else if (/!{2}|\bimportant\b/i.test(raw)) { priority = 'important'; raw = raw.replace(/!{2}|\bimportant\b/gi, '').trim(); }
+  else if (/!+/.test(raw)) { raw = raw.replace(/!+/g, '').trim(); }
+
+  // Parse dates with NLP
+  const { dueDate, cleaned } = parseNaturalDate(raw);
+  raw = cleaned;
+
   // Clean up extra spaces, trailing dashes/commas
   raw = raw.replace(/[-,]\s*$/, '').replace(/\s{2,}/g, ' ').trim();
 
-  addTask(createTask({ title: raw, project: proj, priority, dueDate }));
+  return { title: raw, priority, dueDate };
+}
+
+function quickAddFromCapture() {
+  const input = document.getElementById('quickCapture');
+  const projectSel = document.getElementById('quickCaptureProject');
+  if (!input || !input.value.trim()) return;
+  const proj = projectSel ? projectSel.value : getLifeProjectId();
+  const { title, priority, dueDate } = parseQuickInput(input.value.trim());
+  if (!title) return;
+
+  addTask(createTask({ title, project: proj, priority, dueDate }));
   input.value = '';
   render();
-  const parts = [raw];
+  const parts = [title];
   if (dueDate) parts.push(`due ${fmtDate(dueDate)}`);
   if (priority !== 'normal') parts.push(priority);
   showToast(`+ ${parts.join(' · ')}`, false, true);
   setTimeout(() => { const el = document.getElementById('quickCapture'); if (el) el.focus(); }, 50);
+}
+
+// ============================================================
+// GLOBAL QUICK ADD (Cmd+Shift+K)
+// ============================================================
+function openQuickAdd() {
+  const projOpts = data.projects.map(p => `<option value="${p.id}">${esc(p.name)}</option>`).join('');
+  $('#modalRoot').innerHTML = `<div class="modal-overlay" style="align-items:flex-start;padding-top:min(18vh,120px)" onclick="if(event.target===this)closeModal()"><div class="cmd-palette" style="max-width:520px">
+    <div class="cmd-input-row">
+      <span class="cmd-icon" style="color:var(--accent)">+</span>
+      <input class="cmd-input" id="quickAddInput" placeholder="Add task... &quot;Call dentist tomorrow !!&quot;" autofocus onkeydown="if(event.key==='Enter'){event.preventDefault();submitQuickAdd();}">
+    </div>
+    <div id="quickAddPreview" style="padding:8px 16px;font-size:12px;color:var(--text3);min-height:20px"></div>
+    <div style="display:flex;gap:8px;padding:8px 16px 12px;align-items:center">
+      <select class="form-select" id="quickAddProject" style="flex:1;font-size:12px;padding:6px 8px">${projOpts}</select>
+      <button class="btn btn-primary btn-sm" onclick="submitQuickAdd()">Add Task</button>
+      <kbd style="font-size:10px;color:var(--text3);background:var(--surface);padding:2px 6px;border-radius:4px;border:1px solid var(--border)">↵</kbd>
+    </div>
+  </div></div>`;
+  const inp = $('#quickAddInput');
+  inp.focus();
+  inp.addEventListener('input', () => {
+    const val = inp.value.trim();
+    if (!val) { $('#quickAddPreview').innerHTML = ''; return; }
+    const { title, priority, dueDate } = parseQuickInput(val);
+    const parts = [];
+    if (dueDate) parts.push(`<span style="color:var(--accent)">📅 ${fmtDate(dueDate)}</span>`);
+    if (priority !== 'normal') parts.push(`<span style="color:${priority==='urgent'?'var(--red)':'var(--amber)'}">⚡ ${priority}</span>`);
+    $('#quickAddPreview').innerHTML = parts.length ? parts.join(' · ') : '';
+  });
+}
+
+function submitQuickAdd() {
+  const inp = $('#quickAddInput');
+  if (!inp || !inp.value.trim()) return;
+  const proj = $('#quickAddProject') ? $('#quickAddProject').value : getLifeProjectId();
+  const { title, priority, dueDate } = parseQuickInput(inp.value.trim());
+  if (!title) return;
+
+  addTask(createTask({ title, project: proj, priority, dueDate }));
+  closeModal();
+  render();
+  const parts = [title];
+  if (dueDate) parts.push(`due ${fmtDate(dueDate)}`);
+  if (priority !== 'normal') parts.push(priority);
+  showToast(`+ ${parts.join(' · ')}`, false, true);
 }
 
 // ============================================================
@@ -4786,7 +4898,7 @@ function processRecurringTasks() {
     else if (t.recurrence === 'monthly') nextDate.setMonth(nextDate.getMonth() + 1);
     else return;
 
-    const nextStr = nextDate.toISOString().slice(0, 10);
+    const nextStr = localISO(nextDate);
     if (nextStr > today) return; // Not due yet
 
     // Check if we already created a new instance
