@@ -1608,6 +1608,7 @@ let projectViewMode = {}; // projectId -> 'list' | 'board'
 let showProjectBg = {}; // projectId -> boolean
 let dashViewMode = 'list'; // 'list' | 'week' | 'month'
 let calendarOffset = 0; // weeks or months offset from current
+const undoStack = []; // [{ label, snapshot }] — max 20
 
 // ============================================================
 // CRUD
@@ -1663,7 +1664,13 @@ function updateTask(id, u) {
   if (u.status && u.status !== 'done') t.completedAt = null;
   saveData(data);
 }
-function deleteTask(id) { data.tasks = data.tasks.filter(x => x.id !== id); saveData(data); }
+function deleteTask(id, silent) {
+  const t = data.tasks.find(x => x.id === id);
+  pushUndo('Delete task' + (t ? ': ' + t.title : ''));
+  data.tasks = data.tasks.filter(x => x.id !== id);
+  saveData(data);
+  if (!silent) showUndoToast('Task deleted');
+}
 
 function addSubtask(taskId, title) {
   const t = data.tasks.find(x => x.id === taskId);
@@ -1682,14 +1689,38 @@ function toggleSubtask(taskId, subtaskId) {
 function addProject(p) { data.projects.push(p); saveData(data); }
 function updateProject(id, u) { const p = data.projects.find(x => x.id === id); if (p) { Object.assign(p, u); saveData(data); } }
 function deleteProject(id) {
-  // CASCADE DELETE: remove all tasks belonging to this project
+  const p = data.projects.find(x => x.id === id);
+  pushUndo('Delete project' + (p ? ': ' + p.name : ''));
   data.tasks = data.tasks.filter(t => t.project !== id);
   data.projects = data.projects.filter(x => x.id !== id);
   saveData(data);
+  showUndoToast('Project deleted (tasks included)');
 }
 function addHabit(h) { data.habits.push(h); saveData(data); }
-function deleteHabit(id) { data.habits = data.habits.filter(x => x.id !== id); saveData(data); }
+function deleteHabit(id) { pushUndo('Delete habit'); data.habits = data.habits.filter(x => x.id !== id); saveData(data); showUndoToast('Habit deleted'); }
 function toggleHabitDay(id, ds) { const h = data.habits.find(x => x.id === id); if (!h) return; if (h.completions[ds]) delete h.completions[ds]; else h.completions[ds] = true; saveData(data); }
+
+// --- Undo system ---
+function pushUndo(label) {
+  undoStack.push({ label, snapshot: JSON.stringify(data) });
+  if (undoStack.length > 20) undoStack.shift();
+}
+function undo() {
+  if (!undoStack.length) return;
+  const entry = undoStack.pop();
+  data = JSON.parse(entry.snapshot);
+  saveData(data);
+  render();
+  showToast(`Undone: ${entry.label}`, false, true);
+}
+function showUndoToast(label) {
+  document.querySelectorAll('.toast').forEach(t => t.remove());
+  const el = document.createElement('div');
+  el.className = 'toast';
+  el.innerHTML = `${esc(label)} <button onclick="undo();this.parentElement.remove()" style="margin-left:12px;background:var(--accent);color:#fff;border:none;border-radius:4px;padding:3px 10px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit">Undo</button>`;
+  document.body.appendChild(el);
+  setTimeout(() => { el.classList.add('leaving'); setTimeout(() => el.remove(), 300); }, 5000);
+}
 
 function projectTasks(pid) { return data.tasks.filter(t => t.project === pid); }
 function activeTasks(pid) { return (pid ? projectTasks(pid) : data.tasks).filter(t => t.status !== 'done'); }
@@ -2460,6 +2491,7 @@ document.querySelectorAll('.nav-item[data-action]').forEach(n => {
 // Keyboard
 document.addEventListener('keydown', (e) => {
   if ((e.metaKey || e.ctrlKey) && e.key === 'k') { e.preventDefault(); openSearch(); return; }
+  if ((e.metaKey || e.ctrlKey) && e.key === 'z') { e.preventDefault(); undo(); return; }
   if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') {
     if (e.key === 'Escape') { e.target.blur(); return; }
     return;
@@ -2869,6 +2901,7 @@ ACTIONS — include a JSON block in your response to take action:
 function executeAIActions(reply) {
   const actionsMatch = reply.match(/```actions\s*([\s\S]*?)```/);
   if (!actionsMatch) return { applied: 0, insights: [] };
+  pushUndo('AI actions');
   let applied = 0;
   const insights = [];
   try {
@@ -3123,6 +3156,7 @@ async function processDump() {
 
   if (!settings.apiKey) { processDumpManual(text); return; }
 
+  pushUndo('Brainstorm');
   const statusEl = $('#dumpStatus');
   if (statusEl) statusEl.innerHTML = '<div class="ai-status"><div class="spinner"></div>Analyzing document — extracting all tasks, context, and project details...</div>';
 
@@ -3475,6 +3509,7 @@ async function aiReorganize(scope = 'all') {
 
   if (!scopeTasks.length) { showToast('No active tasks to reorganize'); return; }
 
+  pushUndo('AI Reorganize');
   showToast('✦ Reorganizing...');
 
   const taskData = scopeTasks.map(t => ({
@@ -3639,10 +3674,26 @@ function saveNewHabit() {
 // SETTINGS
 // ============================================================
 function openSettings() {
-  $('#modalRoot').innerHTML = `<div class="modal-overlay" onclick="if(event.target===this)closeModal()"><div class="modal">
+  const mem = getAIMemory();
+  const memHTML = mem.length ? mem.map((m, i) => `<div style="display:flex;align-items:start;gap:8px;padding:8px 10px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-xs);margin-bottom:4px">
+    <div style="flex:1;font-size:11px;color:var(--text2);line-height:1.4">${esc(typeof m === 'string' ? m : m.text || JSON.stringify(m))}</div>
+    <button class="btn btn-sm" style="flex-shrink:0;font-size:10px;padding:2px 6px;color:var(--text3)" onclick="deleteAIMemory(${i})" title="Remove">✕</button>
+  </div>`).join('') : '<div style="font-size:11px;color:var(--text3);padding:8px">No memories yet. AI learns about you as you interact.</div>';
+
+  $('#modalRoot').innerHTML = `<div class="modal-overlay" onclick="if(event.target===this)closeModal()"><div class="modal" style="max-width:540px">
     <div class="modal-title">Settings</div>
     <div class="form-group"><label class="form-label">Claude API Key</label><input class="form-input" id="fApiKey" type="password" value="${settings.apiKey}" placeholder="sk-ant-..." style="font-family:monospace"></div>
     <p style="font-size:11px;color:var(--text3);margin-bottom:16px">console.anthropic.com → API Keys. Stored locally only.</p>
+
+    <div style="margin-bottom:16px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+        <label class="form-label" style="margin:0">AI Memory <span style="color:var(--text3);font-weight:400">(${mem.length}/50)</span></label>
+        ${mem.length ? `<button class="btn btn-sm" style="font-size:10px;color:var(--red)" onclick="if(confirm('Clear all AI memories?')){saveAIMemory([]);openSettings()}">Clear All</button>` : ''}
+      </div>
+      <p style="font-size:11px;color:var(--text3);margin-bottom:8px">What the AI has learned about you and your work patterns. Remove anything incorrect.</p>
+      <div style="max-height:200px;overflow-y:auto">${memHTML}</div>
+    </div>
+
     <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px">
       <button class="btn btn-sm" onclick="exportData()">Export JSON</button>
       <button class="btn btn-sm" onclick="exportCalendar()">Export to Calendar (.ics)</button>
@@ -3652,6 +3703,13 @@ function openSettings() {
     </div>
     <div class="modal-actions"><button class="btn" onclick="closeModal()">Cancel</button><button class="btn btn-primary" onclick="settings.apiKey=$('#fApiKey').value.trim();saveSettings(settings);closeModal();showToast('Saved')">Save</button></div>
   </div></div>`;
+}
+
+function deleteAIMemory(index) {
+  const mem = getAIMemory();
+  mem.splice(index, 1);
+  saveAIMemory(mem);
+  openSettings(); // re-render
 }
 
 function exportData() {
