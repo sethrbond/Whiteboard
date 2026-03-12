@@ -2232,8 +2232,11 @@ function renderDashboard() {
   const projOpts = data.projects.map(p => `<option value="${p.id}">${esc(p.name)}</option>`).join('');
   let html = `<div class="dash-greeting">
     <div class="dash-greeting-text">${greeting}</div>
-    <div class="dash-greeting-sub">${subGreeting}${overdue.length ? '' : ` <span style="color:var(--text3)">${active.length} active · ${inProgress.length} in progress · ${done.length} done</span>`}</div>
+    <div class="dash-greeting-sub">${subGreeting}${overdue.length ? '' : ` <span style="color:var(--text3)">${active.length} active · ${inProgress.length} in progress · ${done.length} done</span>`}${renderStreakBadge()}</div>
   </div>`;
+
+  // Smart nudges
+  html += renderNudgeBar();
 
   html += `<div class="quick-capture">
     <input class="quick-capture-input" id="quickCapture" placeholder="Quick add a task... (or press / to focus)" onkeydown="if(event.key==='Enter'&&this.value.trim()){quickAddFromCapture();}" autocomplete="off">
@@ -2682,6 +2685,7 @@ function renderTaskExpanded(t, showProject = false) {
       <div style="margin-top:6px"><input style="font-size:11px;padding:4px 8px;background:transparent;border:1px dashed var(--border);border-radius:4px;color:var(--text2);width:100%;outline:none;font-family:inherit" placeholder="+ add subtask" onclick="event.stopPropagation()" onkeydown="if(event.key==='Enter'&&this.value.trim()){addSubtask('${t.id}',this.value.trim());this.value=''}"></div>
       ${t.updates && t.updates.length > 0 ? `<div style="margin-top:8px"><div style="font-size:11px;color:var(--text3);margin-bottom:4px;font-weight:600">UPDATES</div>${t.updates.map(u => `<div style="font-size:12px;color:var(--text2);padding:3px 0"><span style="color:var(--text3)">${u.date}</span> — ${esc(u.text)}</div>`).join('')}</div>` : ''}
     </div>
+    ${!isDone && settings.apiKey ? `<div id="coachTip_${t.id}" style="margin-top:6px;min-height:16px"></div>` : ''}
     <input class="task-cmd" data-cmd="${t.id}" placeholder="Type: complete, update, deadline friday, move to [project]..." onkeydown="if(event.key==='Enter')runTaskCmd('${t.id}',this.value)">
   </div>`;
   return html;
@@ -2988,10 +2992,11 @@ function attachListeners() {
   // Task row click → expand
   document.querySelectorAll('[data-task]').forEach(el => {
     el.onclick = (e) => {
-      if (e.target.closest('[data-toggle]') || e.target.closest('.task-cmd') || e.target.closest('.btn')) return;
+      if (e.target.closest('[data-toggle]') || e.target.closest('.task-cmd') || e.target.closest('.btn') || e.target.closest('[contenteditable]')) return;
       const id = el.dataset.task;
       expandedTask = expandedTask === id ? null : id;
       render();
+      if (expandedTask && settings.apiKey) setTimeout(() => getTaskCoachTip(expandedTask), 100);
     };
   });
 
@@ -3389,7 +3394,7 @@ function buildAIContext(scope = 'all', projectId = null) {
 }
 
 // --- Shared AI Persona ---
-const AI_PERSONA = `You are the user's chief of staff — an elite executive assistant embedded in their productivity system called Whiteboard. You have full read/write access to their tasks, projects, habits, and AI memory.
+const AI_PERSONA = `You are the user's strategic partner — not just an assistant, but a co-pilot embedded in their productivity system called Whiteboard. You have full read/write access to their tasks, projects, habits, and AI memory.
 
 PERSONALITY:
 - Direct and concise. Default to short responses. "Done." / "Got it." / "Moved to urgent."
@@ -3397,6 +3402,7 @@ PERSONALITY:
 - You are opinionated — if you see something that should change, say so or just do it.
 - You remember things between sessions via AI memory. Use it.
 - You think about workload balance, not just individual tasks.
+- You PUSH the user forward. Don't just organize — help them win.
 
 INTELLIGENCE:
 - When given a task, think about what ELSE needs to happen. "Book flights" → also needs hotel, rental car, PTO request?
@@ -3405,12 +3411,17 @@ INTELLIGENCE:
 - Consider time of day: morning = planning/priorities, afternoon = execution, evening = review/planning tomorrow.
 - Think about dependencies: which tasks block others?
 - Track velocity: is the user ahead or behind this week?
+- Suggest next steps PROACTIVELY. Don't wait to be asked.
 
 PROACTIVE BEHAVIOR:
 - If you learn something about the user's preferences, work patterns, or project context → save it to AI memory.
 - If a project background should be updated based on new info → do it without asking.
 - If you spot a task that's clearly misplaced, misprioritized, or stale → fix it or flag it.
-- When creating tasks, think about whether they need subtasks, deadlines, or project assignment.`;
+- When creating tasks, think about whether they need subtasks, deadlines, or project assignment.
+- When a task is completed, suggest what to do NEXT. Keep momentum.
+- When the user seems stuck, offer a concrete first step — not a lecture.
+- When workload is unbalanced, say so. "You have 12 tasks in Life and 0 in [Project] — that project needs attention."`;
+
 
 // --- Action Definitions (shared across all AI touchpoints) ---
 const AI_ACTIONS_SPEC = `
@@ -4711,18 +4722,21 @@ async function generateAIBriefing() {
   const ctx = buildAIContext('all');
   const prompt = `${AI_PERSONA}
 
-Generate a daily briefing. Be concise, warm, actionable. Use bullet points (3-6).
+You're not just summarizing — you're my partner. Think strategically about my day.
 
 ${ctx}
 
-Focus on:
-1. What needs attention RIGHT NOW (overdue, urgent, deadlines today)
-2. What's in progress and how it's going
-3. What to focus on first based on priority and momentum
-4. Any patterns you notice (stale tasks, overload, good velocity)
-5. If nothing urgent, suggest deep work or planning
+STRUCTURE (use all 4 sections, 1-2 bullets each):
 
-Keep it short. No fluff. Reference specific task names.`;
+**Right Now** — What needs immediate action? Be blunt about overdue and urgent items.
+
+**Strategy** — Don't just list tasks. Tell me WHAT to do first and WHY. "Start with X because it unblocks Y" or "Batch these 3 quick ones to build momentum before tackling Z." Consider energy: hard tasks in the morning, quick wins in the afternoon.
+
+**Flags** — Be my second brain. Call out: tasks that have been sitting too long, priorities that seem wrong, projects that are drifting, workload that's unsustainable, things I might be avoiding.
+
+**Push** — One specific thing I should do today that I probably won't unless you tell me. Could be: break down a vague task, set a deadline on something that's been floating, reach out to someone, or just knock out that one annoying 5-minute task.
+
+Be direct. Use task names. Under 200 words. No fluff. You're not a reporter — you're a co-pilot.`;
 
   try {
     let text = await callAI(prompt, { maxTokens: 1024 });
@@ -5012,6 +5026,7 @@ function renderFocusOverlay() {
       <div style="font-size:24px;font-weight:600;color:var(--text);margin-bottom:12px;line-height:1.3">${esc(t.title)}</div>
       ${focusReason ? `<div style="font-size:12px;color:var(--accent);margin-bottom:12px;font-style:italic">✦ ${esc(focusReason)}</div>` : ''}
       ${proj ? `<div style="font-size:13px;color:${proj.color};margin-bottom:8px">${esc(proj.name)}</div>` : ''}
+      <div id="focusCoachTip" style="font-size:12px;color:var(--accent);margin-bottom:8px;min-height:16px;font-style:italic"></div>
       ${t.notes ? `<div style="font-size:13px;color:var(--text2);margin-bottom:16px;line-height:1.5">${esc(t.notes)}</div>` : ''}
       ${t.subtasks && t.subtasks.length ? `<div style="text-align:left;margin:20px auto;max-width:360px">${t.subtasks.map(s => `<div style="display:flex;align-items:center;gap:10px;padding:6px 0;cursor:pointer" onclick="toggleSubtask('${t.id}','${s.id}');renderFocusOverlay()"><div style="width:16px;height:16px;border-radius:4px;border:1.5px solid ${s.done?'var(--accent)':'var(--border2)'};background:${s.done?'var(--accent)':'transparent'};display:flex;align-items:center;justify-content:center;font-size:10px;color:#fff">${s.done?'✓':''}</div><span style="font-size:14px;color:${s.done?'var(--text3)':'var(--text)'};${s.done?'text-decoration:line-through':''}">${esc(s.title)}</span></div>`).join('')}</div>` : ''}
       <div style="font-size:28px;font-weight:300;color:var(--accent);margin:24px 0;font-variant-numeric:tabular-nums" id="focusTimer">0:00</div>
@@ -5022,6 +5037,18 @@ function renderFocusOverlay() {
       </div>
     </div>
   </div>`;
+
+  // AI coaching tip for focus mode
+  if (settings.apiKey && !focusReason) {
+    const focusTipEl = document.getElementById('focusCoachTip');
+    if (focusTipEl) {
+      focusTipEl.textContent = '✦ Thinking...';
+      const focusPrompt = `${AI_PERSONA}\n\nThe user just entered Focus Mode on: "${t.title}"${t.notes ? '\nNotes: ' + t.notes : ''}${t.subtasks?.length ? '\nSubtasks: ' + t.subtasks.map(s => (s.done ? '✓' : '○') + ' ' + s.title).join(', ') : ''}\n\nGive ONE sentence of tactical advice to help them START right now. What's the very first action? Be specific and concrete. No preamble.`;
+      callAI(focusPrompt, { maxTokens: 100 }).then(tip => {
+        if (focusTipEl) focusTipEl.textContent = '✦ ' + tip.replace(/\n/g, ' ').trim();
+      }).catch(() => { if (focusTipEl) focusTipEl.textContent = ''; });
+    }
+  }
 
   // Start timer
   if (window._focusInterval) clearInterval(window._focusInterval);
@@ -5055,6 +5082,147 @@ function closeFocus() {
   focusStartTime = null;
   if (window._focusInterval) clearInterval(window._focusInterval);
   $('#modalRoot').innerHTML = '';
+}
+
+// ============================================================
+// PROACTIVE AI NUDGE ENGINE
+// ============================================================
+function getSmartNudges() {
+  const today = todayStr();
+  const nudges = [];
+  const active = data.tasks.filter(t => t.status !== 'done');
+  const done = data.tasks.filter(t => t.status === 'done');
+  const overdue = active.filter(t => t.dueDate && t.dueDate < today);
+  const inProgress = active.filter(t => t.status === 'in-progress');
+  const stale = active.filter(t => {
+    const last = t.completedAt || t.createdAt;
+    return last && (Date.now() - new Date(last).getTime()) > 10 * 86400000;
+  });
+
+  // Overload detection
+  if (active.length > 30) nudges.push({ type: 'warning', icon: '⚡', text: `You have ${active.length} active tasks. Consider archiving or deprioritizing — focus beats volume.` });
+
+  // Stale tasks
+  if (stale.length >= 3) nudges.push({ type: 'stale', icon: '🕸', text: `${stale.length} tasks untouched for 10+ days: ${stale.slice(0, 3).map(t => t.title).join(', ')}${stale.length > 3 ? '...' : ''}. Still relevant?` });
+
+  // No tasks in progress
+  if (inProgress.length === 0 && active.length > 0) nudges.push({ type: 'action', icon: '▶', text: `Nothing in progress. Pick one to start — momentum beats planning.` });
+
+  // Too many in progress
+  if (inProgress.length > 5) nudges.push({ type: 'warning', icon: '🎪', text: `${inProgress.length} tasks in progress at once. Try finishing some before starting more.` });
+
+  // Overdue pileup
+  if (overdue.length >= 3) nudges.push({ type: 'urgent', icon: '🔥', text: `${overdue.length} overdue tasks. Consider rescheduling or completing — overdue items erode trust in your system.` });
+
+  // Velocity check
+  const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10);
+  const twoWeeksAgo = new Date(Date.now() - 14 * 86400000).toISOString().slice(0, 10);
+  const doneThisWeek = done.filter(t => t.completedAt && t.completedAt.slice(0, 10) >= weekAgo).length;
+  const doneLastWeek = done.filter(t => t.completedAt && t.completedAt.slice(0, 10) >= twoWeeksAgo && t.completedAt.slice(0, 10) < weekAgo).length;
+  if (doneLastWeek > 0 && doneThisWeek >= doneLastWeek * 1.5) nudges.push({ type: 'positive', icon: '🚀', text: `${doneThisWeek} tasks done this week vs ${doneLastWeek} last week — you're on a roll!` });
+  else if (doneLastWeek > 3 && doneThisWeek < doneLastWeek * 0.5) nudges.push({ type: 'warning', icon: '📉', text: `Only ${doneThisWeek} done this week vs ${doneLastWeek} last week. Rough week or just getting started?` });
+
+  // Unassigned tasks
+  const unassigned = active.filter(t => !t.project);
+  if (unassigned.length >= 3) nudges.push({ type: 'action', icon: '📂', text: `${unassigned.length} tasks without a project. Assigning them helps AI give better advice.` });
+
+  // Big tasks without subtasks
+  const bigNoSubs = active.filter(t => t.title.length > 40 && (!t.subtasks || t.subtasks.length === 0));
+  if (bigNoSubs.length >= 2) nudges.push({ type: 'action', icon: '✂', text: `"${bigNoSubs[0].title.slice(0, 35)}..." looks complex. Break it into subtasks?` });
+
+  // Habits check
+  if (data.habits.length) {
+    const todayD = ds(new Date());
+    const unchecked = data.habits.filter(h => !h.completions[todayD]);
+    if (unchecked.length > 0) nudges.push({ type: 'habit', icon: '↻', text: `${unchecked.length} habit${unchecked.length > 1 ? 's' : ''} unchecked today: ${unchecked.map(h => h.name).join(', ')}` });
+  }
+
+  return nudges.slice(0, 4); // Max 4 nudges at a time
+}
+
+function renderNudgeBar() {
+  const nudges = getSmartNudges();
+  if (!nudges.length) return '';
+  const colorMap = { urgent: 'var(--red)', warning: 'var(--orange)', action: 'var(--accent)', positive: 'var(--green)', stale: 'var(--text3)', habit: 'var(--purple)' };
+  return `<div style="display:flex;flex-direction:column;gap:6px;margin-bottom:16px">
+    ${nudges.map(n => `<div style="display:flex;align-items:flex-start;gap:8px;padding:8px 12px;background:var(--surface);border-radius:var(--radius-xs);border-left:3px solid ${colorMap[n.type] || 'var(--accent)'}">
+      <span style="flex-shrink:0">${n.icon}</span>
+      <span style="font-size:12px;color:var(--text2);line-height:1.4">${n.text}</span>
+    </div>`).join('')}
+  </div>`;
+}
+
+// ============================================================
+// STREAK TRACKING
+// ============================================================
+function getStreak() {
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  let streak = 0;
+  let d = new Date(today);
+  // Check today first
+  const todayD = localISO(d);
+  const hasDoneToday = data.tasks.some(t => t.completedAt && t.completedAt.slice(0, 10) === todayD);
+
+  if (hasDoneToday) {
+    streak = 1;
+    d.setDate(d.getDate() - 1);
+  } else {
+    // Check yesterday to not break streak mid-day
+    d.setDate(d.getDate() - 1);
+  }
+
+  // Walk backward
+  for (let i = 0; i < 365; i++) {
+    const ds = localISO(d);
+    const hasDone = data.tasks.some(t => t.completedAt && t.completedAt.slice(0, 10) === ds);
+    if (hasDone) { streak++; d.setDate(d.getDate() - 1); }
+    else break;
+  }
+  return streak;
+}
+
+function renderStreakBadge() {
+  const streak = getStreak();
+  if (streak < 2) return '';
+  const fire = streak >= 7 ? '🔥' : streak >= 3 ? '✦' : '·';
+  return `<div style="display:inline-flex;align-items:center;gap:5px;padding:3px 10px;background:var(--accent-dim);border-radius:12px;font-size:11px;color:var(--accent);font-weight:600;margin-left:8px">${fire} ${streak}-day streak</div>`;
+}
+
+// ============================================================
+// AI TASK COACHING
+// ============================================================
+async function getTaskCoachTip(taskId) {
+  if (!settings.apiKey) return;
+  const t = data.tasks.find(x => x.id === taskId);
+  if (!t) return;
+  const proj = data.projects.find(p => p.id === t.project);
+  const tipEl = document.getElementById('coachTip_' + taskId);
+  if (!tipEl) return;
+  tipEl.innerHTML = '<span style="color:var(--text3);font-size:11px">✦ Thinking...</span>';
+
+  const prompt = `${AI_PERSONA}
+
+You're looking at one specific task. Give a SINGLE concrete, actionable suggestion to help the user make progress RIGHT NOW. Not generic advice — specific to this task.
+
+Task: "${t.title}"
+${t.notes ? 'Notes: ' + t.notes : ''}
+${t.subtasks?.length ? 'Subtasks: ' + t.subtasks.map(s => (s.done ? '✓ ' : '○ ') + s.title).join(', ') : ''}
+${proj ? 'Project: ' + proj.name : ''}
+Priority: ${t.priority}
+Status: ${t.status}
+${t.dueDate ? 'Due: ' + t.dueDate : 'No deadline set'}
+Created: ${t.createdAt?.slice(0, 10)}
+
+Think about: What's the very next physical/concrete action? Is this task actually clear enough to do? Should it be broken down? Is there something blocking it? Is the priority right?
+
+Reply in ONE sentence. Be specific. Reference the actual task content. No preamble.`;
+
+  try {
+    const tip = await callAI(prompt, { maxTokens: 150 });
+    tipEl.innerHTML = `<span style="color:var(--accent);font-size:11px">✦ ${esc(tip.replace(/\n/g, ' ').trim())}</span>`;
+  } catch (err) {
+    tipEl.innerHTML = '';
+  }
 }
 
 // ============================================================
