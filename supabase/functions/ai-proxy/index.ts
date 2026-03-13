@@ -158,9 +158,11 @@ function jsonError(message: string, status: number, req?: Request): Response {
 }
 
 function getClientIP(req: Request): string {
-  // Supabase Edge Functions set these headers
+  // Use rightmost X-Forwarded-For value (set by trusted proxy, not spoofable)
+  const xff = req.headers.get('x-forwarded-for')
+  const xffIp = xff ? xff.split(',').pop()?.trim() : undefined
   return (
-    req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
+    xffIp ||
     req.headers.get('x-real-ip') ||
     req.headers.get('cf-connecting-ip') ||
     'unknown'
@@ -197,6 +199,12 @@ serve(async (req) => {
 
   if (req.method !== 'POST') {
     return new Response('Method not allowed', { status: 405, headers: getCorsHeaders(req) })
+  }
+
+  // Reject requests from non-allowed origins
+  const origin = req.headers.get('origin') || ''
+  if (!ALLOWED_ORIGINS.has(origin)) {
+    return new Response('Forbidden', { status: 403 })
   }
 
   if (!ANTHROPIC_API_KEY) {

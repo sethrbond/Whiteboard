@@ -2502,7 +2502,7 @@ function saveSettings(s) { localStorage.setItem(userKey(SETTINGS_KEY), JSON.stri
 function loadData() {
   try {
     const d = JSON.parse(localStorage.getItem(userKey(STORE_KEY)));
-    if (d && d.tasks) {
+    if (d && Array.isArray(d.tasks)) {
       if (!d.habits) d.habits = [];
       if (!d.projects) d.projects = [];
       // goals removed — unused schema
@@ -3936,6 +3936,7 @@ document.addEventListener('keydown', (e) => {
   if ((e.metaKey || e.ctrlKey) && e.key === 'k') { e.preventDefault(); openSearch(); return; }
   if ((e.metaKey || e.ctrlKey) && e.key === 'z') { e.preventDefault(); undo(); return; }
   if ((e.metaKey || e.ctrlKey) && e.key === 'd') { e.preventDefault(); setView('dump'); return; }
+  if ((e.metaKey || e.ctrlKey) && e.key === 'j') { e.preventDefault(); toggleChat(); return; }
   if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT' || e.target.isContentEditable) {
     if (e.key === 'Escape') { e.target.blur(); return; }
     return;
@@ -5265,7 +5266,7 @@ ${text}`;
         headers: { 'Content-Type': 'application/json', 'anthropic-version': '2023-06-01', ..._ep.headers },
         body: JSON.stringify({ model: settings.aiModel, max_tokens: 16384, messages: [{ role: 'user', content: finalPrompt }] }),
       });
-      if (!resp.ok) throw new Error(`API ${resp.status}`);
+      if (!resp.ok) throw new Error(resp.status === 429 ? 'AI is busy. Please wait a moment.' : 'AI service error. Please try again.');
       const result = await resp.json();
       parsed = parseDumpResponse(result.content[0].text);
     } else {
@@ -5283,7 +5284,7 @@ ${text}`;
           headers: { 'Content-Type': 'application/json', 'anthropic-version': '2023-06-01', ..._ep.headers },
           body: JSON.stringify({ model: settings.aiModel, max_tokens: 16384, messages: [{ role: 'user', content: chunkPrompt }] }),
         });
-        if (!resp.ok) throw new Error(`API ${resp.status}`);
+        if (!resp.ok) throw new Error(resp.status === 429 ? 'AI is busy. Please wait a moment.' : 'AI service error. Please try again.');
         const result = await resp.json();
         const chunkParsed = parseDumpResponse(result.content[0].text);
         if (chunkParsed) {
@@ -5295,7 +5296,7 @@ ${text}`;
       parsed = { tasks: allTasks, projectUpdates: allProjectUpdates, patterns: allPatterns };
     }
 
-    if (!parsed) throw new Error('Could not parse AI response — check console');
+    if (!parsed) throw new Error('Could not parse AI response. Please try again.');
 
     const items = parsed.tasks || parsed || [];
     const projectUpdates = parsed.projectUpdates || [];
@@ -5605,7 +5606,7 @@ Rules:
     }
   } catch (err) {
     console.error('Reorganize error:', err);
-    showToast('Reorganize failed — check console', true);
+    showToast('Reorganize failed. Please try again.', true);
   }
 }
 
@@ -6728,7 +6729,7 @@ ${context}`;
       signal: chatAbort.signal
     });
 
-    if (!resp.ok) throw new Error(`API ${resp.status}`);
+    if (!resp.ok) throw new Error(resp.status === 429 ? 'AI is busy. Please wait a moment.' : 'AI service error. Please try again.');
 
     if(await _sseFallback(resp,typingEl,chatMsgs,chatTimeout))return;const reader = resp.body.getReader();
     const decoder = new TextDecoder();
@@ -7292,6 +7293,8 @@ function processRecurringTasks() {
 async function _sseFallback(r,te,cm,ct2){var c=(r.headers.get('content-type')||'');if(c.includes('text/event-stream'))return false;var j=await r.json();var f=j.content&&j.content[0]?j.content[0].text:(j.completion||JSON.stringify(j));chatHistory.push({role:'assistant',content:f});saveChatHistory();incrementAIInteraction();var a=await executeAIActions(f);if(a.applied)render();var clean=f.replace(/```(?:actions|json)[\s\S]*?```/g,'').trim();te.innerHTML='<div class="chat-bubble ai">'+esc(clean).replace(/\n/g,'<br>').replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>')+'</div>';cm.scrollTop=cm.scrollHeight;clearTimeout(ct2);return true;}
 var _oB=generateAIBriefing,_oP=planMyDay,_oE=submitEndOfDay,_oR=generateWeeklyReview,_oPW=runProactiveWorker;generateAIBriefing=async function(){if(!throttleAI('b'))return;return _oB.apply(this,arguments)};planMyDay=async function(){if(!throttleAI('p'))return;return _oP.apply(this,arguments)};submitEndOfDay=async function(){if(!throttleAI('e'))return;return _oE.apply(this,arguments)};generateWeeklyReview=async function(){if(!throttleAI('r'))return;return _oR.apply(this,arguments)};runProactiveWorker=async function(){if(!throttleAI('w'))return;return _oPW.apply(this,arguments)};
 initAuth();
+function toggleHabitDay() {} // stub — habits feature removed
+function ds(d) { return d instanceof Date ? d.toISOString().slice(0,10) : String(d||''); }
 </script>
 <script src="dashboard-v2.js"></script>
 <script>var _wasOnline=false;window.addEventListener('offline',function(){if(_wasOnline&&!document.getElementById('offBnr')){var d=document.createElement('div');d.id='offBnr';d.style.cssText='position:fixed;top:0;left:0;right:0;z-index:9999;padding:6px;text-align:center;font-size:12px;color:#f97316;background:rgba(249,115,22,0.1);border-bottom:1px solid #f97316';d.textContent="You're offline - changes saved locally";document.body.prepend(d)}});window.addEventListener('online',function(){var e=document.getElementById('offBnr');if(e)e.remove()});var _oSD=updateSyncDot;updateSyncDot=function(){_oSD.apply(this,arguments);if(syncStatus==='synced')_wasOnline=true;if(syncStatus==='offline'&&_wasOnline){if(!document.getElementById('offBnr')){var d=document.createElement('div');d.id='offBnr';d.style.cssText='position:fixed;top:0;left:0;right:0;z-index:9999;padding:6px;text-align:center;font-size:12px;color:#f97316;background:rgba(249,115,22,0.1);border-bottom:1px solid #f97316';d.textContent="You're offline - changes saved locally";document.body.prepend(d)}}else{var e=document.getElementById('offBnr');if(e)e.remove()}}</script>
