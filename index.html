@@ -2350,6 +2350,9 @@ async function signOut() {
 // --- Cloud Sync ---
 async function loadFromCloud() {
   if (!currentUser) return;
+  // Show loading indicator
+  const mainEl = document.querySelector('.main .content');
+  if (mainEl) mainEl.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:200px;color:var(--text3);font-size:13px"><div class="spinner" style="margin-right:10px"></div>Loading your data...</div>';
   try {
     const { data: row, error } = await sb.from('user_data').select('*').eq('user_id', currentUser.id).single();
     if (error) { console.error('Cloud load error:', error); return; }
@@ -2375,7 +2378,7 @@ async function loadFromCloud() {
       // First login — push local data up
       await syncToCloud();
     }
-  } catch (e) { console.error('Cloud load failed:', e); syncStatus = 'offline'; }
+  } catch (e) { console.error('Cloud load failed:', e); syncStatus = 'offline'; updateSyncDot(); showToast('Could not load cloud data — using local copy', true); }
 }
 
 function scheduleSyncToCloud() {
@@ -2708,14 +2711,17 @@ function urgentTasks() { return data.tasks.filter(t => t.status !== 'done' && !t
 function archivedTasks() { return data.tasks.filter(t => t.archived); } // MARKER
 function cleanupArchive() {
   var cutoff = Date.now() - 2592000000; // 30 days
-  var changed = false;
+  var count = 0;
   data.tasks.forEach(function(t) {
     if (t.status === 'done' && t.completedAt && !t.archived && new Date(t.completedAt).getTime() < cutoff) {
       t.archived = true;
-      changed = true;
+      count++;
     }
   });
-  if (changed) saveData(data);
+  if (count) {
+    saveData(data);
+    showToast(count + ' old task' + (count > 1 ? 's' : '') + ' auto-archived');
+  }
 }
 
 function requestNotificationPermission() {
@@ -6549,6 +6555,7 @@ Keep it under 200 words. Be encouraging but honest.`;
     if (btn) btn.textContent = 'Refresh';
   } catch (err) {
     if (btn) btn.textContent = 'Error — try again';
+    showToast('Weekly review failed — try again', true);
     console.error('Review error:', err);
   }
 }
@@ -6772,6 +6779,7 @@ Be direct. Use task names. Under 200 words. No fluff. You're not a reporter — 
     notifyOverdueTasks();
   } catch (err) {
     if (btn) btn.textContent = 'Error — try again';
+    showToast('Briefing failed — try again', true);
     console.error('Briefing error:', err);
   }
 }
@@ -6801,6 +6809,7 @@ async function submitEndOfDay() {
   } catch (err) {
     console.error('EOD error:', err);
     if (btn) btn.textContent = 'Error — try again';
+    showToast('End of day reflection failed — try again', true);
   }
 }
 
@@ -7513,7 +7522,7 @@ function processRecurringTasks() {
 // INIT
 // ============================================================
 (function(){document.addEventListener('mouseenter',function(e){var r=e.target.closest('.task-row');if(!r)return;var id=r.dataset.task,t=data.tasks.find(function(x){return x.id===id});if(!t||!t.notes)return;if(tooltipEl)tooltipEl.remove();tooltipEl=document.createElement('div');tooltipEl.className='task-tooltip';tooltipEl.textContent=t.notes.length>200?t.notes.slice(0,200)+'...':t.notes;document.body.appendChild(tooltipEl);var b=r.getBoundingClientRect();tooltipEl.style.left=Math.min(b.left,window.innerWidth-300)+'px';tooltipEl.style.top=(b.bottom+4)+'px'},true);document.addEventListener('mouseleave',function(e){if(!e.target.closest('.task-row'))return;if(tooltipEl){tooltipEl.remove();tooltipEl=null}},true)})();
-async function _sseFallback(r,te,cm,ct2){var c=(r.headers.get('content-type')||'');if(c.includes('text/event-stream'))return false;var j=await r.json();var f=j.content&&j.content[0]?j.content[0].text:(j.completion||JSON.stringify(j));te.innerHTML='<div class="chat-bubble ai"></div>';te.querySelector('.chat-bubble').innerHTML=esc(f).replace(/\n/g,'<br>');chatHistory.push({role:'assistant',content:f});saveChatHistory();incrementAIInteraction();var a=await executeAIActions(f);if(a.applied)render();te.innerHTML=esc(f.replace(/```(?:actions|json)[\s\S]*?```/g,'').trim()).replace(/\n/g,'<br>').replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>');cm.scrollTop=cm.scrollHeight;clearTimeout(ct2);return true;}
+async function _sseFallback(r,te,cm,ct2){var c=(r.headers.get('content-type')||'');if(c.includes('text/event-stream'))return false;var j=await r.json();var f=j.content&&j.content[0]?j.content[0].text:(j.completion||JSON.stringify(j));chatHistory.push({role:'assistant',content:f});saveChatHistory();incrementAIInteraction();var a=await executeAIActions(f);if(a.applied)render();var clean=f.replace(/```(?:actions|json)[\s\S]*?```/g,'').trim();te.innerHTML='<div class="chat-bubble ai">'+esc(clean).replace(/\n/g,'<br>').replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>')+'</div>';cm.scrollTop=cm.scrollHeight;clearTimeout(ct2);return true;}
 var _oB=generateAIBriefing,_oP=planMyDay,_oE=submitEndOfDay,_oR=generateWeeklyReview,_oPW=runProactiveWorker;generateAIBriefing=async function(){if(!throttleAI('b'))return;return _oB.apply(this,arguments)};planMyDay=async function(){if(!throttleAI('p'))return;return _oP.apply(this,arguments)};submitEndOfDay=async function(){if(!throttleAI('e'))return;return _oE.apply(this,arguments)};generateWeeklyReview=async function(){if(!throttleAI('r'))return;return _oR.apply(this,arguments)};runProactiveWorker=async function(){if(!throttleAI('w'))return;return _oPW.apply(this,arguments)};
 initAuth();
 </script>
