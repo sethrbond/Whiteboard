@@ -121,6 +121,8 @@ body {
 
 .nav-icon { font-size: 15px; width: 18px; text-align: center; opacity: 0.7; }
 .nav-item.active .nav-icon { opacity: 1; }
+.nav-item[data-view="dump"] { border-left: 2px solid var(--accent-glow); padding-left: 10px; }
+.nav-item[data-view="dump"].active { border-left-color: var(--accent); }
 
 .nav-badge {
   margin-left: auto;
@@ -1018,6 +1020,161 @@ body {
   gap: 6px;
 }
 
+/* ==================== ONBOARDING ==================== */
+.onboarding-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+  backdrop-filter: blur(8px);
+  animation: fadeIn 0.3s;
+}
+
+.onboarding-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  width: 520px;
+  max-width: 92vw;
+  padding: 40px;
+  box-shadow: 0 24px 64px rgba(0,0,0,0.5);
+}
+
+.onboarding-step-indicator {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 32px;
+}
+
+.onboarding-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--border2);
+  transition: background 0.3s, transform 0.3s;
+}
+
+.onboarding-dot.active {
+  background: var(--accent);
+  transform: scale(1.3);
+}
+
+.onboarding-dot.done {
+  background: var(--green);
+}
+
+.onboarding-title {
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 10px;
+}
+
+.onboarding-desc {
+  font-size: 14px;
+  color: var(--text2);
+  line-height: 1.6;
+  margin-bottom: 28px;
+}
+
+.onboarding-input {
+  width: 100%;
+  padding: 11px 14px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font-size: 13px;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.onboarding-input:focus {
+  border-color: var(--accent);
+}
+
+.onboarding-textarea {
+  width: 100%;
+  padding: 14px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font-size: 13px;
+  font-family: inherit;
+  outline: none;
+  min-height: 160px;
+  resize: vertical;
+  line-height: 1.6;
+  transition: border-color 0.15s;
+}
+
+.onboarding-textarea:focus {
+  border-color: var(--accent);
+}
+
+.onboarding-textarea::placeholder {
+  color: var(--text3);
+}
+
+.onboarding-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 28px;
+}
+
+.onboarding-skip {
+  font-size: 13px;
+  color: var(--text3);
+  cursor: pointer;
+  background: none;
+  border: none;
+  font-family: inherit;
+  padding: 4px 0;
+  transition: color 0.15s;
+}
+
+.onboarding-skip:hover {
+  color: var(--text2);
+}
+
+.onboarding-link {
+  font-size: 12px;
+  color: var(--accent);
+  text-decoration: none;
+  display: inline-block;
+  margin-top: 10px;
+}
+
+.onboarding-link:hover {
+  text-decoration: underline;
+}
+
+.onboarding-body {
+  animation: onbFadeIn 0.3s ease;
+}
+
+@keyframes onbFadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.onboarding-result {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 16px 18px;
+  margin-bottom: 8px;
+  font-size: 14px;
+  color: var(--text2);
+  line-height: 1.6;
+}
+
 /* ==================== EXPANDED TASK ==================== */
 .task-expanded {
   background: var(--surface);
@@ -1245,6 +1402,46 @@ body {
   transition: all 0.15s;
 }
 .briefing-generate:hover { background: var(--accent-glow); border-color: var(--accent); }
+
+/* ==================== END OF DAY ==================== */
+.eod-card {
+  background: linear-gradient(135deg, rgba(168,85,247,0.06), rgba(129,140,248,0.04));
+  border: 1px solid rgba(168,85,247,0.15);
+  border-radius: var(--radius);
+  padding: 20px 24px;
+  margin-bottom: 24px;
+  position: relative;
+  overflow: hidden;
+}
+.eod-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, var(--purple), var(--accent), var(--purple));
+}
+.eod-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.eod-title { font-size: 14px; font-weight: 700; color: var(--text); }
+.eod-textarea {
+  width: 100%;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xs);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 13px;
+  padding: 10px 12px;
+  resize: none;
+  line-height: 1.5;
+  margin-bottom: 10px;
+}
+.eod-textarea:focus { outline: none; border-color: var(--accent); }
+.eod-response { font-size: 13px; color: var(--text2); line-height: 1.7; }
 
 /* ==================== COMMAND PALETTE ==================== */
 .cmd-palette {
@@ -1626,11 +1823,11 @@ body {
   </div>
 
   <div class="nav-section">
-    <div class="nav-item active" data-view="dashboard">
-      <span class="nav-icon">◉</span> Dashboard
-    </div>
     <div class="nav-item" data-view="dump">
       <span class="nav-icon">↯</span> Brainstorm
+    </div>
+    <div class="nav-item" data-view="dashboard">
+      <span class="nav-icon">◉</span> Dashboard
     </div>
     <div class="nav-item" data-view="habits">
       <span class="nav-icon">↻</span> Habits
@@ -1728,7 +1925,8 @@ async function initAuth() {
       currentUser = null;
       data = { tasks: [], projects: [], habits: [] };
       chatHistory = [];
-      currentView = 'dashboard';
+      localStorage.removeItem(CHAT_HISTORY_KEY);
+      currentView = 'dump';
       currentProject = null;
       expandedTask = null;
       localStorage.removeItem(STORE_KEY);
@@ -1749,9 +1947,13 @@ function showApp() {
   document.getElementById('chatToggle').style.display = '';
   ensureLifeProject();
   processRecurringTasks();
+  // Default to brainstorm unless user already has a daily plan for today
+  currentView = localStorage.getItem('whiteboard_plan_' + todayStr()) ? 'dashboard' : 'dump';
   render();
+  if (!localStorage.getItem('wb_onboarding_done') && data.tasks.length === 0 && data.projects.length <= 1) { setTimeout(function() { showOnboarding(); }, 200); }
 }
 
+function showOnboarding(){var step=1,dumpResult=null;function rS(){var dots=[1,2,3].map(function(i){return '<div class="onboarding-dot '+(i===step?'active':i<step?'done':'')+'">'+'</div>';}).join('');var body='';if(step===1){body='<div class="onboarding-body"><div class="onboarding-title">Set up your AI co-pilot</div><div class="onboarding-desc">Whiteboards uses AI to organize your thoughts, plan your day, and keep you moving. Paste your Claude API key to unlock AI features.</div><input type="password" class="onboarding-input" id="onbApiKey" placeholder="sk-ant-..." value="" /><a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener" class="onboarding-link">Get a key</a><div class="onboarding-actions"><button class="onboarding-skip" onclick="onbNext()">Skip for now</button><button class="btn btn-primary" onclick="onbSaveKey()">Continue</button></div></div>';}else if(step===2){body='<div class="onboarding-body"><div class="onboarding-title">Dump your first brain dump</div><div class="onboarding-desc">Paste anything -- meeting notes, a project plan, a to-do list, a stream of consciousness. AI will organize it into tasks and projects.</div><textarea class="onboarding-textarea" id="onbDumpText" placeholder="e.g. I need to finish the quarterly report by Friday, schedule a dentist appointment, research flights to Tokyo for April..."></textarea><div id="onbDumpStatus"></div><div class="onboarding-actions"><button class="onboarding-skip" onclick="onbNext()">Skip -- I\'ll add tasks manually</button><button class="btn btn-primary" id="onbOrganizeBtn" onclick="onbProcessDump()">Organize this</button></div></div>';}else if(step===3){var msg='';if(dumpResult){var parts=[];if(dumpResult.tasks)parts.push(dumpResult.tasks+' task'+(dumpResult.tasks===1?'':'s'));if(dumpResult.projects)parts.push('across '+dumpResult.projects+' project'+(dumpResult.projects===1?'':'s'));msg='Created '+parts.join(' ')+'. Your AI co-pilot is ready.';}else{msg='You can brainstorm anytime from the sidebar. Try adding your first task below.';}body='<div class="onboarding-body"><div class="onboarding-title">You\'re set</div><div class="onboarding-result">'+msg+'</div><div class="onboarding-actions"><span></span><button class="btn btn-primary" onclick="onbFinish()">Go to Dashboard</button></div></div>';}document.getElementById('modalRoot').innerHTML='<div class="onboarding-overlay"><div class="onboarding-card"><div class="onboarding-step-indicator">'+dots+'</div>'+body+'</div></div>';}window.onbNext=function(){step++;if(step>3){onbFinish();return;}rS();};window.onbSaveKey=function(){var inp=document.getElementById('onbApiKey');var val=inp?inp.value.trim():'';if(val&&val.length>10){settings.apiKey=val;saveSettings(settings);}step=2;rS();};window.onbProcessDump=async function(){var text=document.getElementById('onbDumpText')?document.getElementById('onbDumpText').value.trim():'';if(!text)return;var btn=document.getElementById('onbOrganizeBtn');var statusEl=document.getElementById('onbDumpStatus');if(btn){btn.disabled=true;btn.innerHTML='<span class="spinner" style="width:12px;height:12px;border-width:1.5px;margin-right:6px"></span>Organizing...';}var tasksBefore=data.tasks.length;var projsBefore=data.projects.length;var dumpEl=document.getElementById('dumpText');var tempCreated=!dumpEl;if(tempCreated){dumpEl=document.createElement('textarea');dumpEl.id='dumpText';dumpEl.style.display='none';document.body.appendChild(dumpEl);}dumpEl.value=text;try{if(settings.apiKey){await processDump();}else{processDumpManual(text);}var tasksCreated=data.tasks.length-tasksBefore;var projsCreated=data.projects.length-projsBefore;if(tasksCreated>0||projsCreated>0){dumpResult={tasks:tasksCreated,projects:projsCreated};}render();step=3;rS();}catch(err){if(statusEl)statusEl.innerHTML='<div class="ai-status" style="color:var(--red)">Error: '+(err.message||'Something went wrong')+'</div>';if(btn){btn.disabled=false;btn.textContent='Organize this';}}finally{if(tempCreated&&dumpEl.parentNode)dumpEl.parentNode.removeChild(dumpEl);}};window.onbFinish=function(){localStorage.setItem('wb_onboarding_done','true');document.getElementById('modalRoot').innerHTML='';render();delete window.onbNext;delete window.onbSaveKey;delete window.onbProcessDump;delete window.onbFinish;};rS();}
 function skipAuth() {
   currentUser = null;
   showApp();
@@ -1919,6 +2121,7 @@ function updateSyncDot() {
 const STORE_KEY = 'taskboard_data';
 const SETTINGS_KEY = 'taskboard_settings';
 const DUMP_DRAFT_KEY = 'taskboard_dump_draft';
+const CHAT_HISTORY_KEY = 'wb_chat_history';
 
 const PROJECT_COLORS = ['#818cf8','#f472b6','#fb923c','#4ade80','#60a5fa','#a855f7','#f87171','#fbbf24','#2dd4bf','#e879f9'];
 const LIFE_PROJECT_NAME = 'Life';
@@ -1959,13 +2162,15 @@ let bulkMode = false;
 let bulkSelected = new Set();
 let showCompleted = {};
 let chatContext = null;
-let chatHistory = []; // { role: 'user'|'assistant', content: string }
+let chatHistory = JSON.parse(localStorage.getItem(CHAT_HISTORY_KEY) || '[]'); // { role: 'user'|'assistant', content: string }
 let projectViewMode = {}; // projectId -> 'list' | 'board'
 let showProjectBg = {}; // projectId -> boolean
 let dashViewMode = 'list'; // 'list' | 'week' | 'month'
 let calendarOffset = 0; // weeks or months offset from current
 const undoStack = []; // [{ label, snapshot }] — max 20
 const coachTipCache = {}; // taskId -> tip string
+
+function saveChatHistory() { try { localStorage.setItem(CHAT_HISTORY_KEY, JSON.stringify(chatHistory.slice(-15))); } catch {} }
 
 // ============================================================
 // CRUD
@@ -2137,7 +2342,13 @@ function findSimilarProject(name) {
   return bestScore >= 0.6 ? best : null;
 }
 
-function applyTagFilter(tasks) { return activeTagFilter ? tasks.filter(t => (t.tags || []).includes(activeTagFilter)) : tasks; }
+function applyTagFilter(tasks) {
+  let filtered = activeTagFilter ? tasks.filter(t => (t.tags || []).includes(activeTagFilter)) : tasks;
+  if (window._nudgeFilter === 'overdue') filtered = filtered.filter(t => t.status !== 'done' && t.dueDate && t.dueDate < todayStr());
+  else if (window._nudgeFilter === 'stale') filtered = filtered.filter(t => { if (t.status === 'done') return false; const lt = t.updates?.length ? t.updates[t.updates.length - 1].date : t.createdAt; return lt && (Date.now() - new Date(lt).getTime()) > 10 * 86400000; });
+  else if (window._nudgeFilter === 'unassigned') filtered = filtered.filter(t => !t.project && t.status !== 'done');
+  return filtered;
+}
 function projectTasks(pid) { return applyTagFilter(data.tasks.filter(t => t.project === pid)); }
 function activeTasks(pid) { return applyTagFilter((pid ? data.tasks.filter(t => t.project === pid) : data.tasks).filter(t => t.status !== 'done')); }
 function doneTasks(pid) { return applyTagFilter((pid ? data.tasks.filter(t => t.project === pid) : data.tasks).filter(t => t.status === 'done')); }
@@ -2274,8 +2485,8 @@ function renderDashboard() {
   if (data.tasks.length === 0 && data.projects.length <= 1) {
     return `<div style="max-width:480px;margin:60px auto;text-align:center">
       <div style="font-size:48px;margin-bottom:16px;opacity:0.3">✦</div>
-      <h2 style="font-size:20px;font-weight:600;margin-bottom:8px">Welcome to Whiteboards</h2>
-      <p style="font-size:14px;color:var(--text3);line-height:1.6;margin-bottom:28px">Your AI-powered command center. Start by creating a project, quick-adding a task, or brain-dumping everything on your mind.</p>
+      <h2 style="font-size:20px;font-weight:600;margin-bottom:8px">A clean slate.</h2>
+      <p style="font-size:14px;color:var(--text3);line-height:1.6;margin-bottom:28px">Paste anything into Brainstorm and your AI co-pilot will organize it &mdash; meeting notes, project plans, brain dumps, anything.</p>
       <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
         <button class="btn btn-primary" onclick="openNewProject()">+ New Project</button>
         <button class="btn" onclick="setView('dump')">↯ Brainstorm</button>
@@ -2324,12 +2535,22 @@ function renderDashboard() {
   html += renderNudgeBar();
   html += renderStuckNudges();
 
+  // Nudge filter indicator
+  if (window._nudgeFilter) {
+    const nfLabels = { overdue: 'Overdue tasks', stale: 'Stale tasks (10+ days)', unassigned: 'Unassigned tasks' };
+    html += `<div style="display:flex;align-items:center;gap:8px;padding:6px 12px;margin-bottom:12px;background:var(--accent-dim);border:1px solid var(--accent);border-radius:var(--radius-xs)">
+      <span style="font-size:12px;color:var(--accent);font-weight:500">Filtering: ${nfLabels[window._nudgeFilter] || window._nudgeFilter}</span>
+      <span style="font-size:11px;color:var(--accent);cursor:pointer;margin-left:auto" onclick="window._nudgeFilter='';render()">Clear filter</span>
+    </div>`;
+  }
+
   html += `<div class="quick-capture">
     <input class="quick-capture-input" id="quickCapture" placeholder="Add a task... try 'call dentist friday !!' or 'report due next week'" oninput="previewQuickCapture()" onkeydown="if(event.key==='Enter'&&this.value.trim()){quickAddFromCapture();}" autocomplete="off">
     <select class="quick-capture-project" id="quickCaptureProject">${projOpts}</select>
     <button class="btn btn-primary" onclick="quickAddFromCapture()" style="flex-shrink:0">Add</button>
   </div>
-  <div id="quickCapturePreview" class="smart-date-preview" style="padding-left:12px"></div>`;
+  <div id="quickCapturePreview" class="smart-date-preview" style="padding-left:12px"></div>
+  <div style="padding-left:12px;margin-top:2px"><span onclick="setView('dump')" style="font-size:11px;color:var(--text3);cursor:pointer;opacity:0.8" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='var(--text3)'">or Brain Dump</span></div>`;
 
   // Tag filter bar
   const allTags = getAllTags();
@@ -2381,6 +2602,35 @@ function renderDashboard() {
       html += `</div>`;
     } catch {}
   }
+  }
+
+  // End of Day capture (after 5 PM, has API key, has completions today, not yet done today)
+  const eodKey = 'wb_eod_' + todayStr();
+  const cachedEod = localStorage.getItem(eodKey);
+  const completedToday = data.tasks.filter(t => t.status === 'done' && t.completedAt && t.completedAt.slice(0, 10) === todayStr());
+  if (new Date().getHours() >= 17 && settings.apiKey && completedToday.length >= 1) {
+    if (cachedEod) {
+      html += `<div class="eod-card">
+        <div class="eod-header">
+          <span style="font-size:14px;color:var(--purple)">&#9790;</span>
+          <div class="eod-title">End of Day</div>
+          <span style="font-size:11px;color:var(--text3);margin-left:auto">Today</span>
+        </div>
+        <div class="eod-response">${cachedEod}</div>
+      </div>`;
+    } else {
+      html += `<div class="eod-card" id="eodCard">
+        <div class="eod-header">
+          <span style="font-size:14px;color:var(--purple)">&#9790;</span>
+          <div class="eod-title">How did today go?</div>
+        </div>
+        <textarea class="eod-textarea" id="eodInput" rows="3" placeholder="What went well? What was hard? Anything on your mind..."></textarea>
+        <div style="display:flex;gap:8px">
+          <button class="briefing-generate" onclick="submitEndOfDay()" id="eodBtn" style="color:var(--purple);border-color:rgba(168,85,247,0.2)">Wrap up</button>
+          <button class="briefing-generate" onclick="document.getElementById('eodCard').remove()" style="color:var(--text3);border-color:var(--border)">Skip</button>
+        </div>
+      </div>`;
+    }
   }
 
   // Urgent section
@@ -2712,7 +2962,7 @@ function renderProject(p) {
   }
 
   if (active.length === 0 && done.length === 0) {
-    html += `<div class="empty"><div class="empty-icon">✦</div><div class="empty-text">No tasks yet. Add one or brainstorm to populate.</div><button class="btn btn-primary" onclick="openNewTask('${p.id}')">+ Add Task</button></div>`;
+    html += `<div class="empty"><div class="empty-icon">✦</div><div class="empty-text">No tasks yet. Add one above, or head to Brainstorm to dump everything at once.</div><button class="btn btn-primary" onclick="openNewTask('${p.id}')">+ Add Task</button></div>`;
   }
 
   // Completed
@@ -3346,6 +3596,8 @@ document.addEventListener('keydown', (e) => {
     return;
   }
   if (e.key === 'Escape') {
+    // Close focus mode if active
+    if (focusTask) { closeFocus(); return; }
     // Close chat panel if open
     const chatPanel = document.getElementById('chatPanel');
     if (chatPanel && chatPanel.classList.contains('open')) {
@@ -3398,6 +3650,7 @@ document.addEventListener('keydown', (e) => {
   if (e.key === 'h') setView('habits');
   if (e.key === '1') setView('dashboard');
   if (e.key === '/') { e.preventDefault(); const qc = document.getElementById('quickCapture'); if (qc) qc.focus(); else setView('dashboard'); }
+  if (e.key === '?') { e.preventDefault(); openShortcutHelp(); }
 });
 
 document.addEventListener('click', (e) => {
@@ -3422,6 +3675,53 @@ function closeModal() {
   const overlay = $('#modalRoot').querySelector('.modal-overlay');
   if (overlay) { overlay.style.opacity = '0'; const modal = overlay.querySelector('.modal'); if (modal) { modal.style.transform = 'translateY(8px)'; modal.style.opacity = '0'; } setTimeout(() => { $('#modalRoot').innerHTML = ''; }, 150); }
   else { $('#modalRoot').innerHTML = ''; }
+}
+
+function openShortcutHelp() {
+  const shortcuts = [
+    { section: 'Navigation', items: [
+      ['j / k', 'Move up / down through tasks'],
+      ['x', 'Toggle task done'],
+      ['e', 'Edit selected task'],
+      ['Enter', 'Expand / collapse task'],
+      ['n', 'New task'],
+      ['/', 'Focus quick capture'],
+      ['Cmd+K', 'Command palette'],
+      ['Cmd+Shift+K', 'Quick add task'],
+    ]},
+    { section: 'Views', items: [
+      ['d', 'Brainstorm'],
+      ['h', 'Habits'],
+      ['w', 'Weekly review'],
+      ['1', 'Dashboard'],
+    ]},
+    { section: 'Other', items: [
+      ['Cmd+Z', 'Undo'],
+      ['Escape', 'Close panel / modal'],
+      ['?', 'This help'],
+    ]},
+  ];
+  const sectionHtml = shortcuts.map(s => `
+    <div style="margin-bottom:18px">
+      <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--text3);margin-bottom:8px">${s.section}</div>
+      ${s.items.map(([key, desc]) => `
+        <div style="display:flex;align-items:center;gap:12px;padding:4px 0">
+          <span style="font-family:'SF Mono',SFMono-Regular,Menlo,Consolas,monospace;font-size:12px;background:var(--hover);border:1px solid var(--border);border-radius:5px;padding:2px 8px;min-width:80px;text-align:center;color:var(--accent);white-space:nowrap">${key}</span>
+          <span style="font-size:13px;color:var(--text2)">${desc}</span>
+        </div>
+      `).join('')}
+    </div>
+  `).join('');
+
+  $('#modalRoot').innerHTML = `<div class="modal-overlay" onclick="if(event.target===this)closeModal()">
+    <div class="modal" style="max-width:400px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+        <div class="modal-title" style="margin-bottom:0">Keyboard Shortcuts</div>
+        <button class="btn" onclick="closeModal()" style="padding:4px 10px;font-size:12px">Close</button>
+      </div>
+      ${sectionHtml}
+    </div>
+  </div>`;
 }
 
 let cmdIdx = 0;
@@ -3771,7 +4071,10 @@ function buildAIContext(scope = 'all', projectId = null, detail = 'standard') {
       ctx += `  ${p.name}: ${active.length} active${urg.length ? ', ' + urg.length + ' urgent' : ''}, ${done.length} done${p.description ? ' — ' + p.description.slice(0, 80) : ''}\n`;
     });
     ctx += `\nALL ACTIVE TASKS:\n`;
-    data.tasks.filter(t => t.status !== 'done').forEach(t => {
+    const allActiveTasks = data.tasks.filter(t => t.status !== 'done').sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+    const cappedTasks = allActiveTasks.slice(0, 50);
+    if (allActiveTasks.length > 50) ctx += `  (showing 50 of ${allActiveTasks.length} — ${allActiveTasks.length - 50} older tasks omitted)\n`;
+    cappedTasks.forEach(t => {
       const proj = data.projects.find(p => p.id === t.project);
       ctx += `  - [${t.priority}${t.status === 'in-progress' ? '/WIP' : ''}${isBlocked(t) ? '/BLOCKED' : ''}] ${t.title}${proj ? ' {' + proj.name + '}' : ''}${t.dueDate ? ' due:' + t.dueDate : ''}${t.notes ? ' — ' + t.notes.slice(0, 80) : ''}${t.subtasks?.length ? ' [' + t.subtasks.filter(s => s.done).length + '/' + t.subtasks.length + ' sub]' : ''}${t.blockedBy?.length ? ' [blocked by: ' + t.blockedBy.map(id => { const b = data.tasks.find(x => x.id === id); return b ? b.title.slice(0, 25) : '?'; }).join(', ') + ']' : ''}\n`;
     });
@@ -3996,18 +4299,39 @@ function executeAIActions(reply) {
 // --- AI API Helper ---
 async function callAI(prompt, opts = {}) {
   const { system, maxTokens = 2048, messages } = opts;
-  const body = { model: settings.aiModel, max_tokens: maxTokens };
-  if (system) body.system = system;
-  body.messages = messages || [{ role: 'user', content: prompt }];
-  const resp = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'x-api-key': settings.apiKey, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
-    body: JSON.stringify(body),
-  });
-  if (!resp.ok) throw new Error(`API ${resp.status}`);
-  const result = await resp.json();
-  if (!result.content || !result.content.length) throw new Error('Empty AI response');
-  return result.content[0].text;
+  if (!settings.apiKey) throw new Error('No API key — add one in Settings');
+  const doCall = async (signal) => {
+    const body = { model: settings.aiModel || 'claude-haiku-4-5-20251001', max_tokens: maxTokens };
+    if (system) body.system = system;
+    body.messages = messages || [{ role: 'user', content: prompt }];
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST', signal,
+      headers: { 'Content-Type': 'application/json', 'x-api-key': settings.apiKey, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
+      body: JSON.stringify(body),
+    });
+    if (!resp.ok) {
+      let errMsg = `API error ${resp.status}`;
+      try { const errBody = await resp.json(); errMsg = errBody.error?.message || errMsg; } catch {}
+      const err = new Error(errMsg); err.status = resp.status; throw err;
+    }
+    const result = await resp.json();
+    if (!result.content || !result.content.length) throw new Error('Empty AI response');
+    return result.content[0].text;
+  };
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 45000);
+  try {
+    return await doCall(controller.signal);
+  } catch (err) {
+    if (err.status === 429 || err.status === 529) {
+      await new Promise(r => setTimeout(r, 2000));
+      const controller2 = new AbortController();
+      const timeout2 = setTimeout(() => controller2.abort(), 45000);
+      try { return await doCall(controller2.signal); } finally { clearTimeout(timeout2); }
+    }
+    throw err;
+  } finally { clearTimeout(timeout); }
 }
 
 // ============================================================
@@ -4026,8 +4350,8 @@ function renderDump() {
   const draft = esc(loadDumpDraft());
   const isMeeting = dumpMode === 'meeting';
   const placeholder = isMeeting
-    ? "Paste meeting notes, transcript, or recording summary...\n\ne.g. Kickoff call with Acme Corp — March 12\n\nAttendees: Sarah, Mike, Drew\n\nDiscussed timeline for Q2 launch. Sarah will send revised deck by Friday. Need to finalize budget before next meeting. Mike raised concern about API rate limits — Drew to investigate. Next sync: March 19."
-    : "just let it flow... redesign is going well, finished the header and nav today. need to start on the dashboard next week. dentist called, moved to friday. cancel old hosting — we migrated. groceries: milk, eggs. sarah said investor deck needs to go out by wednesday, urgent...";
+    ? "Paste meeting notes, transcript, or recording summary..."
+    : "What's on your mind? Paste anything — meeting notes, project plans, to-do lists, random thoughts...";
   const desc = isMeeting
     ? `Paste meeting notes, transcripts, or call summaries. AI extracts action items, decisions, deadlines, and follow-ups — assigns them to the right projects with owners and due dates.`
     : `Just let it out — stream of consciousness, project updates, documents, whatever's on your mind.<br>AI reads through everything, extracts every task and detail, spots patterns with your existing work, organizes it all by project and priority.`;
@@ -4041,6 +4365,7 @@ function renderDump() {
       ${!hasKey ? '<br><span style="color:var(--orange)">Add a Claude API key in Settings for AI parsing.</span>' : ''}
     </p>
     <textarea class="dump-textarea" id="dumpText" placeholder="${placeholder}">${draft}</textarea>
+    <div style="font-size:11px;color:var(--text3);margin-top:8px">Tip: paste a whole document, meeting notes, or just stream your thoughts. AI will extract tasks, assign projects, and detect what's already done.</div>
     <div id="dumpAttachmentList" class="dump-attachments"></div>
     <div class="dump-bar">
       <button class="btn btn-primary" onclick="processDump()">${hasKey ? (isMeeting ? '✦ Extract Action Items' : '✦ Analyze & Organize') : '+ Add Tasks'}</button>
@@ -4067,7 +4392,14 @@ async function handleFileAttach(files) {
     try {
       const text = await readFileContent(file);
       if (text) {
-        dumpAttachments.push({ name: file.name, content: text });
+        // Truncate overly large attachments to avoid overwhelming the AI model
+        const MAX_ATTACHMENT_CHARS = 30000;
+        let content = text;
+        if (text.length > MAX_ATTACHMENT_CHARS) {
+          content = text.slice(0, MAX_ATTACHMENT_CHARS) + `\n\n[Truncated — original document was ${text.length} characters]`;
+          showToast(`${file.name} truncated (${Math.round(text.length/1000)}K chars)`, true);
+        }
+        dumpAttachments.push({ name: file.name, content });
         renderAttachmentChips();
         showToast(`Attached: ${file.name}`);
       }
@@ -4126,6 +4458,57 @@ function renderAttachmentChips() {
 // ============================================================
 // BRAINSTORM AI
 // ============================================================
+
+// Chunk large text at paragraph or sentence boundaries for multi-call processing
+function chunkText(text, maxChars = 8000) {
+  if (text.length <= maxChars) return [text];
+  const chunks = [];
+  let remaining = text;
+  while (remaining.length > 0) {
+    if (remaining.length <= maxChars) { chunks.push(remaining); break; }
+    let splitAt = -1;
+    const searchWindow = remaining.slice(0, maxChars);
+    const lastPara = searchWindow.lastIndexOf('\n\n');
+    if (lastPara > maxChars * 0.3) { splitAt = lastPara + 2; }
+    if (splitAt < 0) {
+      const lastSentence = searchWindow.lastIndexOf('. ');
+      if (lastSentence > maxChars * 0.3) { splitAt = lastSentence + 2; }
+    }
+    if (splitAt < 0) {
+      const lastNL = searchWindow.lastIndexOf('\n');
+      if (lastNL > maxChars * 0.3) { splitAt = lastNL + 1; }
+    }
+    if (splitAt < 0) { splitAt = maxChars; }
+    chunks.push(remaining.slice(0, splitAt));
+    remaining = remaining.slice(splitAt);
+  }
+  return chunks;
+}
+
+// Parse AI JSON response with fallbacks for malformed output
+function parseDumpResponse(content) {
+  let parsed;
+  try { parsed = JSON.parse(content); } catch {
+    const m = content.match(/\{[\s\S]*\}/);
+    if (m) try { parsed = JSON.parse(m[0]); } catch {
+      let f = m[0];
+      const opens = (f.match(/[\[{]/g) || []).length;
+      const closes = (f.match(/[\]}]/g) || []).length;
+      let suffix = '';
+      for (let i = 0; i < opens - closes; i++) suffix += f.lastIndexOf('[') > f.lastIndexOf('{') ? ']' : '}';
+      try { parsed = JSON.parse(f + suffix); } catch {}
+    }
+    if (!parsed) {
+      const arrM = content.match(/\[[\s\S]*\]/);
+      if (arrM) try { parsed = { tasks: JSON.parse(arrM[0]) }; } catch {
+        const objs = content.match(/\{[^{}]*\}/g);
+        if (objs) parsed = { tasks: objs.map(o => { try { return JSON.parse(o); } catch { return null; } }).filter(Boolean) };
+      }
+    }
+  }
+  return parsed;
+}
+
 async function processDump() {
   const text = $('#dumpText')?.value?.trim();
   if (!text) return;
@@ -4296,42 +4679,50 @@ For updates to existing tasks, use: { "action": "update", "id": "existing_task_i
 Brainstorm input:
 ${text}${attachmentText}`;
 
-  const finalPrompt = dumpMode === 'meeting' ? meetingPrompt : prompt;
+  const basePrompt = dumpMode === 'meeting' ? meetingPrompt : prompt;
+  const fullInput = text + attachmentText;
 
   try {
-    const resp = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      signal: dumpAbort.signal,
-      headers: { 'Content-Type': 'application/json', 'x-api-key': settings.apiKey, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
-      body: JSON.stringify({ model: settings.aiModel, max_tokens: 16384, messages: [{ role: 'user', content: finalPrompt }] }),
-    });
-
-    if (!resp.ok) throw new Error(`API ${resp.status}`);
-    const result = await resp.json();
-    const content = result.content[0].text;
-
     let parsed;
-    // Try parsing as object first
-    try { parsed = JSON.parse(content); } catch {
-      const m = content.match(/\{[\s\S]*\}/);
-      if (m) try { parsed = JSON.parse(m[0]); } catch {
-        // Try to fix truncated JSON
-        let f = m[0];
-        // Close any open arrays/objects
-        const opens = (f.match(/[\[{]/g) || []).length;
-        const closes = (f.match(/[\]}]/g) || []).length;
-        let suffix = '';
-        for (let i = 0; i < opens - closes; i++) suffix += f.lastIndexOf('[') > f.lastIndexOf('{') ? ']' : '}';
-        try { parsed = JSON.parse(f + suffix); } catch {}
-      }
-      // Fallback: try as array (old format)
-      if (!parsed) {
-        const arrM = content.match(/\[[\s\S]*\]/);
-        if (arrM) try { parsed = { tasks: JSON.parse(arrM[0]) }; } catch {
-          const objs = content.match(/\{[^{}]*\}/g);
-          if (objs) parsed = { tasks: objs.map(o => { try { return JSON.parse(o); } catch { return null; } }).filter(Boolean) };
+    const chunks = chunkText(fullInput, 10000);
+
+    if (chunks.length <= 1) {
+      // Single call for small inputs
+      const finalPrompt = basePrompt;
+      const resp = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        signal: dumpAbort.signal,
+        headers: { 'Content-Type': 'application/json', 'x-api-key': settings.apiKey, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
+        body: JSON.stringify({ model: settings.aiModel, max_tokens: 16384, messages: [{ role: 'user', content: finalPrompt }] }),
+      });
+      if (!resp.ok) throw new Error(`API ${resp.status}`);
+      const result = await resp.json();
+      parsed = parseDumpResponse(result.content[0].text);
+    } else {
+      // Chunked processing for large inputs
+      const allTasks = [], allProjectUpdates = [], allHabits = [], allPatterns = [];
+      for (let i = 0; i < chunks.length; i++) {
+        if (dumpAbort.signal.aborted) throw new Error('Cancelled');
+        if (statusEl) statusEl.innerHTML = `<div class="ai-status"><div class="spinner"></div>Processing chunk ${i + 1} of ${chunks.length}...<button class="btn btn-sm" style="margin-left:12px;font-size:10px;color:var(--red);border-color:var(--red)" onclick="cancelDump()">Cancel</button></div>`;
+        // Replace input text in the prompt template with this chunk
+        const chunkPrompt = basePrompt.replace(fullInput, chunks[i] + `\n\n[Chunk ${i + 1} of ${chunks.length}]`);
+        const resp = await fetch('https://api.anthropic.com/v1/messages', {
+          method: 'POST',
+          signal: dumpAbort.signal,
+          headers: { 'Content-Type': 'application/json', 'x-api-key': settings.apiKey, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
+          body: JSON.stringify({ model: settings.aiModel, max_tokens: 16384, messages: [{ role: 'user', content: chunkPrompt }] }),
+        });
+        if (!resp.ok) throw new Error(`API ${resp.status}`);
+        const result = await resp.json();
+        const chunkParsed = parseDumpResponse(result.content[0].text);
+        if (chunkParsed) {
+          allTasks.push(...(chunkParsed.tasks || []));
+          allProjectUpdates.push(...(chunkParsed.projectUpdates || []));
+          allHabits.push(...(chunkParsed.habits || []));
+          allPatterns.push(...(chunkParsed.patterns || []));
         }
       }
+      parsed = { tasks: allTasks, projectUpdates: allProjectUpdates, habits: allHabits, patterns: allPatterns };
     }
 
     if (!parsed) throw new Error('Could not parse AI response — check console');
@@ -4489,6 +4880,9 @@ ${text}${attachmentText}`;
     dumpAttachments = [];
     renderSidebar(); // Update sidebar badges without destroying brainstorm status message
 
+    // Auto-navigate to dashboard so user sees their organized tasks
+    setTimeout(() => setView('dashboard'), 1200);
+
     // Post-dump: AI follow-up questions + auto-reorganize
     if (created > 2 || projectsUpdated > 0 || patterns.length > 0) {
       setTimeout(() => askDumpFollowUp(text.slice(0, 2000), created, updated, completed, projectsUpdated, patterns), 500);
@@ -4537,7 +4931,7 @@ function processDumpManual(text) {
   $('#dumpText').value = '';
   clearDumpDraft();
   dumpAttachments = [];
-  render();
+  setView('dashboard');
 }
 
 async function askDumpFollowUp(originalText, created, updated, completed, projectsUpdated, patterns = []) {
@@ -4570,6 +4964,7 @@ Be conversational. Reference REAL task names. Keep it short.`;
     // Open chat panel with the follow-up — add to chat history so replies have context
     chatContext = null;
     chatHistory = [{ role: 'user', content: 'I just submitted a brainstorm.' }, { role: 'assistant', content: 'I just organized your brainstorm. ' + reply }];
+    saveChatHistory();
     document.getElementById('chatTitle').textContent = 'AI Assistant';
     const messagesEl = document.getElementById('chatMessages');
     messagesEl.innerHTML = `<div class="chat-msg ai">I just organized your brainstorm. ${formatted}</div>`;
@@ -4705,7 +5100,7 @@ function renderHabits() {
     ${habitWeekOffset !== 0 ? '<button class="btn btn-sm" onclick="habitWeekOffset=0;render()">Today</button>' : ''}
   </div>`;
 
-  if (!habits.length) return html + `<div class="empty"><div class="empty-icon">↻</div><div class="empty-text">No habits yet.</div><button class="btn btn-primary" onclick="openAddHabit()">+ New Habit</button></div>`;
+  if (!habits.length) return html + `<div class="empty"><div class="empty-icon">↻</div><div class="empty-text">No habits tracked yet. Habits help you build consistency &mdash; add your first one to start tracking.</div><button class="btn btn-primary" onclick="openAddHabit()">+ New Habit</button></div>`;
 
   habits.forEach(h => {
     const done = week.filter(d => h.completions[ds(d)]).length;
@@ -4938,10 +5333,18 @@ function parseQuickInput(raw) {
   const { dueDate, cleaned } = parseNaturalDate(raw);
   raw = cleaned;
 
+  // Parse #project tag — fuzzy-match to existing projects
+  const projMatch = raw.match(/#(\S+)/);
+  let quickProject = null;
+  if (projMatch) {
+    quickProject = findSimilarProject(projMatch[1]);
+    raw = raw.replace(/#\S+/, '').trim();
+  }
+
   // Clean up extra spaces, trailing dashes/commas
   raw = raw.replace(/[-,]\s*$/, '').replace(/\s{2,}/g, ' ').trim();
 
-  return { title: raw, priority, dueDate };
+  return { title: raw, priority, dueDate, quickProject };
 }
 
 function quickAddFromCapture() {
@@ -4949,7 +5352,9 @@ function quickAddFromCapture() {
   const raw = input?.value?.trim();
   if (!raw) return;
   const parsed = parseQuickInput(raw);
-  const project = document.getElementById('quickCaptureProject')?.value || '';
+  // Use #project tag match if found, otherwise fall back to dropdown selection
+  const dropdownProject = document.getElementById('quickCaptureProject')?.value || '';
+  const project = parsed.quickProject ? parsed.quickProject.id : dropdownProject;
   addTask(createTask({
     title: parsed.title,
     priority: parsed.priority || 'normal',
@@ -4957,7 +5362,8 @@ function quickAddFromCapture() {
     project
   }));
   input.value = '';
-  showToast(`+ ${parsed.title}${parsed.dueDate ? ' (due ' + parsed.dueDate + ')' : ''}${parsed.priority && parsed.priority !== 'normal' ? ' [' + parsed.priority + ']' : ''}`, false, true);
+  const projName = parsed.quickProject ? parsed.quickProject.name : '';
+  showToast(`+ ${parsed.title}${parsed.dueDate ? ' (due ' + parsed.dueDate + ')' : ''}${parsed.priority && parsed.priority !== 'normal' ? ' [' + parsed.priority + ']' : ''}${projName ? ' → ' + projName : ''}`, false, true);
   render();
 }
 
@@ -4989,6 +5395,9 @@ function previewQuickCapture() {
   if (parsed.priority && parsed.priority !== 'normal') {
     const colors = { urgent: 'var(--red)', important: 'var(--amber, var(--orange))' };
     parts.push(`<span style="color:${colors[parsed.priority] || 'var(--text3)'}">⚡ ${parsed.priority}</span>`);
+  }
+  if (parsed.quickProject) {
+    parts.push(`<span style="color:var(--accent)">📁 ${esc(parsed.quickProject.name)}</span>`);
   }
   if (parts.length) {
     prev.innerHTML = parts.join(' &nbsp; ');
@@ -5324,11 +5733,80 @@ Be direct. Use task names. Under 200 words. No fluff. You're not a reporter — 
 }
 
 // ============================================================
+// END OF DAY
+// ============================================================
+async function submitEndOfDay() {
+  const input = document.getElementById('eodInput');
+  const btn = document.getElementById('eodBtn');
+  if (!input || !input.value.trim()) { showToast('Write a few words about your day first'); return; }
+  const userInput = input.value.trim();
+  if (btn) btn.innerHTML = '<div class="spinner"></div> Reflecting...';
+  const today = todayStr();
+  const eodCompleted = data.tasks.filter(t => t.status === 'done' && t.completedAt && t.completedAt.slice(0, 10) === today);
+  const eodOpen = data.tasks.filter(t => t.status !== 'done');
+  const eodOverdue = eodOpen.filter(t => t.dueDate && t.dueDate < today);
+  const eodPrompt = AI_PERSONA_SHORT + '\n\nThe user is wrapping up their day. Here\'s what they said about today:\n"' + userInput + '"\n\nContext:\n- Completed today: ' + eodCompleted.map(t => t.title).join(', ') + '\n- Still open: ' + eodOpen.length + ' tasks\n- Overdue: ' + eodOverdue.length + ' tasks\n\nRespond in 2-3 sentences. Acknowledge what was done. If they mentioned blockers or feelings, respond warmly. Suggest ONE thing for tomorrow morning. Be genuine, not performative.';
+  try {
+    let reply = await callAI(eodPrompt, { maxTokens: 256 });
+    const formatted = esc(reply).replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br>');
+    localStorage.setItem('wb_eod_' + today, formatted);
+    const mem = getAIMemory();
+    mem.push({ type: 'reflection', text: userInput + ' — AI: ' + reply.replace(/\n/g, ' ').slice(0, 150), date: today });
+    saveAIMemory(mem);
+    const card = document.getElementById('eodCard');
+    if (card) {
+      card.innerHTML = '<div class="eod-header"><span style="font-size:14px;color:var(--purple)">&#9790;</span><div class="eod-title">End of Day</div><span style="font-size:11px;color:var(--text3);margin-left:auto">Today</span></div><div class="eod-response">' + formatted + '</div>';
+    }
+  } catch (err) {
+    console.error('EOD error:', err);
+    if (btn) btn.textContent = 'Error — try again';
+  }
+}
+
+// ============================================================
 // AI CHAT
 // ============================================================
 function toggleChat() {
   const panel = document.getElementById('chatPanel');
+  const isOpening = !panel.classList.contains('open');
   panel.classList.toggle('open');
+  if (isOpening && !window._chatSessionStarted) {
+    window._chatSessionStarted = true;
+    const messagesEl = document.getElementById('chatMessages');
+    if (chatHistory.length > 0 && messagesEl) {
+      // Restore persisted chat history
+      messagesEl.innerHTML = chatHistory.map(m => {
+        const formatted = esc(m.content.replace(/```(?:actions|json)[\s\S]*?```/g, '').trim()).replace(/\n/g, '<br>').replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+        return `<div class="chat-msg ${m.role === 'user' ? 'user' : 'ai'}">${formatted}</div>`;
+      }).join('');
+      messagesEl.scrollTop = messagesEl.scrollHeight;
+    } else if (messagesEl && messagesEl.children.length <= 1) {
+      messagesEl.innerHTML = '<div class="chat-msg ai">' + getChatGreeting() + '</div>';
+    }
+  }
+}
+
+function getChatGreeting() {
+  const today = todayStr();
+  const active = data.tasks.filter(t => t.status !== 'done');
+  const overdue = active.filter(t => t.dueDate && t.dueDate < today);
+  const done = data.tasks.filter(t => t.status === 'done');
+  const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10);
+  const doneThisWeek = done.filter(t => t.completedAt && t.completedAt.slice(0, 10) >= weekAgo).length;
+  const stale = active.filter(t => {
+    const lt = t.updates && t.updates.length ? t.updates[t.updates.length - 1].date : t.createdAt;
+    return lt && (Date.now() - new Date(lt).getTime()) > 10 * 86400000;
+  });
+  if (overdue.length > 0) return 'You have ' + overdue.length + ' overdue task' + (overdue.length > 1 ? 's' : '') + '. Want to triage them?';
+  if (doneThisWeek >= 5) return 'You\'ve been productive — ' + doneThisWeek + ' tasks done this week. What\'s next?';
+  if (stale.length > 0) {
+    const s = stale[0];
+    const lt = s.updates && s.updates.length ? s.updates[s.updates.length - 1].date : s.createdAt;
+    const days = Math.floor((Date.now() - new Date(lt).getTime()) / 86400000);
+    const title = s.title.length > 40 ? s.title.slice(0, 37) + '...' : s.title;
+    return '"' + title + '" has been sitting for ' + days + ' days. Want to think through what\'s blocking it?';
+  }
+  return 'What\'s on your mind?';
 }
 
 function openProjectChat(projectId) {
@@ -5390,7 +5868,7 @@ RULES:
 ${context}`;
 
   chatHistory.push({ role: 'user', content: msg });
-  if (chatHistory.length > 40) chatHistory = chatHistory.slice(-40);
+  saveChatHistory();
 
   // Show typing indicator
   const typingEl = document.createElement('div');
@@ -5412,7 +5890,7 @@ ${context}`;
         model: settings.aiModel || 'claude-haiku-4-5-20251001',
         max_tokens: 2048,
         system: systemPrompt,
-        messages: chatHistory,
+        messages: chatHistory.slice(-15),
         stream: true
       })
     });
@@ -5457,6 +5935,7 @@ ${context}`;
     // Process complete response
     const reply = fullText;
     chatHistory.push({ role: 'assistant', content: reply });
+    saveChatHistory();
 
     const { applied, insights } = executeAIActions(reply);
     if (applied) render();
@@ -5761,16 +6240,16 @@ function getSmartNudges() {
   if (active.length > 30) nudges.push({ type: 'warning', icon: '⚡', text: `You have ${active.length} active tasks. Consider archiving or deprioritizing — focus beats volume.` });
 
   // Stale tasks
-  if (stale.length >= 3) nudges.push({ type: 'stale', icon: '🕸', text: `${stale.length} tasks untouched for 10+ days: ${stale.slice(0, 3).map(t => t.title).join(', ')}${stale.length > 3 ? '...' : ''}. Still relevant?` });
+  if (stale.length >= 3) nudges.push({ type: 'stale', icon: '🕸', text: `${stale.length} tasks untouched for 10+ days: ${stale.slice(0, 3).map(t => t.title).join(', ')}${stale.length > 3 ? '...' : ''}. Still relevant?`, actionLabel: 'Review stale', actionFn: `nudgeFilterStale()` });
 
   // No tasks in progress
-  if (inProgress.length === 0 && active.length > 0) nudges.push({ type: 'action', icon: '▶', text: `Nothing in progress. Pick one to start — momentum beats planning.` });
+  if (inProgress.length === 0 && active.length > 0) nudges.push({ type: 'action', icon: '▶', text: `Nothing in progress. Pick one to start — momentum beats planning.`, actionLabel: 'Start one', actionFn: `startFocus()` });
 
   // Too many in progress
-  if (inProgress.length > 5) nudges.push({ type: 'warning', icon: '🎪', text: `${inProgress.length} tasks in progress at once. Try finishing some before starting more.` });
+  if (inProgress.length > 5) nudges.push({ type: 'warning', icon: '🎪', text: `${inProgress.length} tasks in progress at once. Try finishing some before starting more.`, actionLabel: 'Focus on one', actionFn: `startFocus()` });
 
   // Overdue pileup
-  if (overdue.length >= 3) nudges.push({ type: 'urgent', icon: '🔥', text: `${overdue.length} overdue tasks. Consider rescheduling or completing — overdue items erode trust in your system.` });
+  if (overdue.length >= 3) nudges.push({ type: 'urgent', icon: '🔥', text: `${overdue.length} overdue tasks. Consider rescheduling or completing — overdue items erode trust in your system.`, actionLabel: 'Review overdue', actionFn: `nudgeFilterOverdue()` });
 
   // Velocity check
   const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10);
@@ -5782,7 +6261,7 @@ function getSmartNudges() {
 
   // Unassigned tasks
   const unassigned = active.filter(t => !t.project);
-  if (unassigned.length >= 3) nudges.push({ type: 'action', icon: '📂', text: `${unassigned.length} tasks without a project. Assigning them helps AI give better advice.` });
+  if (unassigned.length >= 3) nudges.push({ type: 'action', icon: '📂', text: `${unassigned.length} tasks without a project. Assigning them helps AI give better advice.`, actionLabel: 'Assign them', actionFn: `nudgeFilterUnassigned()` });
 
   // Big tasks without subtasks
   const bigNoSubs = active.filter(t => t.title.length > 40 && (!t.subtasks || t.subtasks.length === 0));
@@ -5803,11 +6282,33 @@ function renderNudgeBar() {
   if (!nudges.length) return '';
   const colorMap = { urgent: 'var(--red)', warning: 'var(--orange)', action: 'var(--accent)', positive: 'var(--green)', stale: 'var(--text3)', habit: 'var(--purple)' };
   return `<div style="display:flex;flex-direction:column;gap:6px;margin-bottom:16px">
-    ${nudges.map(n => `<div style="display:flex;align-items:flex-start;gap:8px;padding:8px 12px;background:var(--surface);border-radius:var(--radius-xs);border-left:3px solid ${colorMap[n.type] || 'var(--accent)'}">
+    ${nudges.map(n => `<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--surface);border-radius:var(--radius-xs);border-left:3px solid ${colorMap[n.type] || 'var(--accent)'}">
       <span style="flex-shrink:0">${n.icon}</span>
-      <span style="font-size:12px;color:var(--text2);line-height:1.4">${n.text}</span>
+      <span style="font-size:12px;color:var(--text2);line-height:1.4;flex:1">${n.text}</span>
+      ${n.actionLabel ? `<button class="btn btn-sm" onclick="${n.actionFn}" style="flex-shrink:0;font-size:11px;padding:3px 10px;white-space:nowrap">${n.actionLabel}</button>` : ''}
     </div>`).join('')}
   </div>`;
+}
+
+function nudgeFilterOverdue() {
+  window._nudgeFilter = 'overdue';
+  setView('dashboard');
+  render();
+  showToast('Showing overdue tasks');
+}
+
+function nudgeFilterStale() {
+  window._nudgeFilter = 'stale';
+  setView('dashboard');
+  render();
+  showToast('Showing stale tasks');
+}
+
+function nudgeFilterUnassigned() {
+  window._nudgeFilter = 'unassigned';
+  setView('dashboard');
+  render();
+  showToast('Showing unassigned tasks');
 }
 
 // ============================================================
@@ -5909,6 +6410,7 @@ async function offerStuckHelp(taskId) {
   chatHistory = [
     { role: 'user', content: `I'm stuck on "${t.title}". Help me think through it.` },
   ];
+  saveChatHistory();
 
   const prompt = `${AI_PERSONA}
 
@@ -5927,6 +6429,7 @@ Be curious, not prescriptive. 2-3 sentences. Ask a real question.`;
   try {
     const reply = await callAI(prompt, { maxTokens: 200 });
     chatHistory.push({ role: 'assistant', content: reply });
+    saveChatHistory();
     const formatted = esc(reply).replace(/\n/g, '<br>').replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
     document.getElementById('chatTitle').textContent = proj ? `Chat: ${proj.name}` : 'AI Assistant';
     document.getElementById('chatMessages').innerHTML = `<div class="chat-msg ai">${formatted}</div>`;
@@ -5948,6 +6451,9 @@ async function getTaskCoachTip(taskId) {
   }
   const t = data.tasks.find(x => x.id === taskId);
   if (!t) return;
+  // Skip trivial tasks — short title, no notes, no subtasks don't benefit from coaching
+  const _wordCount = t.title.trim().split(/\s+/).length;
+  if (_wordCount < 5 && !t.notes && (!t.subtasks || !t.subtasks.length)) return;
   const proj = data.projects.find(p => p.id === t.project);
   const tipEl = document.getElementById('coachTip_' + taskId);
   if (!tipEl) return;
