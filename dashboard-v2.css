@@ -1,0 +1,185 @@
+/* AI-first dashboard redesign styles */
+.ai-hero-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, var(--accent), var(--purple), var(--accent));
+}
+.ai-hero-greeting {
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.3px;
+  color: var(--text);
+  margin-bottom: 4px;
+}
+.ai-hero-sub {
+  font-size: 13px;
+  color: var(--text2);
+  line-height: 1.5;
+  margin-bottom: 16px;
+}
+.ai-hero-status {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+.ai-hero-status-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text2);
+}
+.ai-hero-status-item .status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  flex-shrink: 0;
+}
+.ai-hero-nudges {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+.ai-hero-nudge {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: rgba(0,0,0,0.15);
+  border-radius: var(--radius-xs);
+}
+.ai-hero-nudge .nudge-text {
+  font-size: 12px;
+  color: var(--text2);
+  line-height: 1.4;
+  flex: 1;
+}
+.ai-hero-nudge .nudge-action {
+  flex-shrink: 0;
+}
+.conversational-input {
+  width: 100%;
+  padding: 12px 0;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--border2);
+  color: var(--text);
+  font-size: 16px;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.2s;
+}
+.conversational-input:focus {
+  border-bottom-color: var(--accent);
+}
+.conversational-input::placeholder {
+  color: var(--text3);
+  font-weight: 300;
+}
+
+/* Smart Feed */
+.smart-feed {
+  margin-bottom: 28px;
+}
+.smart-feed-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.smart-feed-title {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: var(--text3);
+}
+.smart-feed-count {
+  font-size: 10px;
+  color: var(--text3);
+  background: var(--surface3);
+  padding: 1px 6px;
+  border-radius: 10px;
+}
+.smart-feed-line {
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+.smart-feed-more {
+  font-size: 11px;
+  color: var(--accent);
+  cursor: pointer;
+  background: none;
+  border: none;
+  font-family: inherit;
+  padding: 6px 0;
+  margin-top: 4px;
+}
+.smart-feed-more:hover {
+  text-decoration: underline;
+}
+
+/* Today Card (merged briefing + plan) */
+.today-card {
+  background: linear-gradient(135deg, rgba(129,140,248,0.06), rgba(168,85,247,0.04));
+  border: 1px solid rgba(129,140,248,0.15);
+  border-radius: var(--radius);
+  padding: 20px 24px;
+  margin-bottom: 24px;
+  position: relative;
+  overflow: hidden;
+}
+.today-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, var(--accent), var(--purple), var(--accent));
+}
+.today-card-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.today-card-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+}
+.today-card-date {
+  font-size: 11px;
+  color: var(--text3);
+  margin-left: auto;
+}
+.today-briefing-body {
+  font-size: 13px;
+  color: var(--text2);
+  line-height: 1.7;
+}
+.today-briefing-body ul {
+  list-style: none;
+  padding: 0;
+  margin: 8px 0;
+}
+.today-briefing-body li {
+  padding: 4px 0;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+.today-briefing-body li::before {
+  content: '';
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--accent);
+  flex-shrink: 0;
+  margin-top: 7px;
+}
