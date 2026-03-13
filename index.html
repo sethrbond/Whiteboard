@@ -1616,9 +1616,6 @@ body {
       <span style="margin-left:8px">·</span>
       <a style="margin-left:8px" onclick="showForgotPassword()">Forgot password?</a>
     </div>
-    <div style="text-align:center;margin-top:16px">
-      <a style="font-size:11px;color:var(--text3);cursor:pointer" onclick="skipAuth()">Continue without account</a>
-    </div>
   </div>
 </div>
 
@@ -2197,8 +2194,8 @@ function render() {
   attachListeners();
   renderBulkBar();
 
-  // Auto-generate briefing and plan on first dashboard load of the day
-  if (currentView === 'dashboard' && dashViewMode === 'list') {
+  // Auto-generate briefing and plan on first dashboard load of the day (only if user has tasks)
+  if (currentView === 'dashboard' && dashViewMode === 'list' && data.tasks.length > 0) {
     if (settings.apiKey && !localStorage.getItem('whiteboard_briefing_' + todayStr()) && !window._briefingGenerating) {
       window._briefingGenerating = true;
       generateAIBriefing().finally(() => { window._briefingGenerating = false; });
@@ -5184,11 +5181,12 @@ Keep it under 200 words. Be encouraging but honest.`;
 // ============================================================
 async function planMyDay() {
   if (!settings.apiKey) { showToast('Add a Claude API key in Settings first', true); return; }
+  const active = data.tasks.filter(t => t.status !== 'done');
+  if (active.length === 0) return; // Nothing to plan
   const btn = document.getElementById('planBtn');
   if (btn) btn.innerHTML = '<div class="spinner"></div> Planning...';
 
   const ctx = buildAIContext('all');
-  const active = data.tasks.filter(t => t.status !== 'done');
   const taskList = active.map(t => {
     const proj = data.projects.find(p => p.id === t.project);
     return `${t.id}|${t.title}|${t.priority}|${t.status}|${t.dueDate || 'no date'}|${proj ? proj.name : 'unassigned'}|${isBlocked(t) ? 'BLOCKED' : 'ready'}`;
