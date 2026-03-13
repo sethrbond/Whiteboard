@@ -20,7 +20,7 @@
   --border2: #333338;
   --text: #fafafa;
   --text2: #a1a1aa;
-  --text3: #63636e;
+  --text3: #8a8a96;
   --accent: #818cf8;
   --accent2: #6366f1;
   --accent-dim: rgba(129,140,248,0.08);
@@ -1622,7 +1622,7 @@ body {
 <div class="sidebar" id="sidebar">
   <div class="sidebar-logo">
     <div class="logo-mark">W</div>
-    Whiteboard
+    Whiteboards
   </div>
 
   <div class="nav-section">
@@ -1731,14 +1731,22 @@ async function initAuth() {
       currentView = 'dashboard';
       currentProject = null;
       expandedTask = null;
+      localStorage.removeItem(STORE_KEY);
+      if (window._focusInterval) { clearInterval(window._focusInterval); window._focusInterval = null; }
       document.getElementById('authScreen').style.display = 'flex';
-      document.querySelector('.sidebar').style.display = '';
+      document.querySelector('.sidebar').style.display = 'none';
+      document.querySelector('.main').style.display = 'none';
+      document.getElementById('chatPanel').classList.remove('open');
+      document.getElementById('chatToggle').style.display = 'none';
     }
   });
 }
 
 function showApp() {
   document.getElementById('authScreen').style.display = 'none';
+  document.querySelector('.sidebar').style.display = '';
+  document.querySelector('.main').style.display = '';
+  document.getElementById('chatToggle').style.display = '';
   ensureLifeProject();
   processRecurringTasks();
   render();
@@ -1832,8 +1840,7 @@ function showForgotPassword() {
 
 async function signOut() {
   await sb.auth.signOut();
-  currentUser = null;
-  document.getElementById('authScreen').style.display = 'flex';
+  // SIGNED_OUT handler does the cleanup
 }
 
 // --- Cloud Sync ---
@@ -1849,10 +1856,13 @@ async function loadFromCloud() {
       if (row.habits && row.habits.length > 0) data.habits = row.habits;
       if (row.ai_memory && row.ai_memory.length > 0) saveAIMemory(row.ai_memory);
       // Note: new syncs no longer include apiKey (stays in localStorage only), but load it from cloud for backwards compat
-      if (row.settings) { settings = { ...settings, ...row.settings }; localStorage.setItem('wb_settings', JSON.stringify(settings)); }
-      _suppressCloudSync = true;
-      saveData(data);
-      _suppressCloudSync = false;
+      if (row.settings) { const { apiKey, ...safeSettings } = row.settings; settings = { ...settings, ...safeSettings }; localStorage.setItem('wb_settings', JSON.stringify(settings)); }
+      try {
+        _suppressCloudSync = true;
+        saveData(data);
+      } finally {
+        _suppressCloudSync = false;
+      }
       syncStatus = 'synced';
     } else {
       // First login — push local data up
@@ -2110,13 +2120,13 @@ function findSimilarTask(title, projectId) {
     if (score > bestScore) { bestScore = score; best = t; }
   }
   // Also check across all projects if no project-scoped match
-  if (bestScore < 0.8 && projectId) {
+  if (bestScore < 0.9 && projectId) {
     for (const t of data.tasks) {
       const score = titleSimilarity(title, t.title);
       if (score > bestScore) { bestScore = score; best = t; }
     }
   }
-  return bestScore >= 0.8 ? best : null;
+  return bestScore >= 0.9 ? best : null;
 }
 function findSimilarProject(name) {
   let best = null, bestScore = 0;
@@ -2329,7 +2339,7 @@ function renderDashboard() {
       ${allTags.map(tag => {
         const c = getTagColor(tag);
         const active = activeTagFilter === tag;
-        return `<span class="tag-chip${active ? ' selected' : ''}" style="background:${c.bg};color:${c.color};font-size:10px" onclick="filterByTag('${esc(tag)}')">${esc(tag)}</span>`;
+        return `<span class="tag-chip tag-filter-btn${active ? ' selected' : ''}" style="background:${c.bg};color:${c.color};font-size:10px" data-tag="${esc(tag)}">${esc(tag)}</span>`;
       }).join('')}
       ${activeTagFilter ? `<span style="font-size:10px;color:var(--accent);cursor:pointer;margin-left:4px" onclick="activeTagFilter='';render()">✕ clear</span>` : ''}
     </div>`;
@@ -2389,7 +2399,7 @@ function renderDashboard() {
   }
 
   // Due this week
-  const weekFromNow = new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10);
+  const weekFromNow = localISO(new Date(Date.now() + 7 * 86400000));
   const dueSoon = active.filter(t => t.dueDate && t.dueDate > todayStr() && t.dueDate <= weekFromNow && !urgent.includes(t));
   if (dueSoon.length > 0) {
     html += `<div class="section"><div class="section-header"><div class="section-title" style="color:var(--orange)">Due This Week</div><div class="section-count">${dueSoon.length}</div><div class="section-line"></div></div>`;
@@ -2614,9 +2624,9 @@ function renderProject(p) {
       </div>`}
     </div>
     <div class="project-info-stats">
-      <div class="project-info-stat"><strong>${active.length}</strong>Active</div>
-      <div class="project-info-stat"><strong>${done.length}</strong>Completed</div>
-      ${urgent.length ? `<div class="project-info-stat" style="color:var(--red)"><strong>${urgent.length}</strong>Urgent</div>` : ''}
+      <div class="project-info-stat"><strong>${active.length}</strong> Active</div>
+      <div class="project-info-stat"><strong>${done.length}</strong> Completed</div>
+      ${urgent.length ? `<div class="project-info-stat" style="color:var(--red)"><strong>${urgent.length}</strong> Urgent</div>` : ''}
     </div>
   </div>`;
 
@@ -2833,7 +2843,7 @@ function renderTagChips(tags) {
   if (!tags || !tags.length) return '';
   return tags.map(tag => {
     const c = getTagColor(tag);
-    return `<span class="tag tag-label" style="background:${c.bg};color:${c.color}" onclick="event.stopPropagation();filterByTag('${esc(tag)}')">${esc(tag)}</span>`;
+    return `<span class="tag tag-label tag-filter-btn" style="background:${c.bg};color:${c.color}" data-tag="${esc(tag)}">${esc(tag)}</span>`;
   }).join('');
 }
 
@@ -3304,6 +3314,15 @@ function attachListeners() {
   attachInlineEdit();
   attachTooltips();
   attachBulkListeners();
+
+  // Tag filter delegation
+  document.querySelectorAll('.tag-filter-btn').forEach(el => {
+    el.onclick = (e) => {
+      e.stopPropagation();
+      const tag = el.dataset.tag;
+      if (tag != null) filterByTag(tag);
+    };
+  });
 }
 
 // Sidebar nav
@@ -3326,7 +3345,23 @@ document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') { e.target.blur(); return; }
     return;
   }
-  if (e.key === 'Escape') { if (expandedTask) { expandedTask = null; kbIdx = -1; render(); } else closeModal(); return; }
+  if (e.key === 'Escape') {
+    // Close chat panel if open
+    const chatPanel = document.getElementById('chatPanel');
+    if (chatPanel && chatPanel.classList.contains('open')) {
+      chatPanel.classList.remove('open');
+      return;
+    }
+    // Close mobile sidebar if open
+    const sidebar = document.querySelector('.sidebar');
+    if (sidebar && sidebar.classList.contains('open')) {
+      sidebar.classList.remove('open');
+      const overlay = document.getElementById('sidebarOverlay');
+      if (overlay) overlay.style.display = 'none';
+      return;
+    }
+    if (expandedTask) { expandedTask = null; kbIdx = -1; render(); } else closeModal(); return;
+  }
   // j/k/x/e keyboard navigation
   if ('jkxe'.includes(e.key)) {
     const rows = [...document.querySelectorAll('.task-row, .task-expanded')];
@@ -3385,7 +3420,7 @@ function highlightKbRow(rows) {
 // ============================================================
 function closeModal() {
   const overlay = $('#modalRoot').querySelector('.modal-overlay');
-  if (overlay) { overlay.style.opacity = '0'; overlay.querySelector('.modal').style.transform = 'translateY(8px)'; overlay.querySelector('.modal').style.opacity = '0'; setTimeout(() => { $('#modalRoot').innerHTML = ''; }, 150); }
+  if (overlay) { overlay.style.opacity = '0'; const modal = overlay.querySelector('.modal'); if (modal) { modal.style.transform = 'translateY(8px)'; modal.style.opacity = '0'; } setTimeout(() => { $('#modalRoot').innerHTML = ''; }, 150); }
   else { $('#modalRoot').innerHTML = ''; }
 }
 
@@ -4103,7 +4138,7 @@ async function processDump() {
   const statusMsg = dumpMode === 'meeting' ? 'Parsing meeting notes — extracting action items, decisions, and follow-ups...' : 'Analyzing document — extracting all tasks, context, and project details...';
   if (statusEl) statusEl.innerHTML = `<div class="ai-status"><div class="spinner"></div>${statusMsg}<button class="btn btn-sm" style="margin-left:12px;font-size:10px;color:var(--red);border-color:var(--red)" onclick="cancelDump()">Cancel</button></div>`;
 
-  const existingTasks = data.tasks.map(t => ({ id: t.id, title: t.title, project: t.project, priority: t.priority, status: t.status, notes: t.notes }));
+  const existingTasks = data.tasks.map(t => ({ id: t.id, title: t.title, project: t.project, priority: t.priority, status: t.status, notes: t.notes, createdAt: t.createdAt }));
   const existingProjects = data.projects.map(p => ({ id: p.id, name: p.name, description: (p.description || '').slice(0, 200) }));
   const existingHabits = data.habits.map(h => h.name);
 
@@ -4274,7 +4309,6 @@ ${text}${attachmentText}`;
     if (!resp.ok) throw new Error(`API ${resp.status}`);
     const result = await resp.json();
     const content = result.content[0].text;
-    console.log('AI response:', content);
 
     let parsed;
     // Try parsing as object first
@@ -4408,8 +4442,7 @@ ${text}${attachmentText}`;
         } else {
           const taskStatus = item.status || 'todo';
           const st = (item.subtasks || []).map(s => ({ id: genId('st'), title: s, done: taskStatus === 'done' }));
-          // Enforce short notes: first sentence, max 120 chars
-          let taskNotes = (item.notes || '').split(/[.!?]\s/)[0].slice(0, 120);
+          let taskNotes = item.notes || '';
           const t = createTask({
             title: item.title, notes: taskNotes,
             priority: item.priority || 'normal', horizon: item.horizon || 'short',
@@ -4805,7 +4838,7 @@ function relativeTime(isoStr) {
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
-function esc(s) { return s ? String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;').replace(/`/g,'&#96;') : ''; }
+function esc(s) { return s != null ? String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;').replace(/`/g,'&#96;') : ''; }
 
 function showToast(msg, isError = false, isSuccess = false) {
   document.querySelectorAll('.toast').forEach(t => t.remove());
@@ -4876,7 +4909,12 @@ function parseNaturalDate(text) {
       if (targetDay !== -1) {
         const d = new Date(today);
         let diff = targetDay - d.getDay();
-        if (diff <= 0 || dayMatch[0].toLowerCase().startsWith('next')) diff += 7;
+        if (dayMatch[0].toLowerCase().startsWith('next')) {
+          if (diff <= 0) diff += 7;
+          diff += 7;
+        } else if (diff <= 0) {
+          diff += 7;
+        }
         d.setDate(d.getDate() + diff);
         dueDate = localISO(d); raw = raw.replace(dayMatch[0], '').trim();
       }
@@ -5015,8 +5053,8 @@ function renderWeeklyReview() {
   const day = now.getDay();
   const mon = new Date(now); mon.setDate(now.getDate() - (day === 0 ? 6 : day - 1));
   const sun = new Date(mon); sun.setDate(mon.getDate() + 6);
-  const weekStart = mon.toISOString().slice(0,10);
-  const weekEnd = sun.toISOString().slice(0,10);
+  const weekStart = localISO(mon);
+  const weekEnd = localISO(sun);
   const weekLabel = `${mon.toLocaleDateString('en-US',{month:'short',day:'numeric'})} — ${sun.toLocaleDateString('en-US',{month:'short',day:'numeric'})}`;
 
   // This week's completed tasks
@@ -5145,8 +5183,8 @@ async function generateWeeklyReview() {
   const now = new Date();
   const day = now.getDay();
   const mon = new Date(now); mon.setDate(now.getDate() - (day === 0 ? 6 : day - 1));
-  const weekStart = mon.toISOString().slice(0,10);
-  const weekEnd = new Date(mon.getTime() + 6*86400000).toISOString().slice(0,10);
+  const weekStart = localISO(mon);
+  const weekEnd = localISO(new Date(mon.getTime() + 6*86400000));
 
   const completed = data.tasks.filter(t => t.completedAt && t.completedAt.slice(0,10) >= weekStart && t.completedAt.slice(0,10) <= weekEnd);
   const created = data.tasks.filter(t => t.createdAt && t.createdAt.slice(0,10) >= weekStart && t.createdAt.slice(0,10) <= weekEnd);
@@ -5447,14 +5485,20 @@ function exportCalendar() {
   if (!tasks.length) { showToast('No tasks with due dates to export', true); return; }
 
   let ics = 'BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//Whiteboards//EN\nCALSCALE:GREGORIAN\n';
+  const stamp = new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d+/, '');
+  const escICS = s => (s || '').replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\n/g, '\\n');
   tasks.forEach(t => {
     const d = t.dueDate.replace(/-/g, '');
+    const nextDay = new Date(t.dueDate + 'T00:00:00');
+    nextDay.setDate(nextDay.getDate() + 1);
+    const dtEnd = localISO(nextDay).replace(/-/g, '');
     const proj = data.projects.find(p => p.id === t.project);
     ics += `BEGIN:VEVENT\n`;
+    ics += `DTSTAMP:${stamp}\n`;
     ics += `DTSTART;VALUE=DATE:${d}\n`;
-    ics += `DTEND;VALUE=DATE:${d}\n`;
-    ics += `SUMMARY:${t.title}\n`;
-    ics += `DESCRIPTION:${(t.notes || '').replace(/\n/g, '\\n')}${proj ? '\\nProject: '+proj.name : ''}\n`;
+    ics += `DTEND;VALUE=DATE:${dtEnd}\n`;
+    ics += `SUMMARY:${escICS(t.title)}\n`;
+    ics += `DESCRIPTION:${escICS((t.notes || '') + (proj ? '\nProject: '+proj.name : ''))}\n`;
     ics += `STATUS:${t.status === 'in-progress' ? 'IN-PROCESS' : 'NEEDS-ACTION'}\n`;
     ics += `PRIORITY:${t.priority === 'urgent' ? 1 : t.priority === 'important' ? 5 : 9}\n`;
     ics += `UID:${t.id}@whiteboard\n`;
@@ -5773,7 +5817,7 @@ function maybeReflect(t) {
   if (!settings.apiKey) return;
   // Only reflect on ~30% of completions, and only for non-trivial tasks
   const isNontrivial = t.priority === 'urgent' || t.priority === 'important' || (t.subtasks && t.subtasks.length >= 2) || (t.notes && t.notes.length > 20);
-  if (!isNontrivial || Math.random() > 0.3) return;
+  if (!isNontrivial || Math.random() > 0.7) return;
 
   const proj = data.projects.find(p => p.id === t.project);
   const relatedActive = data.tasks.filter(x => x.status !== 'done' && x.project === t.project && x.id !== t.id);
