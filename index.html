@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Whiteboard</title>
+<title>Whiteboards</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -1596,11 +1596,11 @@ body {
 <body>
 
 <!-- Auth Screen -->
-<div class="auth-screen" id="authScreen" role="dialog" aria-modal="true" aria-label="Sign in to Whiteboard">
+<div class="auth-screen" id="authScreen" role="dialog" aria-modal="true" aria-label="Sign in to Whiteboards">
   <div class="auth-card">
     <div class="auth-logo">
       <div class="auth-logo-mark">W</div>
-      <div class="auth-logo-text">Whiteboard</div>
+      <div class="auth-logo-text">Whiteboards</div>
       <div class="auth-logo-sub">AI-powered productivity command center</div>
     </div>
     <div id="authError"></div>
@@ -2253,7 +2253,7 @@ function renderDashboard() {
   if (data.tasks.length === 0 && data.projects.length <= 1) {
     return `<div style="max-width:480px;margin:60px auto;text-align:center">
       <div style="font-size:48px;margin-bottom:16px;opacity:0.3">✦</div>
-      <h2 style="font-size:20px;font-weight:600;margin-bottom:8px">Welcome to Whiteboard</h2>
+      <h2 style="font-size:20px;font-weight:600;margin-bottom:8px">Welcome to Whiteboards</h2>
       <p style="font-size:14px;color:var(--text3);line-height:1.6;margin-bottom:28px">Your AI-powered command center. Start by creating a project, quick-adding a task, or brain-dumping everything on your mind.</p>
       <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
         <button class="btn btn-primary" onclick="openNewProject()">+ New Project</button>
@@ -3199,7 +3199,7 @@ async function runTaskCmdAI(taskId, input) {
   const projects = data.projects.map(p => ({ id: p.id, name: p.name }));
   const proj = data.projects.find(p => p.id === t.project);
 
-  const prompt = `You are a task command interpreter embedded in Whiteboard. The user typed a natural language command about this task.
+  const prompt = `You are a task command interpreter embedded in Whiteboards. The user typed a natural language command about this task.
 
 TASK: "${t.title}" (priority: ${t.priority}, status: ${t.status}, project: ${proj ? proj.name : 'none'}, due: ${t.dueDate || 'none'}, notes: ${(t.notes || '').slice(0, 200) || 'none'}, subtasks: ${t.subtasks?.length || 0})
 
@@ -3739,7 +3739,7 @@ function buildAIContext(scope = 'all', projectId = null, detail = 'standard') {
 }
 
 // --- Shared AI Persona ---
-const AI_PERSONA = `You are the user's strategic partner — not just an assistant, but a co-pilot embedded in their productivity system called Whiteboard. You have full read/write access to their tasks, projects, habits, and AI memory.
+const AI_PERSONA = `You are the user's strategic partner — not just an assistant, but a co-pilot embedded in their productivity system called Whiteboards. You have full read/write access to their tasks, projects, habits, and AI memory.
 
 PERSONALITY:
 - Direct and concise. Default to short responses. "Done." / "Got it." / "Moved to urgent."
@@ -5431,7 +5431,7 @@ function exportCalendar() {
   const tasks = data.tasks.filter(t => t.dueDate && t.status !== 'done');
   if (!tasks.length) { showToast('No tasks with due dates to export', true); return; }
 
-  let ics = 'BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//Whiteboard//EN\nCALSCALE:GREGORIAN\n';
+  let ics = 'BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//Whiteboards//EN\nCALSCALE:GREGORIAN\n';
   tasks.forEach(t => {
     const d = t.dueDate.replace(/-/g, '');
     const proj = data.projects.find(p => p.id === t.project);
