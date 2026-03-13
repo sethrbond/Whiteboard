@@ -34,6 +34,7 @@
   --green-dim: rgba(34,197,94,0.1);
   --blue: #3b82f6;
   --purple: #a855f7;
+  --amber: #f59e0b;
   --radius: 12px;
   --radius-sm: 8px;
   --radius-xs: 6px;
@@ -1166,6 +1167,7 @@ body {
   transition: all 0.15s;
 }
 .chat-msg.ai .chat-action:hover { border-color: var(--accent); background: var(--accent-glow); }
+.chat-typing { color: var(--text3); font-style: italic; }
 
 .chat-input-row {
   padding: 12px 16px;
@@ -1727,6 +1729,11 @@ async function initAuth() {
     } else if (event === 'SIGNED_OUT') {
       authInitialized = false;
       currentUser = null;
+      data = { tasks: [], projects: [], habits: [] };
+      chatHistory = [];
+      currentView = 'dashboard';
+      currentProject = null;
+      expandedTask = null;
       document.getElementById('authScreen').style.display = 'flex';
       document.querySelector('.sidebar').style.display = '';
     }
@@ -1736,6 +1743,7 @@ async function initAuth() {
 function showApp() {
   document.getElementById('authScreen').style.display = 'none';
   ensureLifeProject();
+  processRecurringTasks();
   render();
 }
 
@@ -1832,7 +1840,8 @@ async function loadFromCloud() {
       if (row.projects && row.projects.length > 0) data.projects = row.projects;
       if (row.habits && row.habits.length > 0) data.habits = row.habits;
       if (row.ai_memory && row.ai_memory.length > 0) saveAIMemory(row.ai_memory);
-      if (row.settings && row.settings.apiKey) { settings = { ...settings, ...row.settings }; localStorage.setItem('wb_settings', JSON.stringify(settings)); }
+      // Note: new syncs no longer include apiKey (stays in localStorage only), but load it from cloud for backwards compat
+      if (row.settings) { settings = { ...settings, ...row.settings }; localStorage.setItem('wb_settings', JSON.stringify(settings)); }
       _suppressCloudSync = true;
       saveData(data);
       _suppressCloudSync = false;
@@ -1863,7 +1872,7 @@ async function syncToCloud() {
       projects: data.projects,
       habits: data.habits,
       ai_memory: getAIMemory(),
-      settings: { apiKey: settings.apiKey, aiModel: settings.aiModel }
+      settings: { aiModel: settings.aiModel }
     }, { onConflict: 'user_id' });
     if (error) throw error;
     syncStatus = 'synced';
@@ -1938,6 +1947,7 @@ let showProjectBg = {}; // projectId -> boolean
 let dashViewMode = 'list'; // 'list' | 'week' | 'month'
 let calendarOffset = 0; // weeks or months offset from current
 const undoStack = []; // [{ label, snapshot }] — max 20
+const coachTipCache = {}; // taskId -> tip string
 
 // ============================================================
 // CRUD
@@ -1997,6 +2007,20 @@ function updateTask(id, u) {
   saveData(data);
   // Trigger reflection on meaningful completions (not every time)
   if (wasNotDone && u.status === 'done') maybeReflect(t);
+  // If completing a task that's in today's plan, refresh the plan
+  if (u.status === 'done') {
+    const planKey = 'whiteboard_plan_' + todayStr();
+    const cachedPlan = localStorage.getItem(planKey);
+    if (cachedPlan) {
+      try {
+        const plan = JSON.parse(cachedPlan);
+        if (plan.some(p => p.id === id)) {
+          const updated = plan.filter(p => p.id !== id);
+          localStorage.setItem(planKey, JSON.stringify(updated));
+        }
+      } catch {}
+    }
+  }
 }
 function deleteTask(id, silent) {
   const t = data.tasks.find(x => x.id === id);
@@ -2078,13 +2102,13 @@ function findSimilarTask(title, projectId) {
     if (score > bestScore) { bestScore = score; best = t; }
   }
   // Also check across all projects if no project-scoped match
-  if (bestScore < 0.6 && projectId) {
+  if (bestScore < 0.8 && projectId) {
     for (const t of data.tasks) {
       const score = titleSimilarity(title, t.title);
       if (score > bestScore) { bestScore = score; best = t; }
     }
   }
-  return bestScore >= 0.6 ? best : null;
+  return bestScore >= 0.8 ? best : null;
 }
 function findSimilarProject(name) {
   let best = null, bestScore = 0;
@@ -2172,6 +2196,18 @@ function render() {
   $('#headerActions').innerHTML = '<button class="btn btn-sm btn-ghost" onclick="openSearch()" style="color:var(--text3);font-size:11px">&#8984;K</button>' + $('#headerActions').innerHTML;
   attachListeners();
   renderBulkBar();
+
+  // Auto-generate briefing and plan on first dashboard load of the day
+  if (currentView === 'dashboard' && dashViewMode === 'list') {
+    if (settings.apiKey && !localStorage.getItem('whiteboard_briefing_' + todayStr()) && !window._briefingGenerating) {
+      window._briefingGenerating = true;
+      generateAIBriefing().finally(() => { window._briefingGenerating = false; });
+    }
+    if (settings.apiKey && !localStorage.getItem('whiteboard_plan_' + todayStr()) && !window._planGenerating) {
+      window._planGenerating = true;
+      planMyDay().finally(() => { window._planGenerating = false; });
+    }
+  }
 }
 
 function renderSidebar() {
@@ -2248,15 +2284,34 @@ function renderDashboard() {
     <div class="dash-greeting-sub">${subGreeting}${overdue.length ? '' : ` <span style="color:var(--text3)">${active.length} active · ${inProgress.length} in progress · ${done.length} done</span>`}</div>
   </div>`;
 
+  // "Right now" focus block
+  const planKey2 = 'whiteboard_plan_' + todayStr();
+  const plan2 = (() => { try { return JSON.parse(localStorage.getItem(planKey2) || '[]'); } catch { return []; } })();
+  const nextPlanned = plan2.find(p => { const t = data.tasks.find(x => x.id === p.id); return t && t.status !== 'done'; });
+  const nextTask = nextPlanned ? data.tasks.find(x => x.id === nextPlanned.id) : null;
+  if (nextTask || overdue.length) {
+    html += `<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px 20px;margin-bottom:16px">`;
+    if (nextTask) {
+      html += `<div style="font-size:11px;text-transform:uppercase;letter-spacing:0.5px;color:var(--accent);font-weight:600;margin-bottom:6px">Up Next</div>`;
+      html += `<div style="font-size:15px;font-weight:500;color:var(--text);margin-bottom:4px;cursor:pointer" onclick="expandedTask='${nextTask.id}';render()">${esc(nextTask.title)}</div>`;
+      if (nextPlanned.why) html += `<div style="font-size:12px;color:var(--text3);font-style:italic">↳ ${esc(nextPlanned.why)}</div>`;
+    }
+    if (overdue.length) {
+      html += `<div style="font-size:12px;color:var(--red);margin-top:${nextTask ? '10' : '0'}px">${overdue.length} overdue task${overdue.length > 1 ? 's' : ''} need${overdue.length === 1 ? 's' : ''} attention</div>`;
+    }
+    html += `</div>`;
+  }
+
   // Smart nudges + stuck detection
   html += renderNudgeBar();
   html += renderStuckNudges();
 
   html += `<div class="quick-capture">
-    <input class="quick-capture-input" id="quickCapture" placeholder="Quick add a task... (or press / to focus)" onkeydown="if(event.key==='Enter'&&this.value.trim()){quickAddFromCapture();}" autocomplete="off">
+    <input class="quick-capture-input" id="quickCapture" placeholder="Add a task... try 'call dentist friday !!' or 'report due next week'" oninput="previewQuickCapture()" onkeydown="if(event.key==='Enter'&&this.value.trim()){quickAddFromCapture();}" autocomplete="off">
     <select class="quick-capture-project" id="quickCaptureProject">${projOpts}</select>
     <button class="btn btn-primary" onclick="quickAddFromCapture()" style="flex-shrink:0">Add</button>
-  </div>`;
+  </div>
+  <div id="quickCapturePreview" class="smart-date-preview" style="padding-left:12px"></div>`;
 
   // Tag filter bar
   const allTags = getAllTags();
@@ -2284,7 +2339,7 @@ function renderDashboard() {
       </div>
       ${cachedBriefing ? `<div class="briefing-body" id="briefingBody">${cachedBriefing}</div>` : ''}
       <div style="display:flex;gap:8px">
-        <button class="briefing-generate" onclick="generateAIBriefing()" id="briefingBtn">${cachedBriefing ? '↻ Refresh' : '✦ Generate Briefing'}</button>
+        <button class="briefing-generate" onclick="generateAIBriefing()" id="briefingBtn">${cachedBriefing ? '↻ Refresh' : (window._briefingGenerating ? '✦ Generating...' : '✦ Generate Briefing')}</button>
         <button class="briefing-generate" onclick="planMyDay()" id="planBtn" style="color:var(--accent)">◎ Plan My Day</button>
       </div>
     </div>`;
@@ -2558,7 +2613,7 @@ function renderProject(p) {
   </div>`;
 
   html += `<div style="margin-bottom:20px;display:flex;gap:8px">
-    <input class="form-input" id="quickAdd" placeholder="Quick add a task..." style="flex:1" onkeydown="if(event.key==='Enter'&&this.value.trim()){addTask(createTask({title:this.value.trim(),project:'${p.id}'}));this.value='';render()}">
+    <input class="form-input" id="quickAdd" placeholder="Quick add a task..." style="flex:1" onkeydown="if(event.key==='Enter'&&this.value.trim()){quickAddToProject(this,'${p.id}')}">
   </div>`;
 
   // KANBAN VIEW
@@ -3302,6 +3357,12 @@ document.addEventListener('keydown', (e) => {
   if (e.key === '/') { e.preventDefault(); const qc = document.getElementById('quickCapture'); if (qc) qc.focus(); else setView('dashboard'); }
 });
 
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('.dropdown')) {
+    document.querySelectorAll('.dropdown.open').forEach(d => d.classList.remove('open'));
+  }
+});
+
 let kbIdx = -1;
 function highlightKbRow(rows) {
   rows.forEach((r, i) => {
@@ -3518,7 +3579,6 @@ function openNewTask(projectId = '') {
     <div class="form-group"><label class="form-label">Notes</label><input class="form-input" id="fNotes" placeholder="Details..."></div>
     <div class="form-row">
       <div class="form-group"><label class="form-label">Priority</label><select class="form-select" id="fPriority"><option value="urgent">Urgent</option><option value="important">Important</option><option value="normal" selected>Normal</option><option value="low">Low</option></select></div>
-      <div class="form-group"><label class="form-label">Horizon</label><select class="form-select" id="fHorizon"><option value="short" selected>Short-term</option><option value="long">Long-term</option></select></div>
     </div>
     <div class="form-row">
       <div class="form-group"><label class="form-label">Project</label><select class="form-select" id="fProject"><option value="">None</option>${projOpts}</select></div>
@@ -3533,7 +3593,7 @@ function openNewTask(projectId = '') {
 function saveNewTask() {
   const title = $('#fTitle').value.trim();
   if (!title) return;
-  addTask(createTask({ title, notes: $('#fNotes').value.trim(), priority: $('#fPriority').value, horizon: $('#fHorizon').value, project: $('#fProject').value, dueDate: resolveSmartDate('fDue') }));
+  addTask(createTask({ title, notes: $('#fNotes').value.trim(), priority: $('#fPriority').value, project: $('#fProject').value, dueDate: resolveSmartDate('fDue') }));
   closeModal();
   render();
 }
@@ -3597,9 +3657,18 @@ function saveAIMemory(mem) {
 }
 
 // --- Unified Context Builder ---
-function buildAIContext(scope = 'all', projectId = null) {
+function buildAIContext(scope = 'all', projectId = null, detail = 'standard') {
   const today = todayStr();
   const hour = new Date().getHours();
+
+  // Minimal tier: ~200 tokens. Used for coaching tips, focus picks, reflections.
+  if (detail === 'minimal') {
+    const active = data.tasks.filter(t => t.status !== 'done');
+    const overdue = active.filter(t => t.dueDate && t.dueDate < today);
+    const proj = projectId ? data.projects.find(p => p.id === projectId) : null;
+    return `Today: ${today} (${new Date().toLocaleDateString('en-US', { weekday: 'long' })}), ${hour < 12 ? 'morning' : hour < 17 ? 'afternoon' : 'evening'}. ${active.length} active tasks, ${overdue.length} overdue.${proj ? ' Project: ' + proj.name + '.' : ''}`;
+  }
+
   const dayName = new Date().toLocaleDateString('en-US', { weekday: 'long' });
   const allActive = activeTasks();
   const allDone = doneTasks();
@@ -3607,7 +3676,7 @@ function buildAIContext(scope = 'all', projectId = null) {
   const dueToday = allActive.filter(t => t.dueDate === today);
   const dueThisWeek = allActive.filter(t => t.dueDate && t.dueDate > today && t.dueDate <= new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10));
   const stale = allActive.filter(t => {
-    const lastTouch = t.completedAt || t.createdAt;
+    const lastTouch = t.updates?.length ? t.updates[t.updates.length - 1].date : t.createdAt;
     return lastTouch && (Date.now() - new Date(lastTouch).getTime()) > 14 * 86400000;
   });
 
@@ -3628,8 +3697,9 @@ function buildAIContext(scope = 'all', projectId = null) {
     ctx += `\nAI MEMORY (observations from past sessions):\n${mem.map(m => `- [${m.type || 'note'}] ${m.text}`).join('\n')}\n`;
   }
 
-  // Recent chat context
-  if (chatHistory.length) {
+  // Recent chat context — only included in 'full' detail to avoid redundancy
+  // (chat callers already send history in the messages array)
+  if (detail === 'full' && chatHistory.length) {
     const recent = chatHistory.slice(-6).map(m => `${m.role}: ${m.content.slice(0, 200)}`).join('\n');
     ctx += `\nRECENT CONVERSATION:\n${recent}\n`;
   }
@@ -3700,6 +3770,7 @@ PROACTIVE BEHAVIOR:
 - When the user seems stuck, offer a concrete first step — not a lecture.
 - When workload is unbalanced, say so. "You have 12 tasks in Life and 0 in [Project] — that project needs attention."`;
 
+const AI_PERSONA_SHORT = 'You are a sharp, direct productivity co-pilot. One sentence responses unless asked for more. No preamble.';
 
 // --- Action Definitions (shared across all AI touchpoints) ---
 const AI_ACTIONS_SPEC = `
@@ -3757,7 +3828,7 @@ function executeAIActions(reply) {
           case 'create_task': {
             // Check for duplicate before creating
             const dupe = findSimilarTask(a.title, null);
-            if (dupe) { applied++; break; } // skip duplicate
+            if (dupe) { break; } // skip duplicate — don't count as applied
             const projId = a.project ? (matchProject(a.project) || {}).id || '' : '';
             const st = (a.subtasks || []).map(s => ({ id: genId('st'), title: s, done: false }));
             addTask(createTask({ title: a.title, project: projId, priority: a.priority || 'normal', dueDate: a.dueDate || '', notes: a.notes || '', subtasks: st, recurrence: a.recurrence || '', phase: a.phase || '', tags: a.tags || [] }));
@@ -3892,6 +3963,7 @@ async function callAI(prompt, opts = {}) {
   });
   if (!resp.ok) throw new Error(`API ${resp.status}`);
   const result = await resp.json();
+  if (!result.content || !result.content.length) throw new Error('Empty AI response');
   return result.content[0].text;
 }
 
@@ -4027,21 +4099,59 @@ async function processDump() {
   const existingProjects = data.projects.map(p => ({ id: p.id, name: p.name, description: (p.description || '').slice(0, 200) }));
   const existingHabits = data.habits.map(h => h.name);
 
-  // Build a compact summary of existing data — ALL tasks, not just 100
-  const existingCompact = existingTasks.map(t => `${t.id}|${t.title}|${t.status}|${(t.notes||'').slice(0,60)}`).join('\n');
+  // Build a compact summary of existing data — cap at 150 most recent to avoid prompt overflow
+  const sortedTasks = existingTasks.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+  const cappedTasks = sortedTasks.slice(0, 150);
+  const existingCompact = cappedTasks.map(t => `${t.id}|${t.title}|${t.status}|${(t.notes||'').slice(0,60)}`).join('\n');
+  const taskNote = existingTasks.length > 150 ? `\n(showing 150 most recent of ${existingTasks.length} total tasks)` : '';
   const projectCompact = existingProjects.map(p => `${p.id}|${p.name}`).join('\n');
 
-  const meetingPreamble = dumpMode === 'meeting' ? `You are parsing MEETING NOTES. Focus on:
-1. ACTION ITEMS — who needs to do what, by when. Every "will do", "needs to", "should", "agreed to" = a task.
-2. DECISIONS MADE — capture as project background updates, not tasks.
-3. DEADLINES mentioned — attach due dates to the relevant tasks.
-4. FOLLOW-UPS — "next meeting", "circle back", "revisit" = tasks with appropriate dates.
-5. OPEN QUESTIONS — unresolved items that need answers = tasks with notes.
-6. If someone is assigned ("Sarah will..."), note the owner in the task notes.
-7. Keep task count tight: 3-12 action items per meeting is typical. Don't create tasks for discussion points or FYI items.
+  const attachmentText = dumpAttachments.length ? '\n\n--- ATTACHED DOCUMENTS ---\n' + dumpAttachments.map(a => `--- ${a.name} ---\n${a.content}`).join('\n\n') : '';
 
-` : '';
-  const prompt = `${meetingPreamble}You are the world's best executive assistant. You have been handed a brainstorm — it could be a stream of consciousness, a formal project document, meeting notes, a status update, or anything in between. Your job: extract EVERYTHING useful and organize it perfectly.
+  const meetingPrompt = `You are extracting action items from meeting notes.
+
+## RULES
+- Extract ONLY actionable items: tasks someone needs to DO, DECIDE, or FOLLOW UP on.
+- Decisions, context, and background info go in projectUpdates, not as tasks.
+- 3-12 action items per meeting is typical. Don't over-extract.
+- If someone is assigned ("Sarah will..."), note the owner in task notes.
+- "Next meeting" or "follow up by [date]" = a task with a due date.
+- Open questions that need answers = tasks.
+- Discussion points and FYI items are NOT tasks.
+
+## DEDUPLICATION
+Check existing tasks before creating new ones. If a similar task exists, use "action": "update" with the existing ID.
+
+## PRIORITY
+- URGENT: deadline within 7 days, blocks others, explicitly urgent
+- IMPORTANT: significant impact, part of critical path
+- NORMAL: standard follow-up
+- LOW: nice-to-have, future consideration
+
+EXISTING TASKS (id|title|status):
+${cappedTasks.map(t => t.id + '|' + t.title + '|' + t.status).join('\n') || '(none)'}
+
+EXISTING PROJECTS (id|name):
+${projectCompact || '(none)'}
+
+TODAY: ${todayStr()}
+
+## OUTPUT FORMAT — Return ONLY this JSON:
+{
+  "projectUpdates": [
+    { "name": "Project Name", "description": "Short subtitle", "background": "## Meeting Notes\\nKey decisions and context", "isNew": false }
+  ],
+  "tasks": [
+    { "action": "create", "title": "Clear action item", "notes": "Owner: [name]. Context in 1 sentence.", "status": "todo", "priority": "normal", "suggestedProject": "Project Name", "dueDate": "" }
+  ],
+  "habits": [],
+  "patterns": []
+}
+
+Meeting notes:
+${text}${attachmentText}`;
+
+  const prompt = `You are the world's best executive assistant. You have been handed a brainstorm — it could be a stream of consciousness, a formal project document, meeting notes, a status update, or anything in between. Your job: extract EVERYTHING useful and organize it perfectly.
 
 ## YOUR EXTRACTION PHILOSOPHY
 - Extract ACTIONABLE items — things someone needs to DO, DECIDE, or TRACK.
@@ -4099,7 +4209,7 @@ LOW — nice-to-have, future consideration, exploratory.
   - "background" = ALL detailed info using ## section headers (Origin, Where It's Going, Roadblocks, Next Steps, Notes). Mission, team roster, phase, decisions, context, financials, timelines, compliance — EVERYTHING detailed goes HERE. This is a collapsible dropdown, so be thorough.
 
 EXISTING TASKS (id|title|status|notes_preview):
-${existingCompact || '(none)'}
+${existingCompact || '(none)'}${taskNote}
 
 EXISTING PROJECTS (id|name):
 ${projectCompact || '(none)'}
@@ -4138,14 +4248,16 @@ TODAY: ${todayStr()}
 For updates to existing tasks, use: { "action": "update", "id": "existing_task_id", "updateFields": { "status": "done" } }
 
 Brainstorm input:
-${text}${dumpAttachments.length ? '\n\n--- ATTACHED DOCUMENTS ---\n' + dumpAttachments.map(a => `--- ${a.name} ---\n${a.content}`).join('\n\n') : ''}`;
+${text}${attachmentText}`;
+
+  const finalPrompt = dumpMode === 'meeting' ? meetingPrompt : prompt;
 
   try {
     const resp = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       signal: dumpAbort.signal,
       headers: { 'Content-Type': 'application/json', 'x-api-key': settings.apiKey, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
-      body: JSON.stringify({ model: settings.aiModel, max_tokens: 16384, messages: [{ role: 'user', content: prompt }] }),
+      body: JSON.stringify({ model: settings.aiModel, max_tokens: 16384, messages: [{ role: 'user', content: finalPrompt }] }),
     });
 
     if (!resp.ok) throw new Error(`API ${resp.status}`);
@@ -4224,6 +4336,11 @@ ${text}${dumpAttachments.length ? '\n\n--- ATTACHED DOCUMENTS ---\n' + dumpAttac
         projectsUpdated++;
       }
     });
+
+    // NOTE: Brainstorm and chat use different action schemas.
+    // Brainstorm: { action: "create"|"update"|"complete", title, suggestedProject, ... }
+    // Chat: { action: "create_task"|"update_task"|..., title, project, ... }
+    // Future: unify into single format via executeAIActions()
 
     // Process tasks
     (Array.isArray(items) ? items : []).forEach(item => {
@@ -4677,7 +4794,7 @@ function relativeTime(isoStr) {
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
-function esc(s) { return s ? String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;') : ''; }
+function esc(s) { return s ? String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;').replace(/`/g,'&#96;') : ''; }
 
 function showToast(msg, isError = false, isSuccess = false) {
   document.querySelectorAll('.toast').forEach(t => t.remove());
@@ -4780,20 +4897,57 @@ function parseQuickInput(raw) {
 
 function quickAddFromCapture() {
   const input = document.getElementById('quickCapture');
-  const projectSel = document.getElementById('quickCaptureProject');
-  if (!input || !input.value.trim()) return;
-  const proj = projectSel ? projectSel.value : getLifeProjectId();
-  const { title, priority, dueDate } = parseQuickInput(input.value.trim());
-  if (!title) return;
-
-  addTask(createTask({ title, project: proj, priority, dueDate }));
+  const raw = input?.value?.trim();
+  if (!raw) return;
+  const parsed = parseQuickInput(raw);
+  const project = document.getElementById('quickCaptureProject')?.value || '';
+  addTask(createTask({
+    title: parsed.title,
+    priority: parsed.priority || 'normal',
+    dueDate: parsed.dueDate || '',
+    project
+  }));
   input.value = '';
+  showToast(`+ ${parsed.title}${parsed.dueDate ? ' (due ' + parsed.dueDate + ')' : ''}${parsed.priority && parsed.priority !== 'normal' ? ' [' + parsed.priority + ']' : ''}`, false, true);
   render();
-  const parts = [title];
-  if (dueDate) parts.push(`due ${fmtDate(dueDate)}`);
-  if (priority !== 'normal') parts.push(priority);
-  showToast(`+ ${parts.join(' · ')}`, false, true);
-  setTimeout(() => { const el = document.getElementById('quickCapture'); if (el) el.focus(); }, 50);
+}
+
+function quickAddToProject(input, projectId) {
+  const parsed = parseQuickInput(input.value.trim());
+  addTask(createTask({
+    title: parsed.title,
+    priority: parsed.priority || 'normal',
+    dueDate: parsed.dueDate || '',
+    project: projectId
+  }));
+  input.value = '';
+  showToast(`+ ${parsed.title}${parsed.dueDate ? ' (due ' + parsed.dueDate + ')' : ''}`, false, true);
+  render();
+}
+
+function previewQuickCapture() {
+  const input = document.getElementById('quickCapture');
+  const prev = document.getElementById('quickCapturePreview');
+  if (!input || !prev) return;
+  const val = input.value.trim();
+  if (!val) { prev.innerHTML = ''; prev.style.display = 'none'; return; }
+  const parsed = parseQuickInput(val);
+  const parts = [];
+  if (parsed.dueDate) {
+    const d = new Date(parsed.dueDate + 'T12:00:00');
+    parts.push(`<span style="color:var(--green)">📅 ${d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</span>`);
+  }
+  if (parsed.priority && parsed.priority !== 'normal') {
+    const colors = { urgent: 'var(--red)', important: 'var(--amber, var(--orange))' };
+    parts.push(`<span style="color:${colors[parsed.priority] || 'var(--text3)'}">⚡ ${parsed.priority}</span>`);
+  }
+  if (parts.length) {
+    prev.innerHTML = parts.join(' &nbsp; ');
+    prev.style.display = 'block';
+  } else {
+    prev.innerHTML = '';
+    prev.style.display = 'none';
+  }
 }
 
 // ============================================================
@@ -5141,13 +5295,11 @@ async function sendChat() {
   if (!msg) return;
   if (!settings.apiKey) { showToast('Add a Claude API key in Settings first', true); return; }
 
-  const messagesEl = document.getElementById('chatMessages');
-  messagesEl.innerHTML += `<div class="chat-msg user">${esc(msg)}</div>`;
+  const chatMsgs = document.getElementById('chatMessages');
+  chatMsgs.innerHTML += `<div class="chat-msg user">${esc(msg)}</div>`;
   input.value = '';
-  messagesEl.innerHTML += `<div class="chat-msg ai" id="chatLoading"><div class="spinner"></div> Thinking...</div>`;
-  messagesEl.scrollTop = messagesEl.scrollHeight;
 
-  const context = chatContext ? buildAIContext('project', chatContext) : buildAIContext('all');
+  const context = chatContext ? buildAIContext('project', chatContext, 'standard') : buildAIContext('all', null, 'standard');
 
   const systemPrompt = `${AI_PERSONA}
 
@@ -5157,15 +5309,18 @@ MODES — read the user's intent and respond in the right mode:
 
 1. EXECUTION MODE: When they clearly want something done ("create a task", "move X to urgent", "delete Y")
    → DO IT with an actions block + brief confirmation. No extra commentary.
+   Example: "add a task to call the dentist" → create the task immediately
 
 2. THINKING MODE: When they're working through something ("I need to figure out...", "I'm not sure about...", "what should I do about...")
    → Think WITH them. Ask clarifying questions. Explore options. Don't jump to creating tasks yet.
    → Help them get clear on what they actually want before organizing it.
    → "What does 'done' look like for this?" / "Is this urgent or just on your mind?"
+   Example: "I'm not sure how to prioritize this week" → help them reason through it
 
 3. REFLECTION MODE: When they share how something went or seem to be processing ("that meeting was rough", "finally finished X")
    → Acknowledge genuinely. Ask what they learned or what's next. No toxic positivity.
    → Connect it to the bigger picture if relevant.
+   Example: "finally finished the redesign" → reflect on what it took, what it unlocks
 
 Default to THINKING MODE when the intent is ambiguous. It's better to help someone clarify than to create the wrong tasks.
 
@@ -5186,30 +5341,88 @@ ${context}`;
   chatHistory.push({ role: 'user', content: msg });
   if (chatHistory.length > 40) chatHistory = chatHistory.slice(-40);
 
+  // Show typing indicator
+  const typingEl = document.createElement('div');
+  typingEl.className = 'chat-msg ai';
+  typingEl.innerHTML = '<div class="chat-bubble ai"><span class="chat-typing">Thinking...</span></div>';
+  chatMsgs.appendChild(typingEl);
+  chatMsgs.scrollTop = chatMsgs.scrollHeight;
+
   try {
-    const reply = await callAI('', { system: systemPrompt, maxTokens: 2048, messages: chatHistory });
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': settings.apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
+      body: JSON.stringify({
+        model: settings.aiModel || 'claude-haiku-4-5-20251001',
+        max_tokens: 2048,
+        system: systemPrompt,
+        messages: chatHistory,
+        stream: true
+      })
+    });
+
+    if (!resp.ok) throw new Error(`API ${resp.status}`);
+
+    const reader = resp.body.getReader();
+    const decoder = new TextDecoder();
+    let fullText = '';
+    let buffer = '';
+
+    // Replace typing indicator with streaming bubble
+    typingEl.innerHTML = '<div class="chat-bubble ai"></div>';
+    const bubble = typingEl.querySelector('.chat-bubble');
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
+
+      for (const line of lines) {
+        if (line.startsWith('data: ')) {
+          const jsonStr = line.slice(6).trim();
+          if (jsonStr === '[DONE]') continue;
+          try {
+            const event = JSON.parse(jsonStr);
+            if (event.type === 'content_block_delta' && event.delta?.text) {
+              fullText += event.delta.text;
+              // Strip action blocks from display
+              const display = fullText.replace(/```(?:actions|json)[\s\S]*?```/g, '').trim();
+              bubble.innerHTML = esc(display).replace(/\n/g, '<br>');
+              chatMsgs.scrollTop = chatMsgs.scrollHeight;
+            }
+          } catch {}
+        }
+      }
+    }
+
+    // Process complete response
+    const reply = fullText;
     chatHistory.push({ role: 'assistant', content: reply });
 
     const { applied, insights } = executeAIActions(reply);
     if (applied) render();
 
-    const loading = document.getElementById('chatLoading');
-    if (loading) loading.remove();
-
     const cleanReply = reply.replace(/```(?:actions|json)[\s\S]*?```/g, '').trim();
     let insightHtml = insights.map(i => `<div style="font-size:11px;color:${i.severity === 'warning' ? 'var(--orange)' : 'var(--accent)'};margin-top:6px;padding:6px 8px;background:var(--surface2);border-radius:var(--radius-xs)">💡 ${esc(i.text)}</div>`).join('');
 
+    // Update the streaming bubble with final formatted content
     if (cleanReply) {
       const formatted = esc(cleanReply).replace(/\n/g, '<br>').replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-      messagesEl.innerHTML += `<div class="chat-msg ai">${formatted}${applied ? `<div style="font-size:10px;color:var(--text3);margin-top:4px">✦ ${applied} action${applied > 1 ? 's' : ''} applied</div>` : ''}${insightHtml}</div>`;
+      typingEl.innerHTML = `${formatted}${applied ? `<div style="font-size:10px;color:var(--text3);margin-top:4px">✦ ${applied} action${applied > 1 ? 's' : ''} applied</div>` : ''}${insightHtml}`;
     } else if (applied) {
-      messagesEl.innerHTML += `<div class="chat-msg ai">Done. <span style="font-size:10px;color:var(--text3)">✦ ${applied} action${applied > 1 ? 's' : ''} applied</span>${insightHtml}</div>`;
+      typingEl.innerHTML = `Done. <span style="font-size:10px;color:var(--text3)">✦ ${applied} action${applied > 1 ? 's' : ''} applied</span>${insightHtml}`;
     }
-    messagesEl.scrollTop = messagesEl.scrollHeight;
+    chatMsgs.scrollTop = chatMsgs.scrollHeight;
   } catch (err) {
-    const loading = document.getElementById('chatLoading');
-    if (loading) loading.remove();
-    messagesEl.innerHTML += `<div class="chat-msg ai" style="color:var(--red)">Error: ${esc(err.message)}</div>`;
+    typingEl.innerHTML = `<span style="color:var(--red)">Error: ${esc(err.message)}</span>`;
   }
 }
 
@@ -5365,11 +5578,15 @@ async function startFocus(projectId) {
     }).join('\n');
 
     try {
+      const ctx = buildAIContext('all', null, 'minimal');
       const mem = getAIMemory();
       const memCtx = mem.length ? '\nUser preferences: ' + mem.filter(m => m.type === 'preference').map(m => m.text).join('; ') : '';
-      const reply = await callAI(`Pick the ONE task this person should work on RIGHT NOW. Consider: urgency, deadlines, priority, momentum (prefer in-progress tasks), time of day (${new Date().getHours() < 12 ? 'morning — good for hard tasks' : new Date().getHours() < 17 ? 'afternoon' : 'evening — good for quick wins'}).${memCtx}
+      const reply = await callAI(`${AI_PERSONA_SHORT}
 
-Today is ${todayStr()}.
+${ctx}${memCtx}
+
+Pick the ONE task this person should work on RIGHT NOW. Consider: urgency, deadlines, priority, momentum (prefer in-progress tasks), time of day.
+
 Tasks:\n${taskList}
 
 Return JSON: { "title": "exact task title", "reason": "one sentence why this one" }`, { maxTokens: 256 });
@@ -5427,7 +5644,7 @@ function renderFocusOverlay() {
     const focusTipEl = document.getElementById('focusCoachTip');
     if (focusTipEl) {
       focusTipEl.textContent = '✦ Thinking...';
-      const focusPrompt = `${AI_PERSONA}\n\nThe user just entered Focus Mode on: "${t.title}"${t.notes ? '\nNotes: ' + t.notes : ''}${t.subtasks?.length ? '\nSubtasks: ' + t.subtasks.map(s => (s.done ? '✓' : '○') + ' ' + s.title).join(', ') : ''}\n\nGive ONE sentence of tactical advice to help them START right now. What's the very first action? Be specific and concrete. No preamble.`;
+      const focusPrompt = `${AI_PERSONA_SHORT}\n\nThe user just entered Focus Mode on: "${t.title}"${t.notes ? '\nNotes: ' + t.notes : ''}${t.subtasks?.length ? '\nSubtasks: ' + t.subtasks.map(s => (s.done ? '✓' : '○') + ' ' + s.title).join(', ') : ''}\n\nGive ONE sentence of tactical advice to help them START right now. What's the very first action? Be specific and concrete. No preamble.`;
       callAI(focusPrompt, { maxTokens: 100 }).then(tip => {
         if (focusTipEl) focusTipEl.textContent = '✦ ' + tip.replace(/\n/g, ' ').trim();
       }).catch(() => { if (focusTipEl) focusTipEl.textContent = ''; });
@@ -5479,8 +5696,8 @@ function getSmartNudges() {
   const overdue = active.filter(t => t.dueDate && t.dueDate < today);
   const inProgress = active.filter(t => t.status === 'in-progress');
   const stale = active.filter(t => {
-    const last = t.completedAt || t.createdAt;
-    return last && (Date.now() - new Date(last).getTime()) > 10 * 86400000;
+    const lastTouch = t.updates?.length ? t.updates[t.updates.length - 1].date : t.createdAt;
+    return lastTouch && (Date.now() - new Date(lastTouch).getTime()) > 10 * 86400000;
   });
 
   // Overload detection
@@ -5537,35 +5754,6 @@ function renderNudgeBar() {
 }
 
 // ============================================================
-// STREAK TRACKING
-// ============================================================
-function getStreak() {
-  const today = new Date(); today.setHours(0, 0, 0, 0);
-  let streak = 0;
-  let d = new Date(today);
-  // Check today first
-  const todayD = localISO(d);
-  const hasDoneToday = data.tasks.some(t => t.completedAt && t.completedAt.slice(0, 10) === todayD);
-
-  if (hasDoneToday) {
-    streak = 1;
-    d.setDate(d.getDate() - 1);
-  } else {
-    // Check yesterday to not break streak mid-day
-    d.setDate(d.getDate() - 1);
-  }
-
-  // Walk backward
-  for (let i = 0; i < 365; i++) {
-    const ds = localISO(d);
-    const hasDone = data.tasks.some(t => t.completedAt && t.completedAt.slice(0, 10) === ds);
-    if (hasDone) { streak++; d.setDate(d.getDate() - 1); }
-    else break;
-  }
-  return streak;
-}
-
-// ============================================================
 // COMPLETION REFLECTIONS
 // ============================================================
 function maybeReflect(t) {
@@ -5577,7 +5765,10 @@ function maybeReflect(t) {
   const proj = data.projects.find(p => p.id === t.project);
   const relatedActive = data.tasks.filter(x => x.status !== 'done' && x.project === t.project && x.id !== t.id);
 
-  const prompt = `${AI_PERSONA}
+  const ctx = buildAIContext('all', null, 'minimal');
+  const prompt = `${AI_PERSONA_SHORT}
+
+${ctx}
 
 The user just completed: "${t.title}"
 ${t.notes ? 'Notes: ' + t.notes : ''}
@@ -5597,6 +5788,12 @@ ONE sentence max. Be genuine, not performative. No "Great job!" energy.`;
     const clean = reply.replace(/\n/g, ' ').trim();
     if (clean && clean !== '✓' && clean.length > 2) {
       showReflectionToast(clean);
+      // Save insightful reflections to AI memory
+      if (clean.length > 20) {
+        const mem = getAIMemory();
+        mem.push({ type: 'reflection', text: clean, task: t.title, date: todayStr() });
+        saveAIMemory(mem);
+      }
     }
   }).catch(() => {});
 }
@@ -5633,7 +5830,8 @@ function renderStuckNudges() {
   const stuck = getStuckTasks();
   if (!stuck.length) return '';
   return stuck.slice(0, 2).map(t => {
-    const days = Math.floor((Date.now() - new Date(t.createdAt).getTime()) / 86400000);
+    const lastTouch = t.updates?.length ? t.updates[t.updates.length - 1].date : t.createdAt;
+    const days = Math.floor((Date.now() - new Date(lastTouch).getTime()) / 86400000);
     return `<div style="display:flex;align-items:flex-start;gap:8px;padding:8px 12px;background:var(--surface);border-radius:var(--radius-xs);border-left:3px solid var(--amber);margin-bottom:6px">
       <span style="flex-shrink:0">◇</span>
       <div style="font-size:12px;color:var(--text2);line-height:1.4">
@@ -5686,6 +5884,11 @@ Be curious, not prescriptive. 2-3 sentences. Ask a real question.`;
 // ============================================================
 async function getTaskCoachTip(taskId) {
   if (!settings.apiKey) return;
+  if (coachTipCache[taskId]) {
+    const tipEl = document.getElementById('coachTip_' + taskId);
+    if (tipEl) tipEl.innerHTML = `<span style="color:var(--accent);font-size:11px">✦ ${esc(coachTipCache[taskId])}</span>`;
+    return;
+  }
   const t = data.tasks.find(x => x.id === taskId);
   if (!t) return;
   const proj = data.projects.find(p => p.id === t.project);
@@ -5693,7 +5896,10 @@ async function getTaskCoachTip(taskId) {
   if (!tipEl) return;
   tipEl.innerHTML = '<span style="color:var(--text3);font-size:11px">✦ Thinking...</span>';
 
-  const prompt = `${AI_PERSONA}
+  const ctx = buildAIContext('project', t.project, 'minimal');
+  const prompt = `${AI_PERSONA_SHORT}
+
+${ctx}
 
 You're looking at one specific task. Give a SINGLE concrete, actionable suggestion to help the user make progress RIGHT NOW. Not generic advice — specific to this task.
 
@@ -5712,7 +5918,9 @@ Reply in ONE sentence. Be specific. Reference the actual task content. No preamb
 
   try {
     const tip = await callAI(prompt, { maxTokens: 150 });
-    tipEl.innerHTML = `<span style="color:var(--accent);font-size:11px">✦ ${esc(tip.replace(/\n/g, ' ').trim())}</span>`;
+    const cleanTip = tip.replace(/\n/g, ' ').trim();
+    coachTipCache[taskId] = cleanTip;
+    tipEl.innerHTML = `<span style="color:var(--accent);font-size:11px">✦ ${esc(cleanTip)}</span>`;
   } catch (err) {
     tipEl.innerHTML = '';
   }
@@ -5757,7 +5965,6 @@ function processRecurringTasks() {
 // ============================================================
 // INIT
 // ============================================================
-processRecurringTasks();
 initAuth();
 </script>
 </body>
