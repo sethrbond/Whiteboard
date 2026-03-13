@@ -1952,7 +1952,7 @@ body {
     <button class="chat-send" onclick="sendChat()">Send</button>
   </div>
 </div>
-<button class="chat-toggle" id="chatToggle" onclick="toggleChat()" title="AI Assistant" aria-label="Open AI Assistant">✦</button>
+<button class="chat-toggle" id="chatToggle" onclick="toggleChat()" title="AI Assistant" aria-label="Open AI Assistant" style="display:none">✦</button>
 
 <script>
 // ============================================================
@@ -2059,7 +2059,8 @@ function showApp() {
   processRecurringTasks();
   cleanupStaleLocalStorage();
   cleanupArchive();
-  requestNotificationPermission();
+  // Defer notification permission — only ask after user has tasks (not on first visit)
+  if (data.tasks.length >= 3) requestNotificationPermission();
   // Default to brainstorm unless user already has a daily plan for today
   currentView = localStorage.getItem(userKey('whiteboard_plan_' + todayStr())) ? 'dashboard' : 'dump';
   render();
@@ -2088,12 +2089,12 @@ function showOnboarding() {
       </div>`;
     } else if (step === 2) {
       body = `<div class="onboarding-body">
-        <div class="onboarding-title">Dump your first brain dump</div>
-        <div class="onboarding-desc">Paste anything -- meeting notes, a project plan, a to-do list, a stream of consciousness. AI will organize it into tasks and projects.</div>
+        <div class="onboarding-title">Try your first brain dump</div>
+        <div class="onboarding-desc">Paste anything &mdash; meeting notes, a project plan, a to-do list, a stream of consciousness. AI will organize it into tasks and projects.</div>
         <textarea class="onboarding-textarea" id="onbDumpText" placeholder="e.g. I need to finish the quarterly report by Friday, schedule a dentist appointment, research flights to Tokyo for April..."></textarea>
         <div id="onbDumpStatus"></div>
         <div class="onboarding-actions">
-          <button class="onboarding-skip" onclick="onbNext()">Skip -- I'll add tasks manually</button>
+          <button class="onboarding-skip" onclick="onbNext()">Skip &mdash; I'll add tasks manually</button>
           <button class="btn btn-primary" id="onbOrganizeBtn" onclick="onbProcessDump()">Organize this</button>
         </div>
       </div>`;
