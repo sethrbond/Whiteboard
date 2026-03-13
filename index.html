@@ -5241,7 +5241,8 @@ Return ONLY a JSON array, no other text:
     }
   } catch (err) {
     console.error('Plan error:', err);
-    showToast('Planning failed — try again', true);
+    // Only show error toast if user manually triggered (button exists and says "Planning...")
+    if (btn && btn.innerHTML.includes('Planning')) showToast('Planning failed — try again', true);
   }
   if (btn) btn.textContent = '◎ Plan My Day';
 }
