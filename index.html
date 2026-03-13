@@ -4436,9 +4436,11 @@ function pushCmdRecent(label) {
   if (arr.length > 5) arr = arr.slice(0, 5);
   localStorage.setItem(userKey('wb_cmd_recent'), JSON.stringify(arr));
 }
-function cmdExec(actionCode, label) {
+var _cmdActions = {};
+function cmdExec(key, label) {
   pushCmdRecent(label);
-  eval(actionCode);
+  var fn = _cmdActions[key];
+  if (fn) fn();
 }
 
 let cmdIdx = 0;
@@ -4487,20 +4489,22 @@ function renderSearchResults(query) {
   const isCmd = q.startsWith('>');
   const cmdQ = isCmd ? q.slice(1).trim() : q;
   const commands = [
-    { icon: '✦', label: 'New Task', hint: 'N', action: `closeModal();openNewTask(currentProject||'')` },
-    { icon: '+', label: 'Quick Add', hint: '⇧⌘K', action: 'closeModal();openQuickAdd()' },
-    { icon: '+', label: 'New Board', hint: '', action: 'closeModal();openNewProject()' },
-    { icon: '↯', label: 'Brain Dump', hint: '⌘D', action: `closeModal();setView('dump')` },
-    { icon: '◎', label: 'Focus Mode', hint: '/focus', action: 'closeModal();startFocus()' },
-    { icon: '✦', label: 'Ask AI', hint: '⌘J', action: 'closeModal();toggleChat()' },
-    { icon: '✦', label: 'Reorganize All', hint: '', action: 'closeModal();aiReorganize()' },
-    { icon: '★', label: 'Weekly Review', hint: 'W', action: `closeModal();setView('review')` },
-    { icon: '⚙', label: 'Settings', hint: '', action: 'closeModal();openSettings()' },
-    { icon: '✦', label: 'Show AI Prepared Tasks', hint: '', action: 'closeModal();filterAIPrepared()' },
+    { icon: '✦', label: 'New Task', hint: 'N', action: () => { closeModal(); openNewTask(currentProject||''); } },
+    { icon: '+', label: 'Quick Add', hint: '⇧⌘K', action: () => { closeModal(); openQuickAdd(); } },
+    { icon: '+', label: 'New Board', hint: '', action: () => { closeModal(); openNewProject(); } },
+    { icon: '↯', label: 'Brain Dump', hint: '⌘D', action: () => { closeModal(); setView('dump'); } },
+    { icon: '◎', label: 'Focus Mode', hint: '/focus', action: () => { closeModal(); startFocus(); } },
+    { icon: '✦', label: 'Ask AI', hint: '⌘J', action: () => { closeModal(); toggleChat(); } },
+    { icon: '✦', label: 'Reorganize All', hint: '', action: () => { closeModal(); aiReorganize(); } },
+    { icon: '★', label: 'Weekly Review', hint: 'W', action: () => { closeModal(); setView('review'); } },
+    { icon: '⚙', label: 'Settings', hint: '', action: () => { closeModal(); openSettings(); } },
+    { icon: '✦', label: 'Show AI Prepared Tasks', hint: '', action: () => { closeModal(); filterAIPrepared(); } },
   ];
 
-  // Render cmd item with tracking + shortcut badge
-  const cmdItemHtml = (c, isActive, matchQ) => { const ea = c.action.replace(/\\/g,'\\\\').replace(/'/g,"\\'"); const el2 = c.label.replace(/'/g,"\\'"); const lt = matchQ ? highlightMatch(c.label,matchQ) : c.label; return `<div class="cmd-item ${isActive?'active':''}" onclick="cmdExec('${ea}','${el2}')"><span class="cmd-item-icon">${c.icon}</span><span class="cmd-item-label">${lt}</span>${c.hint?`<kbd class="cmd-item-hint">${c.hint}</kbd>`:''}</div>`; };
+  // Register command actions by index and render item HTML
+  _cmdActions = {};
+  commands.forEach((c, i) => { _cmdActions['c'+i] = c.action; });
+  const cmdItemHtml = (c, isActive, matchQ) => { const idx = commands.indexOf(c); const lt = matchQ ? highlightMatch(c.label,matchQ) : c.label; return `<div class="cmd-item ${isActive?'active':''}" onclick="cmdExec('c${idx}','${c.label.replace(/'/g,"\\'")}')"><span class="cmd-item-icon">${c.icon}</span><span class="cmd-item-label">${lt}</span>${c.hint?`<kbd class="cmd-item-hint">${c.hint}</kbd>`:''}</div>`; };
 
   if (!q) {
     const recentLabels = getCmdRecent().slice(0,3); const recentCmds = recentLabels.map(l=>commands.find(c=>c.label===l)).filter(Boolean); let globalIdx = 0;
@@ -4558,8 +4562,8 @@ function renderSearchResults(query) {
     if (!html) html = '<div class="cmd-empty">No results for "' + esc(q) + '"</div>';
     // Natural language task creation — if typed text doesn't start with > or /
     if (q.length > 1 && !q.startsWith('/')) {
-      const safeTitle = query.trim().replace(/\\/g,'\\\\').replace(/'/g,"\\'");
-      html += `<div class="cmd-item cmd-create-task" onclick="closeModal();addTask(createTask({title:'${safeTitle}',project:currentProject||''}));showToast('Task created');render()"><span class="cmd-item-icon" style="color:var(--accent)">+</span><span class="cmd-item-label">Create task: <strong>${esc(query.trim())}</strong></span><kbd class="cmd-item-hint">&#9166;</kbd></div>`;
+      window._cmdCreateTitle = query.trim();
+      html += `<div class="cmd-item cmd-create-task" onclick="closeModal();addTask(createTask({title:window._cmdCreateTitle,project:currentProject||''}));showToast('Task created');render()"><span class="cmd-item-icon" style="color:var(--accent)">+</span><span class="cmd-item-label">Create task: <strong>${esc(query.trim())}</strong></span><kbd class="cmd-item-hint">&#9166;</kbd></div>`;
     }
     // Add "Ask AI" footer for natural language queries when results are sparse or empty
     if (hasAI() && q.length > 3 && !isCmd) {
