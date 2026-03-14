@@ -170,7 +170,7 @@ renderDashboard = function() {
         <div onclick="setView('dump');setTimeout(()=>{const t=document.getElementById('dumpText');if(t){t.value='Here are my plans for the week:\\n- ';t.focus();t.setSelectionRange(t.value.length,t.value.length)}},100)" style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px 16px;cursor:pointer;transition:all 0.2s" onmouseover="this.style.borderColor='var(--accent)';this.style.transform='translateY(-2px)'" onmouseout="this.style.borderColor='var(--border)';this.style.transform='none'">
           <div style="font-size:24px;margin-bottom:10px">&#9671;</div>
           <div style="font-size:13px;font-weight:600;margin-bottom:4px">Plan my week</div>
-          <div style="font-size:12px;color:var(--text3);line-height:1.5">Dump your weekly goals and let AI organize them</div>
+          <div style="font-size:12px;color:var(--text3);line-height:1.5">Drop your weekly goals and let AI organize them</div>
         </div>
         <div onclick="setView('dump')" style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px 16px;cursor:pointer;transition:all 0.2s" onmouseover="this.style.borderColor='var(--accent)';this.style.transform='translateY(-2px)'" onmouseout="this.style.borderColor='var(--border)';this.style.transform='none'">
           <div style="font-size:24px;margin-bottom:10px">&#8623;</div>
