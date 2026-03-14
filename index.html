@@ -5515,8 +5515,8 @@ function readFileAsText(file) {
 async function handleDumpFile(files) {
   if (!files || !files.length) return;
   const file = files[0];
-  const maxSize = 500 * 1024; // 500KB
-  if (file.size > maxSize) { showToast('File too large (max 500KB). Try a smaller file or paste the text directly.', true); return; }
+  const maxSize = 10 * 1024 * 1024; // 10MB
+  if (file.size > maxSize) { showToast('File too large (max 10MB). Try a smaller file or paste the text directly.', true); return; }
   try {
     const text = await readFileAsText(file);
     const ta = document.getElementById('dumpText');
