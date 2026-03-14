@@ -5819,12 +5819,13 @@ async function processDump(skipClarifyPass) {
   const text = ($('#dumpText')?.value?.trim() || '') + (_dumpAttachments.length ? '' : '');
   if (!text && !_dumpAttachments.length) { showToast('Write something or attach a file first', true); return; }
 
-  // Input length validation — edge function caps at 15K per message
+  // Input length validation — proxy caps at 15K per message, own key allows much more
   const totalInput = text + getDumpAttachmentText();
-  const MAX_INPUT_CHARS = 14000;
+  const hasOwnKey = !!(settings.apiKey);
+  const MAX_INPUT_CHARS = hasOwnKey ? 120000 : 14000;
   if (totalInput.length > MAX_INPUT_CHARS) {
     const overBy = totalInput.length - MAX_INPUT_CHARS;
-    showToast(`Input too long by ~${Math.ceil(overBy/1000)}K characters. Try shorter text or fewer attachments.`, true);
+    showToast(hasOwnKey ? `Input too long by ~${Math.ceil(overBy/1000)}K characters. Try splitting into smaller brainstorms.` : `Input too long by ~${Math.ceil(overBy/1000)}K characters. Add your own API key in Settings for larger inputs, or try shorter text.`, true);
     return;
   }
 
