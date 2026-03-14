@@ -13,6 +13,91 @@ document.addEventListener('keydown', function(e) {
 let _smartFeedExpanded = false;
 let _todayBriefingExpanded = false;
 
+// Animated typing effect for empty-state welcome
+let _welcomeTypingInterval = null;
+function startWelcomeTyping() {
+  const el = document.getElementById('welcomeTyping');
+  if (!el || _welcomeTypingInterval) return;
+  let phrases;
+  try { phrases = JSON.parse(el.dataset.phrases || '[]'); } catch(e) { return; }
+  if (!phrases.length) return;
+  let pi = 0, ci = 0, deleting = false;
+  _welcomeTypingInterval = setInterval(() => {
+    const target = document.getElementById('welcomeTyping');
+    if (!target) { clearInterval(_welcomeTypingInterval); _welcomeTypingInterval = null; return; }
+    const phrase = phrases[pi];
+    if (!deleting) {
+      ci++;
+      target.textContent = phrase.slice(0, ci);
+      if (ci >= phrase.length) { setTimeout(() => { deleting = true; }, 1200); return; }
+    } else {
+      ci--;
+      target.textContent = phrase.slice(0, ci);
+      if (ci <= 0) { deleting = false; pi = (pi + 1) % phrases.length; }
+    }
+  }, 65);
+  // Use MutationObserver to detect when element is removed
+  const obs = new MutationObserver(() => {
+    if (!document.getElementById('welcomeTyping')) {
+      clearInterval(_welcomeTypingInterval);
+      _welcomeTypingInterval = null;
+      obs.disconnect();
+    }
+  });
+  obs.observe(document.body, { childList: true, subtree: true });
+}
+
+// Quick brainstorm: track word count in hero input for brainstorm hint
+function setupQuickBrainstorm() {
+  const input = document.getElementById('quickCapture');
+  const hintEl = document.getElementById('brainstormHint');
+  if (!input || !hintEl) return;
+  input.addEventListener('input', function() {
+    const words = this.value.trim().split(/\s+/).filter(Boolean).length;
+    if (words >= 30) {
+      hintEl.style.display = 'block';
+    } else {
+      hintEl.style.display = 'none';
+    }
+  });
+  input.addEventListener('keydown', function(e) {
+    if (e.shiftKey && e.key === 'Enter') {
+      const val = this.value.trim();
+      const words = val.split(/\s+/).filter(Boolean).length;
+      if (words >= 30) {
+        e.preventDefault();
+        this.value = '';
+        const hintEl2 = document.getElementById('brainstormHint');
+        if (hintEl2) hintEl2.style.display = 'none';
+        setView('dump');
+        setTimeout(() => {
+          const t = document.getElementById('dumpText');
+          if (t) { t.value = val; t.focus(); t.dispatchEvent(new Event('input')); }
+        }, 100);
+      }
+    }
+  });
+}
+
+// Hook into render cycle to start typing animation + brainstorm hint
+const _origRAF = window.requestAnimationFrame;
+(function hookDashboardPostRender() {
+  const origRender = window.render;
+  if (typeof origRender !== 'function') {
+    // Retry — render may not be defined yet
+    setTimeout(hookDashboardPostRender, 200);
+    return;
+  }
+  window.render = function() {
+    const result = origRender.apply(this, arguments);
+    requestAnimationFrame(() => {
+      startWelcomeTyping();
+      setupQuickBrainstorm();
+    });
+    return result;
+  };
+})();
+
 // Helper: build AI status items from proactive worker results
 function getAIStatusItems() {
   const items = [];
@@ -161,12 +246,20 @@ renderDashboard = function() {
   const done = doneTasks();
   const inProgress = active.filter(t => t.status === 'in-progress');
 
-  // Fresh start welcome — magical empty state
+  // Fresh start welcome — magical empty state centered on brainstorm
   if (data.tasks.length === 0 && data.projects.length <= 1) {
+    const _emptyPhrases = ['Plan my week...', 'Meeting notes from today...', 'Ideas for the project...', 'Things I need to get done...', 'Brain dump everything...'];
+    const _emptyPhrase = _emptyPhrases[Math.floor(Math.random() * _emptyPhrases.length)];
     return `<div style="max-width:540px;margin:48px auto;text-align:center">
-      <div id="welcomeTyping" style="font-size:22px;font-weight:600;margin-bottom:6px;min-height:32px"></div>
-      <p style="font-size:14px;color:var(--text3);line-height:1.6;margin-bottom:32px">Your AI assistant is ready. Pick a way to begin.</p>
-      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;text-align:left">
+      <div id="welcomeTyping" style="font-size:22px;font-weight:600;margin-bottom:6px;min-height:32px" data-phrases='${JSON.stringify(_emptyPhrases)}'></div>
+      <p style="font-size:14px;color:var(--text3);line-height:1.6;margin-bottom:32px">Drop everything on your mind. AI turns it into organized tasks.</p>
+      <div onclick="setView('dump')" style="background:var(--surface);border:2px solid var(--accent);border-radius:var(--radius);padding:32px 28px;cursor:pointer;transition:all 0.2s;margin-bottom:20px;text-align:left;position:relative" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 8px 32px rgba(129,140,248,0.15)'" onmouseout="this.style.transform='none';this.style.boxShadow='none'">
+        <div style="font-size:28px;margin-bottom:12px">&#9671;</div>
+        <div style="font-size:17px;font-weight:600;margin-bottom:6px;color:var(--text)">Start a brainstorm</div>
+        <div style="font-size:13px;color:var(--text3);line-height:1.6;margin-bottom:16px">Write freely &mdash; plans, ideas, notes, goals. AI will organize everything into tasks and boards.</div>
+        <div style="font-size:13px;color:var(--accent);font-weight:500">Open brainstorm &rarr;</div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:12px;text-align:left">
         <div onclick="setView('dump');setTimeout(()=>{const t=document.getElementById('dumpText');if(t){t.value='Here are my plans for the week:\\n- ';t.focus();t.setSelectionRange(t.value.length,t.value.length)}},100)" style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px 16px;cursor:pointer;transition:all 0.2s" onmouseover="this.style.borderColor='var(--accent)';this.style.transform='translateY(-2px)'" onmouseout="this.style.borderColor='var(--border)';this.style.transform='none'">
           <div style="font-size:24px;margin-bottom:10px">&#9671;</div>
           <div style="font-size:13px;font-weight:600;margin-bottom:4px">Plan my week</div>
@@ -176,11 +269,6 @@ renderDashboard = function() {
           <div style="font-size:24px;margin-bottom:10px">&#8623;</div>
           <div style="font-size:13px;font-weight:600;margin-bottom:4px">Import from notes</div>
           <div style="font-size:12px;color:var(--text3);line-height:1.5">Paste meeting notes, docs, or ideas &mdash; AI extracts tasks</div>
-        </div>
-        <div onclick="openNewTask()" style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px 16px;cursor:pointer;transition:all 0.2s" onmouseover="this.style.borderColor='var(--accent)';this.style.transform='translateY(-2px)'" onmouseout="this.style.borderColor='var(--border)';this.style.transform='none'">
-          <div style="font-size:24px;margin-bottom:10px">+</div>
-          <div style="font-size:13px;font-weight:600;margin-bottom:4px">Add a task</div>
-          <div style="font-size:12px;color:var(--text3);line-height:1.5">Start with one thing and build from there</div>
         </div>
       </div>
     </div>`;
@@ -250,11 +338,32 @@ renderDashboard = function() {
   // Conversational input (replaces quick capture)
   html += `<input class="conversational-input" id="quickCapture" placeholder="What's on your mind?" onkeydown="heroInputHandler(event)" oninput="previewQuickCapture()" autocomplete="off">`;
   html += `<div id="quickCapturePreview" class="smart-date-preview" style="padding-left:0"></div>`;
+  // Quick brainstorm hint (appears when typing 30+ words)
+  html += `<div id="brainstormHint" style="display:none;font-size:11px;color:var(--accent);padding:6px 0 0;opacity:0.85;transition:opacity 0.2s">Looks like a brainstorm &mdash; press <kbd style="background:var(--surface2);border:1px solid var(--border);border-radius:3px;padding:1px 5px;font-size:10px;font-family:inherit">Shift+Enter</kbd> to organize with AI</div>`;
   // Hidden project dropdown (still accessible, used by quickAddFromCapture fallback and #hashtag)
   const projOpts = data.projects.map(p => `<option value="${p.id}">${esc(p.name)}</option>`).join('');
   html += `<select class="quick-capture-project" id="quickCaptureProject" style="display:none">${projOpts}</select>`;
 
   html += `</div>`; // end ai-hero-card
+
+  // ===== BRAINSTORM CTA CARD =====
+  const _dumpHistory = typeof getDumpHistory === 'function' ? getDumpHistory() : [];
+  const _showDumpInvite = typeof shouldShowDumpInvite === 'function' ? shouldShowDumpInvite() : true;
+  let _brainstormStat = '';
+  if (_dumpHistory.length > 0) {
+    const last = _dumpHistory[0];
+    const ago = Math.floor((Date.now() - new Date(last.date).getTime()) / 3600000);
+    const agoStr = ago < 1 ? 'just now' : ago < 24 ? ago + 'h ago' : Math.floor(ago / 24) + 'd ago';
+    _brainstormStat = `Last: ${last.tasksCreated} task${last.tasksCreated !== 1 ? 's' : ''} from ${last.wordCount} words, ${agoStr}`;
+  }
+  html += `<div onclick="setView('dump')" style="background:var(--surface);border:1px solid ${_showDumpInvite ? 'var(--accent)' : 'var(--border)'};border-radius:var(--radius);padding:16px 20px;cursor:pointer;transition:all 0.2s;margin-bottom:16px;display:flex;align-items:center;gap:16px;${_showDumpInvite ? 'box-shadow:0 0 0 1px rgba(129,140,248,0.1),0 4px 20px rgba(129,140,248,0.08)' : ''}" onmouseover="this.style.borderColor='var(--accent)';this.style.transform='translateY(-1px)'" onmouseout="this.style.borderColor='${_showDumpInvite ? 'var(--accent)' : 'var(--border)'}';this.style.transform='none'">
+    <div style="font-size:24px;flex-shrink:0">&#9671;</div>
+    <div style="flex:1;min-width:0">
+      <div style="font-size:14px;font-weight:600;color:var(--text);margin-bottom:2px">Got something on your mind?</div>
+      <div style="font-size:12px;color:var(--text3);line-height:1.4">${_brainstormStat ? esc(_brainstormStat) : 'Drop your thoughts, plans, or notes &mdash; AI organizes them into tasks'}</div>
+    </div>
+    <div style="flex-shrink:0;font-size:12px;font-weight:500;color:var(--accent);white-space:nowrap;padding:6px 14px;border:1px solid var(--accent);border-radius:var(--radius-sm);transition:background 0.15s" onmouseover="this.style.background='rgba(129,140,248,0.1)'" onmouseout="this.style.background='transparent'">Brainstorm</div>
+  </div>`;
 
   // ===== Nudge filter indicator =====
   if (_nudgeFilter) {

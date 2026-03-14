@@ -23,9 +23,7 @@
 <link rel="preload" href="https://fonts.googleapis.com/css2?family=Inter:wght@400&display=swap" as="style">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js" onerror="document.getElementById('splashStatus')&&(document.getElementById('splashStatus').textContent='Loading... If this takes too long, try refreshing.')"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<!-- PDF/DOCX/XLSX libs lazy-loaded on first file attach -->
 <script>
 (function(){
   var _sbTimer = setTimeout(function(){
@@ -2131,7 +2129,7 @@ body {
       <span class="landing-h1-accent">AI turns it into action.</span>
     </h1>
     <p class="landing-sub">
-      Stop organizing tasks. Just get everything out of your head — Whiteboards uses AI to extract tasks, prioritize your day, and keep you focused on what matters.
+      Pour out your thoughts, meeting notes, or project docs. AI reads everything, asks the right questions, and organizes it all into tasks and projects — instantly.
     </p>
     <div class="landing-cta-row">
       <button class="landing-cta" onclick="showAuthFromLanding()">
@@ -2144,18 +2142,18 @@ body {
     <div class="landing-features">
       <div class="landing-feature">
         <div class="landing-feature-icon">&#x21af;</div>
-        <h3>Brainstorm &rarr; Tasks</h3>
-        <p>Write freely. AI extracts tasks with dates, priorities, and projects — automatically.</p>
+        <h3>Drop your chaos</h3>
+        <p>Paste meeting notes, project docs, voice memos, anything. AI reads it all and pulls out every task, deadline, and priority.</p>
       </div>
       <div class="landing-feature">
         <div class="landing-feature-icon">&#x2726;</div>
-        <h3>Daily Briefings</h3>
-        <p>Start each day with an AI-generated plan. Focus mode and smart reminders keep you on track.</p>
+        <h3>AI that actually helps</h3>
+        <p>Not a chatbot. A thinking partner that detects what's done, what's stuck, and what to do next. Asks smart questions before organizing.</p>
       </div>
       <div class="landing-feature">
         <div class="landing-feature-icon">&#x25A1;</div>
-        <h3>Boards & Calendar</h3>
-        <p>Kanban boards, calendar view, recurring tasks, habits — keyboard-friendly and blazing fast.</p>
+        <h3>From brain dump to done</h3>
+        <p>Tasks auto-organize into boards. Get a daily briefing. Track progress. Share with your team. All from one brain dump.</p>
       </div>
     </div>
   </div>
@@ -2170,10 +2168,10 @@ body {
       <div class="auth-logo-sub">AI-powered productivity</div>
     </div>
     <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:20px;padding:0 4px">
-      <div style="font-size:12px;color:var(--text3);display:flex;align-items:center;gap:8px"><span style="color:var(--accent)">&#x2726;</span> Brainstorm anything — AI extracts tasks automatically</div>
-      <div style="font-size:12px;color:var(--text3);display:flex;align-items:center;gap:8px"><span style="color:var(--accent)">&#x2726;</span> Daily briefings, focus mode, and smart reminders</div>
-      <div style="font-size:12px;color:var(--text3);display:flex;align-items:center;gap:8px"><span style="color:var(--accent)">&#x2726;</span> Boards, calendar, and keyboard-friendly workflow</div>
-      <div style="font-size:12px;color:var(--text3);display:flex;align-items:center;gap:8px"><span style="color:var(--accent)">&#x2726;</span> Free forever — syncs across devices</div>
+      <div style="font-size:12px;color:var(--text3);display:flex;align-items:center;gap:8px"><span style="color:var(--accent)">&#x2726;</span> Paste anything — AI extracts tasks, deadlines, and priorities instantly</div>
+      <div style="font-size:12px;color:var(--text3);display:flex;align-items:center;gap:8px"><span style="color:var(--accent)">&#x2726;</span> Attach PDFs, docs, spreadsheets — AI reads and organizes them</div>
+      <div style="font-size:12px;color:var(--text3);display:flex;align-items:center;gap:8px"><span style="color:var(--accent)">&#x2726;</span> AI asks smart questions before organizing vague input</div>
+      <div style="font-size:12px;color:var(--text3);display:flex;align-items:center;gap:8px"><span style="color:var(--accent)">&#x2726;</span> Free forever — your chaos, beautifully organized</div>
     </div>
     <div id="authError"></div>
     <div id="authMsg"></div>
@@ -5420,14 +5418,14 @@ async function callAI(prompt, opts = {}) {
   };
 
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 45000);
+  const timeout = setTimeout(() => controller.abort(), 90000);
   try {
     return await doCall(controller.signal);
   } catch (err) {
-    if (err.status === 429 || err.status === 529) {
-      await new Promise(r => setTimeout(r, 2000));
+    if (err.status === 429 || err.status === 500 || err.status === 503 || err.status === 529) {
+      await new Promise(r => setTimeout(r, err.status === 429 ? 2000 : 1000));
       const controller2 = new AbortController();
-      const timeout2 = setTimeout(() => controller2.abort(), 45000);
+      const timeout2 = setTimeout(() => controller2.abort(), 90000);
       try { return await doCall(controller2.signal); } finally { clearTimeout(timeout2); }
     }
     throw err;
@@ -5519,7 +5517,33 @@ function renderDump() {
 
 // ── Attachment system ────────────────────────────────────────────────────────
 // Attachments are processed into text but displayed as chips, not dumped into textarea
-let __dumpAttachments = []; // { name, icon, size, textLength, pages, extractedText }
+// Attachment data model: { name, icon, size, textLength, pages, extractedText }
+
+// ── Lazy-load file processing libraries (only when user attaches a file) ─────
+const _libCache = {};
+function loadScript(url) {
+  if (_libCache[url]) return _libCache[url];
+  _libCache[url] = new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = url;
+    s.onload = resolve;
+    s.onerror = () => reject(new Error('Failed to load ' + url.split('/').pop()));
+    document.head.appendChild(s);
+  });
+  return _libCache[url];
+}
+async function ensurePDFLib() {
+  if (typeof pdfjsLib !== 'undefined') return;
+  await loadScript('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js');
+}
+async function ensureMammothLib() {
+  if (typeof mammoth !== 'undefined') return;
+  await loadScript('https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js');
+}
+async function ensureXLSXLib() {
+  if (typeof XLSX !== 'undefined') return;
+  await loadScript('https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js');
+}
 
 const _fileIcons = { pdf: '📄', doc: '📝', docx: '📝', xls: '📊', xlsx: '📊', csv: '📊', txt: '📃', md: '📃', json: '📃', html: '🌐', xml: '🌐', rtf: '📃', pages: '📝', numbers: '📊', log: '📃' };
 function _fileIcon(name) { const ext = name.split('.').pop().toLowerCase(); return _fileIcons[ext] || '📎'; }
@@ -5550,7 +5574,7 @@ async function extractFileText(file) {
 
   // PDF
   if (ext === 'pdf' || file.type === 'application/pdf') {
-    if (typeof pdfjsLib === 'undefined') throw new Error('PDF library loading...');
+    await ensurePDFLib();
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
     const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
     const pages = [];
@@ -5564,14 +5588,14 @@ async function extractFileText(file) {
 
   // Word (.docx)
   if (ext === 'docx' || file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
-    if (typeof mammoth === 'undefined') throw new Error('Word library loading...');
+    await ensureMammothLib();
     const result = await mammoth.extractRawText({ arrayBuffer: buf });
     return { text: result.value };
   }
 
   // Excel (.xlsx, .xls) and CSV
   if (['xlsx', 'xls', 'csv', 'numbers'].includes(ext) || file.type.includes('spreadsheet')) {
-    if (typeof XLSX === 'undefined') throw new Error('Spreadsheet library loading...');
+    await ensureXLSXLib();
     const workbook = XLSX.read(buf, { type: 'array' });
     const sheets = [];
     workbook.SheetNames.forEach(name => {
@@ -5779,6 +5803,15 @@ async function processDump(skipClarifyPass) {
   const text = ($('#dumpText')?.value?.trim() || '') + (_dumpAttachments.length ? '' : '');
   if (!text && !_dumpAttachments.length) { showToast('Write something or attach a file first', true); return; }
 
+  // Input length validation — edge function caps at 15K per message
+  const totalInput = text + getDumpAttachmentText();
+  const MAX_INPUT_CHARS = 14000;
+  if (totalInput.length > MAX_INPUT_CHARS) {
+    const overBy = totalInput.length - MAX_INPUT_CHARS;
+    showToast(`Input too long by ~${Math.ceil(overBy/1000)}K characters. Try shorter text or fewer attachments.`, true);
+    return;
+  }
+
   if (!hasAI()) { processDumpManual(text); return; }
 
   // Curiosity pass — ask clarifying questions for vague input
@@ -5798,7 +5831,16 @@ async function processDump(skipClarifyPass) {
   pushUndo('Brainstorm');
   dumpAbort = new AbortController();
   const statusEl = $('#dumpStatus');
-  if (statusEl) statusEl.innerHTML = `<div class="ai-status"><div class="spinner"></div>Analyzing — extracting tasks, context, and project details...<button class="btn btn-sm" style="margin-left:12px;font-size:10px;color:var(--red);border-color:var(--red)" onclick="cancelDump()">Cancel</button></div>`;
+  const _dumpStart = Date.now();
+  const _dumpPhases = ['Reading your input...', 'Extracting tasks and context...', 'Organizing by project and priority...', 'Detecting patterns and duplicates...'];
+  let _dumpPhase = 0;
+  const _dumpTimer = setInterval(() => {
+    if (!statusEl) return;
+    const elapsed = Math.round((Date.now() - _dumpStart) / 1000);
+    _dumpPhase = Math.min(_dumpPhase + 1, _dumpPhases.length - 1);
+    statusEl.innerHTML = `<div class="ai-status"><div class="spinner"></div>${_dumpPhases[_dumpPhase]} <span style="color:var(--text3);font-size:11px">(${elapsed}s)</span><button class="btn btn-sm" style="margin-left:12px;font-size:10px;color:var(--red);border-color:var(--red)" onclick="cancelDump()">Cancel</button></div>`;
+  }, 4000);
+  if (statusEl) statusEl.innerHTML = `<div class="ai-status"><div class="spinner"></div>${_dumpPhases[0]} <button class="btn btn-sm" style="margin-left:12px;font-size:10px;color:var(--red);border-color:var(--red)" onclick="cancelDump()">Cancel</button></div>`;
 
   const existingTasks = data.tasks.map(t => ({ id: t.id, title: t.title, project: t.project, priority: t.priority, status: t.status, notes: t.notes, createdAt: t.createdAt }));
   const existingProjects = data.projects.map(p => ({ id: p.id, name: p.name, description: (p.description || '').slice(0, 200) }));
@@ -5965,10 +6007,12 @@ ${text}${getDumpAttachmentText()}`;
 
     // Show review modal instead of immediately committing
     _dumpInProgress = false;
+    clearInterval(_dumpTimer);
     if (statusEl) statusEl.innerHTML = '';
     showDumpReviewModal(parsed, text);
 
   } catch (err) {
+    clearInterval(_dumpTimer);
     if (err.name === 'AbortError') {
       if (statusEl) statusEl.innerHTML = '<div class="ai-status" style="color:var(--orange)">Cancelled. Your data was not changed.</div>';
       undo(); // restore pre-brainstorm state
@@ -6223,7 +6267,7 @@ function applyDumpResults() {
 
   if ($('#dumpText')) $('#dumpText').value = '';
   clearDumpDraft();
-  __dumpAttachments = [];
+  _dumpAttachments = [];
   _dumpInProgress = false;
   render();
 }
@@ -7126,7 +7170,7 @@ Return ONLY a JSON array, no other text:
 ]`;
 
   try {
-    const reply = await callAI(prompt, { maxTokens: 512 });
+    const reply = await callAI(prompt, { maxTokens: 2048 });
     const json = JSON.parse(reply.replace(/```json?\s*/g, '').replace(/```/g, '').trim());
     if (Array.isArray(json) && json.length) {
       // Validate IDs exist
@@ -7366,7 +7410,8 @@ function toggleChat() {
       messagesEl.scrollTop = messagesEl.scrollHeight;
       updateChatChips();
     } else if (messagesEl && messagesEl.children.length === 0) {
-      messagesEl.innerHTML = '<div class="chat-msg ai stagger chat-welcome-msg">Hey! I\'m your AI assistant. Ask me anything about your tasks, or try:<div class="chat-welcome-hint">&quot;Plan my day&quot;, &quot;What\'s overdue?&quot;, &quot;Help me with [task]&quot;</div><span class="chat-ts">' + chatTimeStr() + '</span></div>';
+      const greeting = getChatGreeting();
+      messagesEl.innerHTML = '<div class="chat-msg ai stagger chat-welcome-msg">' + esc(greeting) + '<div class="chat-welcome-hint">&quot;Plan my day&quot;, &quot;What\'s overdue?&quot;, &quot;Help me with [task]&quot;</div><span class="chat-ts">' + chatTimeStr() + '</span></div>';
     }
   }
 }
@@ -7382,8 +7427,14 @@ function getChatGreeting() {
     const lt = t.updates && t.updates.length ? t.updates[t.updates.length - 1].date : t.createdAt;
     return lt && (Date.now() - new Date(lt).getTime()) > 10 * 86400000;
   });
+  const now = new Date();
+  const isMonday = now.getDay() === 1;
+  const isMorning = now.getHours() < 12;
+  const unassigned = active.filter(t => !t.project);
+  if (isMonday && isMorning) return 'Fresh week! You have ' + active.length + ' active task' + (active.length !== 1 ? 's' : '') + (overdue.length > 0 ? ' (' + overdue.length + ' overdue)' : '') + '. Want me to plan it based on what\'s overdue?';
   if (overdue.length > 0) return 'You have ' + overdue.length + ' overdue task' + (overdue.length > 1 ? 's' : '') + '. Want to triage them?';
   if (doneThisWeek >= 5) return 'You\'ve been productive — ' + doneThisWeek + ' tasks done this week. What\'s next?';
+  if (unassigned.length >= 3) return 'You have ' + unassigned.length + ' unassigned task' + (unassigned.length > 1 ? 's' : '') + ' with no board. Want to sort them into projects?';
   if (stale.length > 0) {
     const s = stale[0];
     const lt = s.updates && s.updates.length ? s.updates[s.updates.length - 1].date : s.createdAt;
@@ -7463,6 +7514,17 @@ RULES:
 - If you notice related existing tasks, mention them.
 - When the user completes something meaningful, think about what it unlocks — what should they do next?
 - If someone seems overwhelmed, don't add more. Help them triage what they already have.
+
+PROACTIVE INSIGHTS — weave these naturally into your responses when relevant:
+- If a task has been in-progress for 5+ days, mention it: "By the way, [task] has been sitting for X days — want to break it down or punt it?"
+- If the user completes something, check what it unblocks: "Nice — that unblocks [dependent task]. Want to start on it?"
+- If you notice 3+ tasks in the same project are overdue, flag it: "Heads up: [project] has X overdue tasks. Worth triaging?"
+- If the user seems to be adding many tasks without completing any, gently note: "You've added X new tasks today but none completed. Want to focus on clearing a few first?"
+- If you detect a pattern (user always works on certain projects on certain days), mention it naturally.
+- When asked about task status, always include time context: "3 tasks due today, 5 this week, 2 overdue from last week"
+- If a task title suggests urgency (legal, deadline, client, launch) but priority is "normal", suggest upgrading it.
+
+These should feel like a smart coworker noticing things — not a nagging bot. Only surface 1-2 insights per response, max.
 
 ${context}`;
 

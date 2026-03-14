@@ -38,7 +38,7 @@ function getCorsHeaders(req: Request) {
   const origin = req.headers.get('origin') || ''
   return {
     'Access-Control-Allow-Origin': ALLOWED_ORIGINS.has(origin) ? origin : 'https://www.whiteboards.dev',
-    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, anthropic-version',
     'Access-Control-Allow-Methods': 'POST, OPTIONS',
   }
 }
