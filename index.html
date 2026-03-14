@@ -5490,7 +5490,7 @@ function renderDump() {
 
   const hasKey = hasAI();
   const draft = esc(loadDumpDraft());
-  const _dumpHints = ["What's on your mind? Add notes, context, or just brainstorm freely...","Drop a document and add your thoughts — what project is this for?","Attach files and tell the AI what to do with them..."];
+  const _dumpHints = ["What's on your mind? Drop notes, ideas, plans — AI organizes everything...","Paste meeting notes, project docs, or just brain dump — AI handles the rest...","Drop files or write freely — AI reads everything, extracts tasks, and organizes by project..."];
   const placeholder = _dumpHints[Math.floor(Date.now() / 60000) % _dumpHints.length];
   const attachCount = _dumpAttachments.length;
   const attachHtml = attachCount ? `<div id="dumpAttachList" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px">${_dumpAttachments.map((a, i) =>
