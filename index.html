@@ -2739,6 +2739,17 @@ async function loadFromCloud() {
       // Store cloud's updated_at for conflict detection
       if (row.updated_at) _lastCloudUpdatedAt = row.updated_at;
       // Merge: cloud data wins if it exists and has content
+      // Safety: if cloud is empty but local has data, keep local and push it up
+      const cloudEmpty = (!row.tasks || row.tasks.length === 0) && (!row.projects || row.projects.length === 0);
+      const localHasData = data.tasks.length > 0 || data.projects.length > 0;
+      if (cloudEmpty && localHasData) {
+        console.warn('[LOAD] Cloud is empty but local has data — keeping local and syncing up.');
+        await syncToCloud();
+        syncStatus = 'synced';
+        updateSyncDot();
+        render();
+        return;
+      }
       if (row.tasks && row.tasks.length > 0) data.tasks = row.tasks;
       if (row.projects && row.projects.length > 0) data.projects = row.projects;
       if (row.ai_memory && row.ai_memory.length > 0) saveAIMemory(row.ai_memory);
@@ -2784,6 +2795,13 @@ async function syncToCloud() {
           return;
         }
       }
+    }
+    // Safety: never overwrite cloud data with empty state if cloud previously had data
+    if (data.tasks.length === 0 && data.projects.length === 0 && _lastCloudUpdatedAt) {
+      console.warn('[SYNC] Refusing to sync empty data — cloud had data previously. Skipping.');
+      syncStatus = 'synced';
+      updateSyncDot();
+      return;
     }
     const { data: upsertRow, error } = await sb.from('user_data').upsert({
       user_id: currentUser.id,
