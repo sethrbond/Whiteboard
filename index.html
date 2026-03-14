@@ -5978,7 +5978,11 @@ ${text}${getDumpAttachmentText()}`;
 
   try {
     let parsed;
-    const chunks = chunkText(fullInput, 10000);
+    // Chunk size: keep user message under proxy's 15K limit (system prompt is separate)
+    // User message = existing tasks context (~3-5K) + projects (~1K) + chunk
+    // So chunk must be ≤ ~8K to stay safe with proxy, but unlimited with own key
+    const chunkSize = settings.apiKey ? 30000 : 6000;
+    const chunks = chunkText(fullInput, chunkSize);
 
     if (chunks.length <= 1) {
       // Single call for small inputs
@@ -5999,8 +6003,9 @@ ${text}${getDumpAttachmentText()}`;
       for (let i = 0; i < chunks.length; i++) {
         if (dumpAbort.signal.aborted) throw new Error('Cancelled');
         if (statusEl) statusEl.innerHTML = `<div class="ai-status"><div class="spinner"></div>Processing chunk ${i + 1} of ${chunks.length}...<button class="btn btn-sm" style="margin-left:12px;font-size:10px;color:var(--red);border-color:var(--red)" onclick="cancelDump()">Cancel</button></div>`;
-        // Replace input text in the user prompt with this chunk
-        const chunkUserPrompt = dumpUserPrompt.replace(fullInput, chunks[i] + `\n\n[Chunk ${i + 1} of ${chunks.length}]`);
+        // Build a leaner user prompt for chunks — reduce task context to stay under proxy limits
+        const leanTasks = cappedTasks.slice(0, 50).map(t => `${t.id}|${t.title}|${t.status}`).join('\n');
+        const chunkUserPrompt = `EXISTING TASKS (id|title|status):\n${leanTasks || '(none)'}\n\nEXISTING PROJECTS (id|name):\n${projectCompact || '(none)'}\n\nTODAY: ${todayStr()}\n\nBrainstorm input [Chunk ${i + 1} of ${chunks.length}]:\n${chunks[i]}`;
         const resp = await fetch(_ep.url, {
           method: 'POST',
           signal: dumpAbort.signal,
