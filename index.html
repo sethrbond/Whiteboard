@@ -1278,7 +1278,7 @@ body {
   border: none;
   font-size: 22px;
   cursor: pointer;
-  box-shadow: 0 4px 20px rgba(129,140,248,0.4);
+  box-shadow: 0 4px 16px rgba(129,140,248,0.25);
   z-index: 60;
   transition: transform 0.2s, box-shadow 0.2s;
   display: flex;
@@ -1291,7 +1291,7 @@ body {
   50% { box-shadow: 0 4px 32px rgba(129,140,248,0.7), 0 0 0 8px rgba(129,140,248,0.15); }
   100% { box-shadow: 0 4px 20px rgba(129,140,248,0.4); }
 }
-.chat-toggle:hover { transform: scale(1.08); box-shadow: 0 6px 28px rgba(129,140,248,0.5); }
+.chat-toggle:hover { transform: scale(1.08); box-shadow: 0 6px 20px rgba(129,140,248,0.35); }
 
 .chat-panel {
   position: fixed;
@@ -1516,7 +1516,7 @@ body {
 /* ==================== COMMAND PALETTE ==================== */
 .cmd-palette {
   width: 560px;
-  max-width: 95vw;
+  max-width: 92vw;
   background: var(--surface);
   border: 1px solid var(--border2);
   border-radius: 16px;
@@ -2145,7 +2145,7 @@ body {
       <div class="landing-feature">
         <div class="landing-feature-icon">&#x25A1;</div>
         <h3>Boards & Calendar</h3>
-        <p>Kanban boards, calendar view, recurring tasks, habits — keyboard-first and blazing fast.</p>
+        <p>Kanban boards, calendar view, recurring tasks, habits — keyboard-friendly and blazing fast.</p>
       </div>
     </div>
   </div>
@@ -2160,10 +2160,10 @@ body {
       <div class="auth-logo-sub">AI-powered productivity</div>
     </div>
     <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:20px;padding:0 4px">
-      <div style="font-size:12px;color:var(--text3);display:flex;align-items:center;gap:8px"><span style="color:var(--accent)">&#x21af;</span> Brainstorm anything — AI organizes it into tasks</div>
-      <div style="font-size:12px;color:var(--text3);display:flex;align-items:center;gap:8px"><span style="color:var(--accent)">&#x2726;</span> Daily briefings, day plans, and focus mode</div>
-      <div style="font-size:12px;color:var(--text3);display:flex;align-items:center;gap:8px"><span style="color:var(--accent)">&#x25CB;</span> Boards, calendar, keyboard-first workflow</div>
-      <div style="font-size:12px;color:var(--text3);display:flex;align-items:center;gap:8px"><span style="color:var(--accent)">&#x2601;</span> Free forever — syncs across devices</div>
+      <div style="font-size:12px;color:var(--text3);display:flex;align-items:center;gap:8px"><span style="color:var(--accent)">&#x2726;</span> Brainstorm anything — AI extracts tasks automatically</div>
+      <div style="font-size:12px;color:var(--text3);display:flex;align-items:center;gap:8px"><span style="color:var(--accent)">&#x2726;</span> Daily briefings, focus mode, and smart reminders</div>
+      <div style="font-size:12px;color:var(--text3);display:flex;align-items:center;gap:8px"><span style="color:var(--accent)">&#x2726;</span> Boards, calendar, and keyboard-friendly workflow</div>
+      <div style="font-size:12px;color:var(--text3);display:flex;align-items:center;gap:8px"><span style="color:var(--accent)">&#x2726;</span> Free forever — syncs across devices</div>
     </div>
     <div id="authError"></div>
     <div id="authMsg"></div>
@@ -2435,7 +2435,7 @@ function showOnboarding() {
     if (step === 1) {
       body = `<div class="onboarding-body">
         <div class="onboarding-title">Welcome to Whiteboards</div>
-        <div class="onboarding-desc">Your AI-powered productivity command center. Dump your thoughts, and AI organizes everything into tasks and boards automatically.</div>
+        <div class="onboarding-desc">Your AI-powered productivity command center. Drop your thoughts here and AI organizes everything into tasks and boards automatically.</div>
         <div class="onboarding-actions">
           <span></span>
           <button class="btn btn-primary" onclick="onbNext()">Let's go</button>
@@ -2486,7 +2486,7 @@ function showOnboarding() {
 
   window.onbProcessDump = async function () {
     const text = document.getElementById('onbDumpText') ? document.getElementById('onbDumpText').value.trim() : '';
-    if (!text) return;
+    if (!text) { showToast('Write or paste something first', true); return; }
 
     const btn = document.getElementById('onbOrganizeBtn');
     const statusEl = document.getElementById('onbDumpStatus');
@@ -5993,7 +5993,7 @@ function openSettings() {
   $('#modalRoot').innerHTML = `<div class="modal-overlay" onclick="if(event.target===this)closeModal()"><div class="modal" style="max-width:540px">
     <div class="modal-title">Settings</div>
     <div class="form-group"><label class="form-label">Claude API Key <span style="color:var(--text3);font-weight:400">(optional)</span></label><div style="position:relative"><input class="form-input" id="fApiKey" type="password" value="${esc(settings.apiKey)}" placeholder="Leave blank to use shared AI" style="font-family:monospace;padding-right:40px"><button type="button" onclick="var f=document.getElementById('fApiKey');f.type=f.type==='password'?'text':'password';this.textContent=f.type==='password'?'show':'hide'" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--text3);font-size:10px;cursor:pointer;padding:4px">show</button></div></div>
-    <p style="font-size:11px;color:var(--text3);margin-bottom:16px">AI is included for all users (60 requests/hour). Add your own key from <a href="https://console.anthropic.com" target="_blank" rel="noopener" style="color:var(--accent)">console.anthropic.com</a> for unlimited use.</p>
+    <p style="font-size:11px;color:var(--text3);margin-bottom:16px">Free AI included (shared quota). Add your own API key from <a href="https://console.anthropic.com" target="_blank" rel="noopener" style="color:var(--accent)">console.anthropic.com</a> for unlimited personal use.</p>
 
     <div style="margin-bottom:16px">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
@@ -6029,7 +6029,7 @@ function deleteAIMemory(index) {
 function exportData() {
   const a = document.createElement('a');
   const url = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }));
-  a.href = url; a.download = `whiteboard-${todayStr()}.json`;
+  a.href = url; a.download = `whiteboards-${todayStr()}.json`;
   a.click(); setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
@@ -7189,7 +7189,7 @@ function exportCalendar() {
 
   const a = document.createElement('a');
   const url = URL.createObjectURL(new Blob([ics], { type: 'text/calendar' }));
-  a.href = url; a.download = `whiteboard-${todayStr()}.ics`;
+  a.href = url; a.download = `whiteboards-${todayStr()}.ics`;
   a.click(); setTimeout(() => URL.revokeObjectURL(url), 1000);
   showToast(`Exported ${tasks.length} tasks to calendar`);
 }
