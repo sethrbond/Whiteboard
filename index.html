@@ -2961,7 +2961,6 @@ function updateTask(id, u) {
   if (u.status === 'done' && !t.completedAt) t.completedAt = new Date().toISOString();
   if (u.status && u.status !== 'done') t.completedAt = null;
   saveData(data);
-  render();
   // Trigger reflection on meaningful completions (not every time)
   if (wasNotDone && u.status === 'done') { maybeReflect(t); maybeLearnPattern(); }
   // If completing a task that's in today's plan, refresh the plan
