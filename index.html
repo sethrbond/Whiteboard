@@ -4,6 +4,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#09090b">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>Whiteboards — AI-powered productivity</title>
 <meta name="description" content="Brainstorm freely, AI organizes your thoughts into tasks. The productivity tool that thinks with you.">
 <meta property="og:title" content="Whiteboards — AI-powered productivity">
@@ -22,7 +25,8 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="preload" href="https://fonts.googleapis.com/css2?family=Inter:wght@400&display=swap" as="style">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap">
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js" onerror="document.getElementById('splashStatus')&&(document.getElementById('splashStatus').textContent='Loading... If this takes too long, try refreshing.')"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.1/dist/umd/supabase.min.js" integrity="sha384-YieCqqg9gQufX7+5HcFvCEg/n3KUEdl8/Jb+A6J0npf1mB740VayvwKjTrtCeUoy" crossorigin="anonymous" onerror="document.getElementById('splashStatus')&&(document.getElementById('splashStatus').textContent='Loading... If this takes too long, try refreshing.')"></script>
+<!-- Supabase JS pinned to 2.49.1 with SRI integrity hash -->
 <!-- PDF/DOCX/XLSX libs lazy-loaded on first file attach -->
 <script>
 (function(){
@@ -119,6 +123,7 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline: non
   display: flex;
   flex-direction: column;
   padding: 24px 0;
+  overscroll-behavior: contain;
 }
 
 .sidebar-logo {
@@ -306,6 +311,7 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline: non
   overflow-y: auto;
   padding: 28px 36px;
   animation: contentFade 0.15s ease-out;
+  overscroll-behavior: contain;
 }
 
 @keyframes contentFade { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
@@ -335,6 +341,7 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline: non
 .btn-sm { padding: 5px 10px; font-size: 11px; }
 .btn-danger { color: var(--red); }
 .btn-danger:hover { background: var(--red-dim); border-color: var(--red); }
+.btn:disabled, .btn[disabled] { opacity: 0.5; cursor: not-allowed; pointer-events: none; }
 
 .dropdown-menu {
   display: none;
@@ -1342,6 +1349,7 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline: non
   display: flex;
   flex-direction: column;
   gap: 12px;
+  overscroll-behavior: contain;
 }
 
 .chat-msg {
@@ -1808,6 +1816,7 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline: non
   .header { padding-top: max(20px, env(safe-area-inset-top, 0px)); }
   /* Onboarding card mobile padding */
   .onboarding-card { padding: 24px 20px; }
+  .dropdown-menu button, .dropdown-menu a, .dropdown-item { min-height: 44px; padding: 12px 16px; }
 }
 
 /* Touch feedback for interactive elements */
@@ -2221,7 +2230,7 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline: non
     <div class="nav-item" data-action="settings" role="button" tabindex="0">
       <span class="nav-icon" aria-hidden="true">⚙</span> Settings
     </div>
-    <div style="padding:8px 12px;margin-top:6px;display:flex;align-items:center;gap:6px;font-size:10px;color:var(--text3);cursor:pointer;border-radius:var(--radius-sm);transition:background 0.1s" onclick="openSearch()" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background=''">
+    <div style="padding:8px 12px;margin-top:6px;display:flex;align-items:center;gap:6px;font-size:10px;color:var(--text3);cursor:pointer;border-radius:var(--radius-sm);transition:background 0.1s" onclick="openSearch()" role="button" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click()}" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background=''">
       <span>⌘K</span><span style="opacity:0.5">Search & commands</span>
     </div>
     <div id="syncBar" style="padding:8px 12px;display:flex;align-items:center;justify-content:space-between;font-size:10px;color:var(--text3)">
@@ -2272,6 +2281,17 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline: non
 // Suppress console noise in production
 const _debug = location.hostname === 'localhost';
 if (!_debug) { console.log = () => {}; }
+
+// Global error handlers
+window.addEventListener('unhandledrejection', e => {
+  console.error('Unhandled rejection:', e.reason);
+  if (typeof showToast === 'function') showToast('Something went wrong. Your data is safe.', true);
+});
+window.onerror = (msg, src, line, col, err) => {
+  console.error('Global error:', msg, src, line, err);
+  if (typeof showToast === 'function') showToast('Something went wrong. Your data is safe.', true);
+  return false;
+};
 
 // ============================================================
 // SUPABASE
@@ -2345,6 +2365,8 @@ async function initAuth() {
     if (authBtn) { authBtn.disabled = false; authBtn.textContent = 'Sign In'; }
     if (session) {
       currentUser = session.user;
+      data = loadData();
+      settings = loadSettings();
       await loadFromCloud();
       showApp();
       authInitialized = true;
@@ -2360,7 +2382,9 @@ async function initAuth() {
       if (authInitialized) return; // already loaded via getSession
       authInitialized = true;
       currentUser = session.user;
-      loadFromCloud().then(() => showApp());
+      data = loadData();
+      settings = loadSettings();
+      loadFromCloud().then(() => showApp()).catch(e => { console.error('Cloud load failed:', e); showToast('Could not load cloud data', true); showApp(); });
     } else if (event === 'PASSWORD_RECOVERY') {
       // User clicked password reset link from email — show new password form
       var lp = document.getElementById('landingPage'); if (lp) lp.style.display = 'none';
@@ -2375,7 +2399,7 @@ async function initAuth() {
       authMode = 'recovery';
     } else if (event === 'SIGNED_OUT') {
       authInitialized = false;
-      if(currentUser){const _p='wb_'+currentUser.id+'_';const _r=[];for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);if(k&&k.startsWith(_p))_r.push(k);}_r.forEach(k=>localStorage.removeItem(k));}
+      if(currentUser){if(syncStatus==='synced'){const _p='wb_'+currentUser.id+'_';const _r=[];for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);if(k&&k.startsWith(_p))_r.push(k);}_r.forEach(k=>localStorage.removeItem(k));}else{console.warn('[SIGNOUT] Skipping localStorage purge — sync not confirmed');}}
       currentUser = null;
       data = { tasks: [], projects: [] };
       chatHistory = [];
@@ -2412,6 +2436,8 @@ function cleanupStaleLocalStorage() {
 }
 
 function showApp() {
+  sidebarCollapsed = localStorage.getItem(userKey('wb_sidebar_collapsed')) === 'true';
+  try { chatHistory = JSON.parse(localStorage.getItem(userKey(CHAT_HISTORY_KEY)) || '[]'); } catch { chatHistory = []; }
   var lp = document.getElementById('landingPage'); if (lp) lp.style.display = 'none';
   document.getElementById('authScreen').style.display = 'none';
   const sidebarEl = document.querySelector('.sidebar');
@@ -2721,8 +2747,16 @@ function showForgotPassword() {
 }
 
 async function signOut() {
-  await sb.auth.signOut();
-  // SIGNED_OUT handler does the cleanup
+  try {
+    await sb.auth.signOut();
+    // SIGNED_OUT handler does the cleanup
+  } catch (e) {
+    console.error('Sign out error:', e);
+    // Still clear local auth state so user isn't stuck
+    currentUser = null;
+    document.getElementById('authScreen').style.display = '';
+    showToast('Signed out locally', true);
+  }
 }
 
 // --- Cloud Sync ---
@@ -2734,7 +2768,7 @@ async function loadFromCloud() {
   if (mainEl) mainEl.innerHTML = '<div style="padding:32px"><div style="display:flex;align-items:center;color:var(--text3);font-size:13px;margin-bottom:28px"><div class="spinner" style="margin-right:10px"></div>Loading your data...</div><div class="loading-skeleton"><div class="loading-skeleton-bar"></div><div class="loading-skeleton-bar"></div><div class="loading-skeleton-bar"></div></div></div>';
   try {
     const { data: row, error } = await sb.from('user_data').select('*').eq('user_id', currentUser.id).single();
-    if (error) { console.error('Cloud load error:', error); return; }
+    if (error) { console.error('Cloud load error:', error); syncStatus = 'offline'; updateSyncDot(); showToast('Could not sync with cloud', true); return; }
     if (row) {
       // Store cloud's updated_at for conflict detection
       if (row.updated_at) _lastCloudUpdatedAt = row.updated_at;
@@ -2750,8 +2784,12 @@ async function loadFromCloud() {
         render();
         return;
       }
-      if (row.tasks && row.tasks.length > 0) data.tasks = row.tasks;
-      if (row.projects && row.projects.length > 0) data.projects = row.projects;
+      const cloudHasTasks = row.tasks && row.tasks.length > 0;
+      const cloudHasProjects = row.projects && row.projects.length > 0;
+      if (cloudHasTasks || cloudHasProjects) {
+        data.tasks = cloudHasTasks ? row.tasks : data.tasks;
+        data.projects = cloudHasProjects ? row.projects : data.projects;
+      }
       if (row.ai_memory && row.ai_memory.length > 0) saveAIMemory(row.ai_memory);
       if (row.ai_memory_archive && row.ai_memory_archive.length > 0) saveAIMemoryArchive(row.ai_memory_archive);
       // Note: new syncs no longer include apiKey (stays in localStorage only), but load it from cloud for backwards compat
@@ -2790,6 +2828,16 @@ async function syncToCloud() {
         if (new Date(checkRow.updated_at).getTime() > new Date(_lastCloudUpdatedAt).getTime()) {
           // Another session wrote — don't overwrite
           showToast('Another session made changes. Reload to sync.', true);
+          // Show persistent conflict banner
+          let conflictBanner = document.getElementById('conflict-banner');
+          if (!conflictBanner) {
+            conflictBanner = document.createElement('div');
+            conflictBanner.id = 'conflict-banner';
+            conflictBanner.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:10000;background:#dc2626;color:#fff;padding:10px 16px;text-align:center;font-size:13px;font-weight:500;cursor:pointer;';
+            conflictBanner.textContent = 'Another session made changes. Click here to reload and sync.';
+            conflictBanner.onclick = () => location.reload();
+            document.body.appendChild(conflictBanner);
+          }
           syncStatus = 'offline';
           updateSyncDot();
           return;
@@ -2824,6 +2872,12 @@ async function syncToCloud() {
 
 // Reconnect sync on network/tab visibility changes
 window.addEventListener('online', () => { if (currentUser && syncStatus === 'offline') scheduleSyncToCloud(); });
+window.addEventListener('pagehide', () => {
+  if (syncTimer && currentUser) {
+    clearTimeout(syncTimer);
+    syncToCloud();
+  }
+});
 document.addEventListener('visibilitychange', async () => {
   if (document.hidden || !currentUser || !sb) return;
   // If offline, try to reconnect
@@ -2834,6 +2888,16 @@ document.addEventListener('visibilitychange', async () => {
     if (!error && checkRow && checkRow.updated_at && _lastCloudUpdatedAt) {
       if (new Date(checkRow.updated_at).getTime() > new Date(_lastCloudUpdatedAt).getTime()) {
         showToast('Another session made changes. Reload to sync.', true);
+        // Show persistent conflict banner
+        let conflictBanner = document.getElementById('conflict-banner');
+        if (!conflictBanner) {
+          conflictBanner = document.createElement('div');
+          conflictBanner.id = 'conflict-banner';
+          conflictBanner.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:10000;background:#dc2626;color:#fff;padding:10px 16px;text-align:center;font-size:13px;font-weight:500;cursor:pointer;';
+          conflictBanner.textContent = 'Another session made changes. Click here to reload and sync.';
+          conflictBanner.onclick = () => location.reload();
+          document.body.appendChild(conflictBanner);
+        }
         syncStatus = 'offline';
         updateSyncDot();
       }
@@ -2884,11 +2948,12 @@ function loadData() {
   return { tasks: [], projects: [] };
 }
 let _suppressCloudSync = false;
+let _batchMode = false;
 function saveData(d) {
   _dataVersion++;
   try { localStorage.setItem(userKey(STORE_KEY), JSON.stringify(d)); }
   catch (e) { showToast('Storage full — export your data from Settings', true); console.error('Save failed:', e); }
-  if (!_suppressCloudSync) scheduleSyncToCloud();
+  if (!_suppressCloudSync && !_batchMode) scheduleSyncToCloud();
 }
 
 let data = loadData();
@@ -2928,7 +2993,7 @@ let calendarOffset = 0; // weeks or months offset from current
 let calendarExpandedDay = null; // ISO date string for expanded day in calendar
 const undoStack = []; // [{ label, snapshot }] — max 20
 
-function saveChatHistory() { try { localStorage.setItem(userKey(CHAT_HISTORY_KEY), JSON.stringify(chatHistory.slice(-15))); } catch (e) { console.warn('saveChatHistory failed:', e); } }
+function saveChatHistory() { try { chatHistory = chatHistory.slice(-100); localStorage.setItem(userKey(CHAT_HISTORY_KEY), JSON.stringify(chatHistory.slice(-15))); } catch (e) { console.warn('saveChatHistory failed:', e); } }
 
 // ============================================================
 // CRUD
@@ -2936,7 +3001,7 @@ function saveChatHistory() { try { localStorage.setItem(userKey(CHAT_HISTORY_KEY
 function genId(prefix = 't') { return prefix + '_' + Date.now() + '_' + Math.random().toString(36).slice(2,6); }
 
 function createTask(o = {}) {
-  return {
+  const t = {
     id: genId('t'), title: '', notes: '', status: 'todo',
     priority: 'normal', horizon: 'short',
     project: '', dueDate: '', phase: '',
@@ -2949,6 +3014,9 @@ function createTask(o = {}) {
     updates: [],
     ...o
   };
+  if (t.title && t.title.length > 500) t.title = t.title.slice(0, 500);
+  if (t.notes && t.notes.length > 10000) t.notes = t.notes.slice(0, 10000);
+  return t;
 }
 
 function createProject(o = {}) {
@@ -2972,10 +3040,12 @@ function getLifeProjectId() {
 
 function addTask(t) { data.tasks.push(t); saveData(data); }
 function updateTask(id, u) {
-  const t = data.tasks.find(x => x.id === id);
+  const t = findTask(id);
   if (!t) return;
   const wasNotDone = t.status !== 'done';
   Object.assign(t, u);
+  if (t.title && t.title.length > 500) t.title = t.title.slice(0, 500);
+  if (t.notes && t.notes.length > 10000) t.notes = t.notes.slice(0, 10000);
   if (u.status === 'done' && !t.completedAt) t.completedAt = new Date().toISOString();
   if (u.status && u.status !== 'done') t.completedAt = null;
   saveData(data);
@@ -2998,7 +3068,7 @@ function updateTask(id, u) {
   }
 }
 function deleteTask(id, silent) {
-  const t = data.tasks.find(x => x.id === id);
+  const t = findTask(id);
   pushUndo('Delete task' + (t ? ': ' + t.title : ''));
   data.tasks = data.tasks.filter(x => x.id !== id);
   saveData(data);
@@ -3006,7 +3076,7 @@ function deleteTask(id, silent) {
 }
 
 function addSubtask(taskId, title) {
-  const t = data.tasks.find(x => x.id === taskId);
+  const t = findTask(taskId);
   if (!t) return;
   if (!t.subtasks) t.subtasks = [];
   t.subtasks.push({ id: genId('st'), title, done: false });
@@ -3014,7 +3084,7 @@ function addSubtask(taskId, title) {
 }
 
 function toggleSubtask(taskId, subtaskId) {
-  const t = data.tasks.find(x => x.id === taskId);
+  const t = findTask(taskId);
   if (!t || !t.subtasks) return;
   const s = t.subtasks.find(x => x.id === subtaskId);
   if (s) { s.done = !s.done; saveData(data); render(); }
@@ -3091,6 +3161,25 @@ function findSimilarProject(name) {
   return bestScore >= 0.6 ? best : null;
 }
 
+// --- 5.1: Render-cycle cache for activeTasks/doneTasks/urgentTasks ---
+let _renderCache = { version: -1 };
+function _rc(key, fn) {
+  if (_renderCache.version !== _dataVersion) _renderCache = { version: _dataVersion };
+  if (!(key in _renderCache)) _renderCache[key] = fn();
+  return _renderCache[key];
+}
+
+// --- 5.2: Task ID lookup Map (invalidates with _dataVersion) ---
+let _taskMapVersion = -1, _taskMap = new Map();
+function getTaskMap() {
+  if (_taskMapVersion !== _dataVersion) {
+    _taskMap = new Map(data.tasks.map(t => [t.id, t]));
+    _taskMapVersion = _dataVersion;
+  }
+  return _taskMap;
+}
+function findTask(id) { return getTaskMap().get(id); }
+
 function applyTagFilter(tasks) {
   let filtered = activeTagFilter ? tasks.filter(t => (t.tags || []).includes(activeTagFilter)) : tasks;
   if (_nudgeFilter === 'overdue') filtered = filtered.filter(t => t.status !== 'done' && t.dueDate && t.dueDate < todayStr());
@@ -3099,9 +3188,9 @@ function applyTagFilter(tasks) {
   return filtered;
 }
 function projectTasks(pid) { return applyTagFilter(data.tasks.filter(t => t.project === pid && !t.archived)); }
-function activeTasks(pid) { return applyTagFilter((pid ? data.tasks.filter(t => t.project === pid) : data.tasks).filter(t => t.status !== 'done' && !t.archived)); }
-function doneTasks(pid) { return applyTagFilter((pid ? data.tasks.filter(t => t.project === pid) : data.tasks).filter(t => t.status === 'done' && !t.archived)); }
-function urgentTasks() { return data.tasks.filter(t => t.status !== 'done' && !t.archived && (t.priority === 'urgent' || (t.dueDate && t.dueDate <= todayStr()))); }
+function activeTasks(pid) { const key = 'active_' + (pid || ''); return _rc(key, () => applyTagFilter((pid ? data.tasks.filter(t => t.project === pid) : data.tasks).filter(t => t.status !== 'done' && !t.archived))); }
+function doneTasks(pid) { const key = 'done_' + (pid || ''); return _rc(key, () => applyTagFilter((pid ? data.tasks.filter(t => t.project === pid) : data.tasks).filter(t => t.status === 'done' && !t.archived))); }
+function urgentTasks() { return _rc('urgent', () => data.tasks.filter(t => t.status !== 'done' && !t.archived && (t.priority === 'urgent' || (t.dueDate && t.dueDate <= todayStr())))); }
 function archivedTasks() { return data.tasks.filter(t => t.archived); }
 function cleanupArchive() {
   var cutoff = Date.now() - 2592000000; // 30 days
@@ -3140,7 +3229,7 @@ var proactiveResults = null;
 function dismissProactiveBanner() { proactiveResults = null; render(); }
 
 function unarchiveTask(id) {
-  var t = data.tasks.find(function(x) { return x.id === id; });
+  var t = findTask(id);
   if (t) { t.archived = false; saveData(data); render(); showToast('Task restored'); }
 }
 
@@ -3219,10 +3308,39 @@ function render() {
   if (_renderRAF) return;
   _renderRAF = requestAnimationFrame(() => { _renderRAF = null; _renderNow(); });
 }
+// Focus trapping for modals — returns cleanup function
+function trapFocus(modalEl) {
+  const focusable = modalEl.querySelectorAll('input, textarea, select, button, [tabindex]:not([tabindex="-1"]), a[href]');
+  if (!focusable.length) return () => {};
+  const first = focusable[0], last = focusable[focusable.length - 1];
+  const handler = (e) => {
+    if (e.key !== 'Tab') return;
+    if (e.shiftKey) { if (document.activeElement === first) { e.preventDefault(); last.focus(); } }
+    else { if (document.activeElement === last) { e.preventDefault(); first.focus(); } }
+  };
+  modalEl.addEventListener('keydown', handler);
+  return () => modalEl.removeEventListener('keydown', handler);
+}
+let _trapFocusCleanup = null;
+
+// Android back button / history state management for modals
+function pushModalState(type) {
+  history.pushState({ modal: type }, '');
+}
+window.addEventListener('popstate', (e) => {
+  if (e.state && e.state.modal) return;
+  const modal = document.querySelector('.modal-overlay');
+  if (modal) { closeModal(); return; }
+  const chat = document.querySelector('.chat-panel');
+  if (chat && chat.classList.contains('open') && window.innerWidth <= 768) { toggleChat(); return; }
+  const sidebar = document.querySelector('.mobile-overlay');
+  if (sidebar && sidebar.style.display !== 'none') { closeMobileSidebar(); return; }
+});
+
 function confirmAction(message) {
   return new Promise(resolve => {
     let resolved = false;
-    const dismiss = (val) => { if (resolved) return; resolved = true; document.removeEventListener('keydown', escHandler); overlay.remove(); resolve(val); };
+    const dismiss = (val) => { if (resolved) return; resolved = true; document.removeEventListener('keydown', escHandler); if (_trapFocusCleanup) { _trapFocusCleanup(); _trapFocusCleanup = null; } overlay.remove(); resolve(val); };
     const escHandler = (e) => { if (e.key === 'Escape') dismiss(false); };
     const overlay = document.createElement('div');
     overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;z-index:10000;animation:fadeIn .15s ease';
@@ -3237,6 +3355,8 @@ function confirmAction(message) {
     </div>`;
     document.body.appendChild(overlay);
     document.addEventListener('keydown', escHandler);
+    pushModalState('confirm');
+    _trapFocusCleanup = trapFocus(overlay);
     overlay.querySelector('#_confirmCancel').onclick = () => dismiss(false);
     overlay.querySelector('#_confirmOk').onclick = () => dismiss(true);
     overlay.addEventListener('click', e => { if (e.target === overlay) dismiss(false); });
@@ -3321,17 +3441,7 @@ function _renderNow() {
   attachListeners();
   renderBulkBar();
 
-  // Welcome typing animation for empty state
-  if (currentView === 'dashboard') {
-    const _wt = document.getElementById('welcomeTyping');
-    if (_wt && !_wt.dataset.typed) {
-      _wt.dataset.typed = '1';
-      const _msg = 'What will you build today?';
-      let _ci = 0;
-      _wt.textContent = '';
-      const _ti = setInterval(() => { _ci++; _wt.textContent = _msg.slice(0, _ci); if (_ci >= _msg.length) clearInterval(_ti); }, 45);
-    }
-  }
+  // Welcome typing animation handled by dashboard-v2.js startWelcomeTyping()
 
   // Auto-generate briefing and plan on first dashboard load of the day
   // First-time users: wait until 3+ active tasks so the briefing has enough data to be useful
@@ -3386,6 +3496,7 @@ function renderSidebar() {
   // Today badge on dashboard
   const todayCount = data.tasks.filter(t => t.status !== 'done' && !t.archived && t.dueDate && t.dueDate <= todayStr()).length;
   const dashNav = $('.nav-item[data-view="dashboard"]');
+  if (!dashNav) return;
   let badge = dashNav.querySelector('.nav-badge');
   if (todayCount > 0) {
     if (!badge) { badge = document.createElement('span'); badge.className = 'nav-badge'; dashNav.appendChild(badge); }
@@ -3576,7 +3687,7 @@ function renderCalendar() {
 
   // Expanded task detail below calendar
   if (expandedTask) {
-    const et = data.tasks.find(t => t.id === expandedTask);
+    const et = findTask(expandedTask);
     if (et) {
       html += `<div style="margin-top:16px">${renderTaskExpanded(et, true)}</div>`;
     }
@@ -3762,6 +3873,7 @@ function renderTaskRow(t, showProject = false) {
   return `<div class="task-row${priClass}" data-task="${t.id}"${blocked ? ' style="opacity:0.55"' : ''}>
     ${bulkMode ? `<div class="bulk-check${bulkSelected.has(t.id) ? ' on' : ''}" data-bulk="${t.id}">${bulkSelected.has(t.id) ? '✓' : ''}</div>` : ''}
     <div class="task-check ${isDone ? 'done' : ''}" data-toggle="${t.id}" role="checkbox" aria-checked="${isDone}" aria-label="Mark ${esc(t.title)} ${isDone ? 'incomplete' : 'complete'}" tabindex="0"></div>
+    ${!isDone && (t.priority === 'urgent' || t.priority === 'important' || t.priority === 'normal') ? `<span style="font-size:9px;font-weight:600;color:${priorityColor(t.priority)};margin-right:4px;opacity:0.7;flex-shrink:0">${t.priority === 'urgent' ? 'P1' : t.priority === 'important' ? 'P2' : 'P3'}</span>` : ''}
     <div class="task-body">
       <div class="task-title ${isDone ? 'done-text' : ''}" data-inline-edit="${t.id}">${blocked ? '<span style="color:var(--red);font-size:10px;margin-right:4px" title="Blocked">◆</span>' : ''}${esc(t.title)}${proactiveLog.some(l => l.taskId === t.id) ? ' <span style="font-size:10px;color:var(--accent);opacity:0.7;font-weight:500" title="AI pre-filled drafts for this task">✦ AI prepared</span>' : ''}</div>
       ${t.notes ? `<div class="task-note">${esc(t.notes)}</div>` : ''}
@@ -3952,20 +4064,30 @@ async function bulkAction(action, value) {
   }
   pushUndo('Bulk ' + action);
 
+  _batchMode = true;
   if (action === 'delete') {
     ids.forEach(id => { data.tasks = data.tasks.filter(t => t.id !== id); });
+    _batchMode = false;
     saveData(data);
     showUndoToast(`Deleted ${ids.length} tasks`);
   } else if (action === 'done' || action === 'todo') {
     ids.forEach(id => updateTask(id, { status: action }));
+    _batchMode = false;
+    saveData(data);
     showToast(`${ids.length} tasks → ${action}`);
   } else if (action === 'move') {
     ids.forEach(id => updateTask(id, { project: value }));
+    _batchMode = false;
+    saveData(data);
     const proj = data.projects.find(p => p.id === value);
     showToast(`Moved ${ids.length} to ${proj ? proj.name : 'board'}`);
   } else if (action === 'priority') {
     ids.forEach(id => updateTask(id, { priority: value }));
+    _batchMode = false;
+    saveData(data);
     showToast(`${ids.length} tasks → ${value}`);
+  } else {
+    _batchMode = false;
   }
 
   bulkSelected.clear();
@@ -4034,7 +4156,7 @@ function attachInlineEdit() {
     el.addEventListener('dblclick', (e) => {
       e.stopPropagation();
       const taskId = el.dataset.inlineEdit;
-      const t = data.tasks.find(x => x.id === taskId);
+      const t = findTask(taskId);
       if (!t) return;
       el.contentEditable = 'true';
       el.classList.add('task-title-editable');
@@ -4075,14 +4197,14 @@ let tooltipEl = null;
 function isBlocked(t) {
   if (!t.blockedBy || !t.blockedBy.length) return false;
   return t.blockedBy.some(id => {
-    const dep = data.tasks.find(x => x.id === id);
+    const dep = findTask(id);
     return dep && dep.status !== 'done';
   });
 }
 
 function renderBlockedBy(t) {
   if (!t.blockedBy || !t.blockedBy.length) return '';
-  const blockers = t.blockedBy.map(id => data.tasks.find(x => x.id === id)).filter(Boolean);
+  const blockers = t.blockedBy.map(id => findTask(id)).filter(Boolean);
   if (!blockers.length) return '';
   return `<div style="margin-top:6px"><div style="font-size:11px;color:var(--text3);margin-bottom:3px;font-weight:600">BLOCKED BY</div>${blockers.map(b =>
     `<div style="display:flex;align-items:center;gap:6px;padding:2px 0;font-size:12px">
@@ -4100,7 +4222,7 @@ function renderBlocking(t) {
 }
 
 function addDep(taskId, blockerQuery) {
-  const t = data.tasks.find(x => x.id === taskId);
+  const t = findTask(taskId);
   if (!t) return;
   const blocker = matchTask(blockerQuery);
   if (!blocker || blocker.id === taskId) { showToast('Task not found', true); return; }
@@ -4113,7 +4235,7 @@ function addDep(taskId, blockerQuery) {
 }
 
 function removeDep(taskId, blockerId) {
-  const t = data.tasks.find(x => x.id === taskId);
+  const t = findTask(taskId);
   if (!t || !t.blockedBy) return;
   t.blockedBy = t.blockedBy.filter(id => id !== blockerId);
   saveData(data);
@@ -4172,7 +4294,7 @@ async function runTaskCmd(taskId, input) {
   input = input.trim();
   if (!input) return;
 
-  const t = data.tasks.find(x => x.id === taskId);
+  const t = findTask(taskId);
   if (!t) return;
 
   const lower = input.toLowerCase();
@@ -4214,7 +4336,7 @@ async function runTaskCmd(taskId, input) {
 }
 
 async function runTaskCmdAI(taskId, input) {
-  const t = data.tasks.find(x => x.id === taskId);
+  const t = findTask(taskId);
   if (!t) return;
 
   const cmdInput = document.querySelector(`[data-cmd="${taskId}"]`);
@@ -4297,7 +4419,7 @@ function attachListeners() {
     const toggle = (e) => {
       e.stopPropagation();
       const id = el.dataset.toggle;
-      const t = data.tasks.find(x => x.id === id);
+      const t = findTask(id);
       if (t) { const wasDone = t.status === 'done'; updateTask(id, { status: wasDone ? 'todo' : 'done' }); if (!wasDone) { expandedTask = null; showToast(`✓ ${t.title}`, false, true); } render(); }
     };
     el.onclick = toggle;
@@ -4354,6 +4476,7 @@ document.addEventListener('keydown', (e) => {
   if ((e.metaKey || e.ctrlKey) && e.key === 'z') { e.preventDefault(); undo(); return; }
   if ((e.metaKey || e.ctrlKey) && e.key === 'd') { e.preventDefault(); setView('dump'); return; }
   if ((e.metaKey || e.ctrlKey) && e.key === 'j') { e.preventDefault(); toggleChat(); return; }
+  if ((e.metaKey || e.ctrlKey) && e.key === ',') { e.preventDefault(); openSettings(); return; }
   if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT' || e.target.isContentEditable) {
     if (e.key === 'Escape') { e.target.blur(); return; }
     return;
@@ -4386,7 +4509,7 @@ document.addEventListener('keydown', (e) => {
     else if (e.key === 'x' && kbIdx >= 0 && kbIdx < rows.length) {
       e.preventDefault();
       const id = rows[kbIdx].dataset.task;
-      if (id) { const t = data.tasks.find(x => x.id === id); if (t) { updateTask(id, { status: t.status === 'done' ? 'todo' : 'done' }); render(); } }
+      if (id) { const t = findTask(id); if (t) { updateTask(id, { status: t.status === 'done' ? 'todo' : 'done' }); render(); } }
       return;
     }
     else if (e.key === 'e' && kbIdx >= 0 && kbIdx < rows.length) {
@@ -4455,6 +4578,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 let _closeModalTimer = null;
 function closeModal() {
+  if (_trapFocusCleanup) { _trapFocusCleanup(); _trapFocusCleanup = null; }
   if (_closeModalTimer) { clearTimeout(_closeModalTimer); _closeModalTimer = null; }
   const overlay = $('#modalRoot').querySelector('.modal-overlay');
   if (overlay) { overlay.style.opacity = '0'; const cp = overlay.querySelector('.cmd-palette'); if (cp) cp.classList.add('cmd-closing'); const modal = overlay.querySelector('.modal'); if (modal) { modal.style.transform = 'translateY(8px)'; modal.style.opacity = '0'; } _closeModalTimer = setTimeout(() => { _closeModalTimer = null; $('#modalRoot').innerHTML = ''; }, 150); }
@@ -4465,9 +4589,9 @@ function openShortcutHelp() {
   const isMac = navigator.platform.includes('Mac');
   const mod = isMac ? '\u2318' : 'Ctrl';
   const columns = [
-    { title: 'Navigation', icon: '\u25C7', items: [[[mod, 'K'], 'Command palette'], [['/', ''], 'Focus quick capture'], [['j', ''], 'Previous task'], [['k', ''], 'Next task'], [['Enter', ''], 'Expand task'], [['1', ''], 'Dashboard'], [['Esc', ''], 'Close anything']] },
+    { title: 'Navigation', icon: '\u25C7', items: [[[mod, 'K'], 'Command palette'], [['/', ''], 'Focus quick capture'], [['j', ''], 'Move down'], [['k', ''], 'Move up'], [['Enter', ''], 'Expand task'], [['1', ''], 'Dashboard'], [['Esc', ''], 'Close anything']] },
     { title: 'Tasks', icon: '\u2726', items: [[['n', ''], 'New task'], [[mod, '\u21E7', 'K'], 'Quick add'], [['x', ''], 'Toggle done'], [['e', ''], 'Edit task'], [[mod, 'Z'], 'Undo'], [['w', ''], 'Weekly review'], [['?', ''], 'This help']] },
-    { title: 'AI Features', icon: '\u26A1', items: [[[mod, 'J'], 'AI Chat'], [[mod, 'D'], 'Brainstorm']] },
+    { title: 'AI Features', icon: '\u26A1', items: [[[mod, 'J'], 'AI Chat'], [[mod, 'D'], 'Brainstorm'], [[mod, ','], 'Settings']] },
   ];
   const kbdStyle = "font-family:'SF Mono',SFMono-Regular,Menlo,Consolas,monospace;font-size:11px;background:var(--hover);border:1px solid var(--border);border-radius:5px;padding:2px 7px;color:var(--accent)";
   const sectionHtml = columns.map(col => `
@@ -4741,7 +4865,7 @@ function openNewTask(projectId = '', prefillDate = '') {
   $('#modalRoot').innerHTML = `<div class="modal-overlay" onclick="if(event.target===this)closeModal()"><div class="modal">
     <div class="modal-title">New Task</div>
     <div class="form-group"><label class="form-label">Title</label><input class="form-input" id="fTitle" placeholder="What needs to be done?" autofocus></div>
-    <div class="form-group"><label class="form-label">Notes</label><input class="form-input" id="fNotes" placeholder="Details..."></div>
+    <div class="form-group"><label class="form-label">Notes</label><textarea class="form-textarea" id="fNotes" rows="3" placeholder="Details..."></textarea></div>
     <div class="form-row">
       <div class="form-group"><label class="form-label">Priority</label><select class="form-select" id="fPriority"><option value="urgent">Urgent</option><option value="important">Important</option><option value="normal" selected>Normal</option><option value="low">Low</option></select></div>
     </div>
@@ -4754,6 +4878,8 @@ function openNewTask(projectId = '', prefillDate = '') {
   $('#fTitle').focus();
   $('#fTitle').onkeydown = e => { if (e.key === 'Enter') saveNewTask(); };
   if (dueDateValue) { const prev = document.getElementById('fDue_preview'); if (prev) { const d = new Date(dueDateValue + 'T12:00:00'); prev.innerHTML = '<span style="color:var(--green)">' + d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }) + '</span>'; prev.style.display = 'block'; } }
+  pushModalState('new-task');
+  const _ntModal = $('#modalRoot').querySelector('.modal-overlay'); if (_ntModal) _trapFocusCleanup = trapFocus(_ntModal);
 }
 
 function saveNewTask() {
@@ -4808,13 +4934,13 @@ async function autoClassifyTask(task) {
 }
 
 function openEditTask(id) {
-  const t = data.tasks.find(x => x.id === id);
+  const t = findTask(id);
   if (!t) return;
   const projOpts = data.projects.map(p => `<option value="${p.id}" ${t.project===p.id?'selected':''}>${esc(p.name)}</option>`).join('');
   $('#modalRoot').innerHTML = `<div class="modal-overlay" onclick="if(event.target===this)closeModal()"><div class="modal">
     <div class="modal-title">Edit Task</div>
     <div class="form-group"><label class="form-label">Title</label><input class="form-input" id="fTitle" value="${esc(t.title)}"></div>
-    <div class="form-group"><label class="form-label">Notes</label><input class="form-input" id="fNotes" value="${esc(t.notes)}"></div>
+    <div class="form-group"><label class="form-label">Notes</label><textarea class="form-textarea" id="fNotes" rows="3">${esc(t.notes)}</textarea></div>
     <div class="form-row">
       <div class="form-group"><label class="form-label">Status</label><select class="form-select" id="fStatus"><option value="todo" ${t.status==='todo'?'selected':''}>To Do</option><option value="in-progress" ${t.status==='in-progress'?'selected':''}>In Progress</option><option value="done" ${t.status==='done'?'selected':''}>Done</option></select></div>
       <div class="form-group"><label class="form-label">Priority</label><select class="form-select" id="fPriority"><option value="urgent" ${t.priority==='urgent'?'selected':''}>Urgent</option><option value="important" ${t.priority==='important'?'selected':''}>Important</option><option value="normal" ${t.priority==='normal'?'selected':''}>Normal</option><option value="low" ${t.priority==='low'?'selected':''}>Low</option></select></div>
@@ -4838,7 +4964,7 @@ function openEditTask(id) {
       <div class="tag-picker" id="fTagPicker">${renderTagPicker(t.tags || [])}</div>
     </div>
     <div class="form-group"><label class="form-label">Blocked By</label>
-      <div id="fBlockedBy" style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:4px">${(t.blockedBy || []).map(id => { const b = data.tasks.find(x => x.id === id); return b ? `<span class="tag" style="background:var(--red-dim);color:var(--red);cursor:pointer" data-dep="${id}" onclick="this.remove()">${esc(b.title.slice(0, 30))}</span>` : ''; }).join('')}</div>
+      <div id="fBlockedBy" style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:4px">${(t.blockedBy || []).map(id => { const b = findTask(id); return b ? `<span class="tag" style="background:var(--red-dim);color:var(--red);cursor:pointer" data-dep="${id}" onclick="this.remove()">${esc(b.title.slice(0, 30))}</span>` : ''; }).join('')}</div>
       <input class="form-input" id="fDepSearch" placeholder="Type task name to add dependency..." style="font-size:12px" oninput="showDepResults(this.value,'${t.id}')" onkeydown="if(event.key==='Escape'){this.value='';document.getElementById('depResults').innerHTML='';}">
       <div id="depResults" style="max-height:120px;overflow-y:auto"></div>
     </div>
@@ -4849,6 +4975,8 @@ function openEditTask(id) {
       <button class="btn btn-primary" onclick="saveEditTask('${t.id}')">Save</button>
     </div>
   </div></div>`;
+  pushModalState('edit-task');
+  setTimeout(() => { const m = $('#modalRoot').querySelector('.modal-overlay'); if (m) _trapFocusCleanup = trapFocus(m); }, 0);
 }
 
 function saveEditTask(id) {
@@ -5108,10 +5236,11 @@ function buildAIContext(scope = 'all', projectId = null, detail = 'standard') {
     ctx += `\nALL ACTIVE TASKS:\n`;
     const allActiveTasks = data.tasks.filter(t => t.status !== 'done').sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
     const cappedTasks = allActiveTasks.slice(0, 100);
+    const notesCap = allActiveTasks.length > 50 ? 100 : 500;
     if (allActiveTasks.length > 100) ctx += `  (showing 100 of ${allActiveTasks.length} — ${allActiveTasks.length - 100} older tasks omitted)\n`;
     cappedTasks.forEach(t => {
       const proj = data.projects.find(p => p.id === t.project);
-      ctx += `  - [${t.priority}${t.status === 'in-progress' ? '/WIP' : ''}${isBlocked(t) ? '/BLOCKED' : ''}] ${t.title}${proj ? ' {' + proj.name + '}' : ''}${t.dueDate ? ' due:' + t.dueDate : ''}${t.notes ? ' — ' + t.notes.slice(0, 500) : ''}${t.subtasks?.length ? ' [' + t.subtasks.filter(s => s.done).length + '/' + t.subtasks.length + ' sub]' : ''}${t.blockedBy?.length ? ' [blocked by: ' + t.blockedBy.map(id => { const b = data.tasks.find(x => x.id === id); return b ? b.title.slice(0, 25) : '?'; }).join(', ') + ']' : ''}\n`;
+      ctx += `  - [${t.priority}${t.status === 'in-progress' ? '/WIP' : ''}${isBlocked(t) ? '/BLOCKED' : ''}] ${t.title}${proj ? ' {' + proj.name + '}' : ''}${t.dueDate ? ' due:' + t.dueDate : ''}${t.notes ? ' — ' + t.notes.slice(0, notesCap) : ''}${t.subtasks?.length ? ' [' + t.subtasks.filter(s => s.done).length + '/' + t.subtasks.length + ' sub]' : ''}${t.blockedBy?.length ? ' [blocked by: ' + t.blockedBy.map(id => { const b = findTask(id); return b ? b.title.slice(0, 25) : '?'; }).join(', ') + ']' : ''}\n`;
     });
     // Include completed tasks so AI knows what's been done
     const allDoneTasks = data.tasks.filter(t => t.status === 'done').sort((a, b) => (b.completedAt || '').localeCompare(a.completedAt || ''));
@@ -5124,6 +5253,7 @@ function buildAIContext(scope = 'all', projectId = null, detail = 'standard') {
       });
     }
   }
+  if (ctx.length > 30000) ctx = ctx.slice(0, 30000);
   return ctx;
 }
 
@@ -5552,11 +5682,19 @@ function renderDump() {
 
 // ── Lazy-load file processing libraries (only when user attaches a file) ─────
 const _libCache = {};
+// SRI integrity hashes for CDN scripts — generate with:
+// curl -s 'URL' | openssl dgst -sha384 -binary | openssl base64 -A
+const _libSRI = {
+  'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js': 'sha384-/1qUCSGwTur9vjf/z9lmu/eCUYbpOTgSjmpbMQZ1/CtX2v/WcAIKqRv+U1DUCG6e',
+  'https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js': 'sha384-nFoSjZIoH3CCp8W639jJyQkuPHinJ2NHe7on1xvlUA7SuGfJAfvMldrsoAVm6ECz',
+  'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js': 'sha384-vtjasyidUo0kW94K5MXDXntzOJpQgBKXmE7e2Ga4LG0skTTLeBi97eFAXsqewJjw',
+};
 function loadScript(url) {
   if (_libCache[url]) return _libCache[url];
   _libCache[url] = new Promise((resolve, reject) => {
     const s = document.createElement('script');
     s.src = url;
+    if (_libSRI[url]) { s.integrity = _libSRI[url]; s.crossOrigin = 'anonymous'; }
     s.onload = resolve;
     s.onerror = () => reject(new Error('Failed to load ' + url.split('/').pop()));
     document.head.appendChild(s);
@@ -5615,6 +5753,11 @@ async function extractFileText(file) {
       pages.push(content.items.map(item => item.str).join(' '));
     }
     return { text: pages.join('\n\n'), pages: pdf.numPages };
+  }
+
+  // Legacy .doc (not .docx) — unsupported binary format
+  if (name.endsWith('.doc') && !name.endsWith('.docx')) {
+    throw new Error('Legacy .doc files are not supported. Please save as .docx and try again.');
   }
 
   // Word (.docx)
@@ -5740,10 +5883,23 @@ function parseDumpResponse(content) {
     const m = content.match(/\{[\s\S]*\}/);
     if (m) try { parsed = JSON.parse(m[0]); } catch {
       let f = m[0];
-      const opens = (f.match(/[\[{]/g) || []).length;
-      const closes = (f.match(/[\]}]/g) || []).length;
+      // Build a stack of unclosed brackets
+      const stack = [];
+      let inStr = false, esc = false;
+      for (const ch of f) {
+        if (esc) { esc = false; continue; }
+        if (ch === '\\') { esc = true; continue; }
+        if (ch === '"') { inStr = !inStr; continue; }
+        if (inStr) continue;
+        if (ch === '{' || ch === '[') stack.push(ch);
+        else if (ch === '}' || ch === ']') stack.pop();
+      }
+      // Close unclosed brackets in reverse order
       let suffix = '';
-      for (let i = 0; i < opens - closes; i++) suffix += f.lastIndexOf('[') > f.lastIndexOf('{') ? ']' : '}';
+      while (stack.length) {
+        const open = stack.pop();
+        suffix += open === '{' ? '}' : ']';
+      }
       try { parsed = JSON.parse(f + suffix); } catch {}
     }
     if (!parsed) {
@@ -5849,8 +6005,9 @@ async function processDump(skipClarifyPass) {
 
   // Curiosity pass — ask clarifying questions for vague input
   if (!skipClarifyPass) {
+    dumpAbort = new AbortController();
     const statusEl = $('#dumpStatus');
-    if (statusEl) statusEl.innerHTML = `<div class="ai-status"><div class="spinner"></div>Thinking...</div>`;
+    if (statusEl) statusEl.innerHTML = `<div class="ai-status"><div class="spinner"></div>Thinking... <button class="btn btn-sm" style="margin-left:12px;font-size:10px;color:var(--red);border-color:var(--red)" onclick="cancelDump()">Cancel</button></div>`;
     const questions = await maybeClarify(text);
     if (questions) {
       showClarifyUI(questions, text);
@@ -5996,7 +6153,7 @@ ${text}${getDumpAttachmentText()}`;
   try {
     let parsed;
     // Chunk size: proxy now allows 60K per message, own key unlimited
-    const chunkSize = settings.apiKey ? 50000 : 20000;
+    const chunkSize = settings.apiKey ? 50000 : 40000;
     const chunks = chunkText(fullInput, chunkSize);
 
     if (chunks.length <= 1) {
@@ -6036,7 +6193,15 @@ ${text}${getDumpAttachmentText()}`;
           allPatterns.push(...(chunkParsed.patterns || []));
         }
       }
-      parsed = { tasks: allTasks, projectUpdates: allProjectUpdates, patterns: allPatterns };
+      // Dedup across chunks by normalized title
+      const seen = new Set();
+      const dedupedTasks = allTasks.filter(t => {
+        const key = (t.title || '').toLowerCase().trim();
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+      parsed = { tasks: dedupedTasks, projectUpdates: allProjectUpdates, patterns: allPatterns };
     }
 
     if (!parsed) throw new Error('Could not parse AI response. Please try again.');
@@ -6238,7 +6403,7 @@ function applyDumpResults() {
       if (item.dueDate) rawFields.dueDate = item.dueDate;
       if (item.priority) rawFields.priority = item.priority;
       if (item.notes) {
-        const t = data.tasks.find(x => x.id === item.id);
+        const t = findTask(item.id);
         if (t) { if (!t.updates) t.updates = []; t.updates.push({ date: todayStr(), text: item.notes }); }
       }
       const allowed = ['title','notes','priority','status','dueDate','project','phase','tags','recurrence','estimatedMinutes','subtasks','favorite'];
@@ -6401,7 +6566,7 @@ Rules:
     const changeLog = [];
     changes.forEach(c => {
       if (!c.id || !c.changes) return;
-      const t = data.tasks.find(x => x.id === c.id);
+      const t = findTask(c.id);
       if (!t) return;
 
       const updates = {};
@@ -6499,6 +6664,8 @@ function openSettings() {
       <div style="font-size:10px;color:var(--text3)">Whiteboards v1.0 &middot; <a onclick="showPrivacy()" style="color:var(--text3);cursor:pointer;text-decoration:underline">Privacy</a> &middot; <a onclick="showTerms()" style="color:var(--text3);cursor:pointer;text-decoration:underline">Terms</a></div>
     </div>
   </div></div>`;
+  pushModalState('settings');
+  setTimeout(() => { const m = $('#modalRoot').querySelector('.modal-overlay'); if (m) _trapFocusCleanup = trapFocus(m); }, 0);
 }
 
 function deleteAIMemory(index) {
@@ -6540,6 +6707,7 @@ function importData(input) {
           return clean;
         });
       }
+      pushUndo('Import data');
       data = d;
       if (!data.projects) data.projects = [];
       ensureLifeProject();
@@ -6773,7 +6941,7 @@ function isComplexInput(text) {
 // --- AI-enhance a task after creation (non-blocking) ---
 function aiEnhanceTask(taskId, originalInput) {
   if (!hasAI()) return;
-  const task = data.tasks.find(t => t.id === taskId);
+  const task = findTask(taskId);
   if (!task) return;
   callAI(`The user typed this into a quick task capture: "${originalInput}"
 
@@ -6786,7 +6954,7 @@ If the task is simple and doesn't need enhancement, return: { "notes": "", "subt
 Keep notes concise and actionable. Today is ${todayStr()}.`, { maxTokens: 512, temperature: 0.3 }).then(reply => {
     try {
       const enhanced = JSON.parse(reply.replace(/```(?:json)?\s*/g, '').replace(/```/g, '').trim());
-      const t = data.tasks.find(x => x.id === taskId);
+      const t = findTask(taskId);
       if (!t) return;
       if (enhanced.notes && !t.notes) { t.notes = enhanced.notes; }
       if (enhanced.subtasks?.length && (!t.subtasks || !t.subtasks.length)) {
@@ -7150,7 +7318,7 @@ async function planMyDay() {
   const active = data.tasks.filter(t => t.status !== 'done');
   if (active.length === 0) { showToast('No active tasks to plan — add some tasks first'); return; }
   const btn = document.getElementById('planBtn');
-  if (btn) btn.innerHTML = '<div class="spinner"></div> Planning...';
+  if (btn) btn.innerHTML = '<span class="spinner" style="width:14px;height:14px;margin-right:6px;vertical-align:middle"></span>Planning...';
 
   const ctx = buildAIContext('all');
   const taskList = active.map(t => {
@@ -7192,7 +7360,7 @@ Return ONLY a JSON array, no other text:
     const json = JSON.parse(reply.replace(/```json?\s*/g, '').replace(/```/g, '').trim());
     if (Array.isArray(json) && json.length) {
       // Validate IDs exist
-      const valid = json.filter(p => data.tasks.find(t => t.id === p.id));
+      const valid = json.filter(p => findTask(p.id));
       localStorage.setItem(userKey('whiteboard_plan_' + todayStr()), JSON.stringify(valid));
       _planIndexCache = null; _planIndexDate = ''; // invalidate sort cache
       render();
@@ -7281,7 +7449,7 @@ RULES:
     if (Array.isArray(json) && json.length) {
       let filled = 0;
       for (const item of json) {
-        const task = data.tasks.find(t => t.id === item.id);
+        const task = findTask(item.id);
         if (task && item.notes && (!task.notes || task.notes.length <= 50)) {
           const prefix = task.notes ? task.notes + '\n\n---\n**AI Draft:**\n' : '**AI Draft:**\n';
           updateTask(item.id, { notes: prefix + item.notes });
@@ -7333,7 +7501,7 @@ async function generateAIBriefing() {
   if (!hasAI()) return;
   const btn = document.getElementById('briefingBtn');
   const body = document.getElementById('briefingBody');
-  if (btn) btn.innerHTML = '<div class="spinner"></div> Generating...';
+  if (btn) btn.innerHTML = '<span class="spinner" style="width:14px;height:14px;margin-right:6px;vertical-align:middle"></span>Generating...';
 
   const ctx = buildAIContext('all');
   const prompt = `${AI_PERSONA}
@@ -7585,7 +7753,11 @@ ${context}`;
       signal: chatAbort.signal
     });
 
-    if (!resp.ok) throw new Error(resp.status === 429 ? 'AI is busy. Please wait a moment.' : 'AI service error. Please try again.');
+    if (!resp.ok) {
+      let errMsg = resp.status === 429 ? 'AI is busy — try again shortly.' : 'AI service error.';
+      try { const e = await resp.json(); if (e?.error?.message) errMsg = e.error.message; } catch {}
+      throw new Error(errMsg);
+    }
 
     if(await _sseFallback(resp,typingEl,chatMsgs,chatTimeout))return;const reader = resp.body.getReader();
     const decoder = new TextDecoder();
@@ -7814,7 +7986,7 @@ function openFocusView(taskId, reason) {
 }
 
 function renderFocusOverlay() {
-  const t = data.tasks.find(x => x.id === focusTask);
+  const t = findTask(focusTask);
   if (!t) { closeFocus(); return; }
   const proj = data.projects.find(p => p.id === t.project);
 
@@ -7862,7 +8034,7 @@ function renderFocusOverlay() {
 
 function completeFocusTask() {
   if (focusTask) {
-    const t = data.tasks.find(x => x.id === focusTask);
+    const t = findTask(focusTask);
     updateTask(focusTask, { status: 'done' });
     if (t) showToast(`✓ ${t.title}`, false, true);
   }
@@ -7893,7 +8065,7 @@ function closeFocus() {
 function getSmartNudges() {
   const today = todayStr();
   const nudges = [];
-  const active = data.tasks.filter(t => t.status !== 'done');
+  const active = data.tasks.filter(t => t.status !== 'done' && !t.archived);
   const done = data.tasks.filter(t => t.status === 'done');
   const overdue = active.filter(t => t.dueDate && t.dueDate < today);
   const inProgress = active.filter(t => t.status === 'in-progress');
@@ -8034,7 +8206,7 @@ function getStuckTasks() {
 }
 
 async function offerStuckHelp(taskId) {
-  const t = data.tasks.find(x => x.id === taskId);
+  const t = findTask(taskId);
   if (!t || !hasAI()) return;
   const proj = data.projects.find(p => p.id === t.project);
 
@@ -8113,7 +8285,7 @@ function processRecurringTasks() {
 // INIT
 // ============================================================
 (function(){document.addEventListener('mouseenter',function(e){var r=e.target.closest('.task-row');if(!r)return;var id=r.dataset.task,t=data.tasks.find(function(x){return x.id===id});if(!t||!t.notes)return;if(tooltipEl)tooltipEl.remove();tooltipEl=document.createElement('div');tooltipEl.className='task-tooltip';tooltipEl.textContent=t.notes.length>200?t.notes.slice(0,200)+'...':t.notes;document.body.appendChild(tooltipEl);var b=r.getBoundingClientRect();tooltipEl.style.left=Math.min(b.left,window.innerWidth-300)+'px';tooltipEl.style.top=(b.bottom+4)+'px'},true);document.addEventListener('mouseleave',function(e){if(!e.target.closest('.task-row'))return;if(tooltipEl){tooltipEl.remove();tooltipEl=null}},true)})();
-async function _sseFallback(r,te,cm,ct2){var c=(r.headers.get('content-type')||'');if(c.includes('text/event-stream'))return false;var j=await r.json();var f=j.content&&j.content[0]?j.content[0].text:(j.completion||JSON.stringify(j));chatHistory.push({role:'assistant',content:f,ts:Date.now()});saveChatHistory();incrementAIInteraction();var a=await executeAIActions(f);if(a.applied)render();var clean=f.replace(/```(?:actions|json)[\s\S]*?```/g,'').trim();te.innerHTML='<div class="chat-bubble ai">'+esc(clean).replace(/\n/g,'<br>').replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>')+'<span class="chat-ts">'+chatTimeStr()+'</span></div>';cm.scrollTop=cm.scrollHeight;clearTimeout(ct2);return true;}
+async function _sseFallback(r,te,cm,ct2){var c=(r.headers.get('content-type')||'');if(c.includes('text/event-stream'))return false;var j=await r.json();var f=j.content&&j.content[0]?j.content[0].text:(j.completion||JSON.stringify(j));chatHistory.push({role:'assistant',content:f,ts:Date.now()});saveChatHistory();incrementAIInteraction();var a=await executeAIActions(f);if(a.applied)render();var clean=f.replace(/```(?:actions|json)[\s\S]*?```/g,'').trim();te.innerHTML='<div class="chat-bubble ai">'+esc(clean).replace(/\n/g,'<br>').replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>')+'<span class="chat-ts">'+chatTimeStr()+'</span></div>';cm.scrollTop=cm.scrollHeight;clearTimeout(ct2);_chatSending=false;var _sendBtn=document.querySelector('.chat-send');if(_sendBtn)_sendBtn.disabled=false;return true;}
 var _oB=generateAIBriefing,_oP=planMyDay,_oE=submitEndOfDay,_oR=generateWeeklyReview,_oPW=runProactiveWorker;generateAIBriefing=async function(){if(!throttleAI('b'))return;return _oB.apply(this,arguments)};planMyDay=async function(){if(!throttleAI('p'))return;return _oP.apply(this,arguments)};submitEndOfDay=async function(){if(!throttleAI('e'))return;return _oE.apply(this,arguments)};generateWeeklyReview=async function(){if(!throttleAI('r'))return;return _oR.apply(this,arguments)};runProactiveWorker=async function(){if(!throttleAI('w'))return;return _oPW.apply(this,arguments)};
 initAuth();
 </script>

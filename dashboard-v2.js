@@ -28,15 +28,6 @@ function startWelcomeTyping() {
       if (ci <= 0) { deleting = false; pi = (pi + 1) % phrases.length; }
     }
   }, 65);
-  // Use MutationObserver to detect when element is removed
-  const obs = new MutationObserver(() => {
-    if (!document.getElementById('welcomeTyping')) {
-      clearInterval(_welcomeTypingInterval);
-      _welcomeTypingInterval = null;
-      obs.disconnect();
-    }
-  });
-  obs.observe(document.body, { childList: true, subtree: true });
 }
 
 // Quick brainstorm: track word count in hero input for brainstorm hint
@@ -71,19 +62,53 @@ function setupQuickBrainstorm() {
   });
 }
 
+// Safe nudge action lookup — only whitelisted functions can be called
+const _nudgeActionMap = {
+  'nudgeFilterOverdue()': () => nudgeFilterOverdue(),
+  'nudgeFilterStale()': () => nudgeFilterStale(),
+  'nudgeFilterUnassigned()': () => nudgeFilterUnassigned(),
+  'startFocus()': () => startFocus(),
+  'clearNudgeFilter()': () => { _nudgeFilter = ''; render(); },
+};
+
+function bindNudgeActions() {
+  document.querySelectorAll('[data-nudge-action]').forEach(el => {
+    el.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const fn = e.currentTarget.dataset.nudgeAction;
+      if (_nudgeActionMap[fn]) _nudgeActionMap[fn]();
+    });
+  });
+  document.querySelectorAll('[data-stuck-task-id]').forEach(el => {
+    el.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const taskId = e.currentTarget.dataset.stuckTaskId;
+      if (taskId && typeof offerStuckHelp === 'function') offerStuckHelp(taskId);
+    });
+  });
+}
+
 // Hook into render cycle to start typing animation + brainstorm hint
 (function hookDashboardPostRender() {
+  if (window._dashV2Hooked) return;
   const origRender = window.render;
   if (typeof origRender !== 'function') {
     // Retry — render may not be defined yet
     setTimeout(hookDashboardPostRender, 200);
     return;
   }
+  window._dashV2Hooked = true;
   window.render = function() {
     const result = origRender.apply(this, arguments);
     requestAnimationFrame(() => {
+      // Clean up typing interval if element was removed (replaces MutationObserver)
+      if (_welcomeTypingInterval && !document.getElementById('welcomeTyping')) {
+        clearInterval(_welcomeTypingInterval);
+        _welcomeTypingInterval = null;
+      }
       startWelcomeTyping();
       setupQuickBrainstorm();
+      bindNudgeActions();
     });
     return result;
   };
@@ -133,49 +158,42 @@ function getSmartFeedItems() {
   const active = data.tasks.filter(t => t.status !== 'done' && !t.archived);
   const weekFromNow = new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10);
 
-  // Check if there's a day plan — if so, use it as the primary source
+  // Check if there's a day plan — if so, exclude plan tasks from smart feed
+  // (plan tasks are shown separately in the Today card's plan section)
   const planKey = userKey('whiteboard_plan_' + today);
   const cachedPlan = localStorage.getItem(planKey);
+  let planTaskIds = new Set();
   if (cachedPlan) {
     try {
       const plan = JSON.parse(cachedPlan);
-      const planTasks = plan.map(p => {
-        const t = data.tasks.find(x => x.id === p.id);
-        if (!t) return null;
-        return { task: t, why: p.why, source: 'plan', order: plan.indexOf(p) };
-      }).filter(Boolean);
-      // Add any overdue tasks not in the plan
-      const planIds = new Set(plan.map(p => p.id));
-      const overdue = active.filter(t => t.dueDate && t.dueDate < today && !planIds.has(t.id));
-      overdue.forEach(t => planTasks.unshift({ task: t, source: 'overdue', order: -1 }));
-      return planTasks;
+      planTaskIds = new Set(plan.map(p => p.id));
     } catch(e) {}
   }
 
-  // No plan — build smart feed from task data
+  // Build smart feed from task data (excluding plan tasks when a plan exists)
   const items = [];
   const seen = new Set();
 
   // 1. Overdue first
-  const overdue = active.filter(t => t.dueDate && t.dueDate < today);
+  const overdue = active.filter(t => t.dueDate && t.dueDate < today && !planTaskIds.has(t.id));
   overdue.sort((a,b) => a.dueDate.localeCompare(b.dueDate));
   overdue.forEach(t => { if (!seen.has(t.id)) { items.push({ task: t, source: 'overdue' }); seen.add(t.id); } });
 
   // 2. Urgent
-  const urgent = active.filter(t => t.priority === 'urgent' && !seen.has(t.id));
+  const urgent = active.filter(t => t.priority === 'urgent' && !seen.has(t.id) && !planTaskIds.has(t.id));
   urgent.forEach(t => { items.push({ task: t, source: 'urgent' }); seen.add(t.id); });
 
   // 3. In progress
-  const inProg = active.filter(t => t.status === 'in-progress' && !seen.has(t.id));
+  const inProg = active.filter(t => t.status === 'in-progress' && !seen.has(t.id) && !planTaskIds.has(t.id));
   inProg.forEach(t => { items.push({ task: t, source: 'in-progress' }); seen.add(t.id); });
 
   // 4. Due soon (this week)
-  const dueSoon = active.filter(t => t.dueDate && t.dueDate >= today && t.dueDate <= weekFromNow && !seen.has(t.id));
+  const dueSoon = active.filter(t => t.dueDate && t.dueDate >= today && t.dueDate <= weekFromNow && !seen.has(t.id) && !planTaskIds.has(t.id));
   dueSoon.sort((a,b) => a.dueDate.localeCompare(b.dueDate));
   dueSoon.forEach(t => { items.push({ task: t, source: 'due-soon' }); seen.add(t.id); });
 
   // 5. Due today
-  const dueToday = active.filter(t => t.dueDate === today && !seen.has(t.id));
+  const dueToday = active.filter(t => t.dueDate === today && !seen.has(t.id) && !planTaskIds.has(t.id));
   dueToday.forEach(t => { items.push({ task: t, source: 'due-today' }); seen.add(t.id); });
 
   return items;
@@ -244,7 +262,7 @@ renderDashboard = function() {
     return `<div style="max-width:540px;margin:48px auto;text-align:center">
       <div id="welcomeTyping" style="font-size:22px;font-weight:600;margin-bottom:6px;min-height:32px" data-phrases='${JSON.stringify(_emptyPhrases)}'></div>
       <p style="font-size:14px;color:var(--text3);line-height:1.6;margin-bottom:32px">Write freely &mdash; plans, ideas, meeting notes, anything. AI organizes everything into tasks and projects.</p>
-      <div onclick="setView('dump')" class="brainstorm-cta-hover" style="background:var(--surface);border:2px solid var(--accent);border-radius:var(--radius);padding:32px 28px;cursor:pointer;margin-bottom:20px;text-align:left;position:relative">
+      <div onclick="setView('dump')" role="button" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click()}" class="brainstorm-cta-hover" style="background:var(--surface);border:2px solid var(--accent);border-radius:var(--radius);padding:32px 28px;cursor:pointer;margin-bottom:20px;text-align:left;position:relative">
         <div style="font-size:28px;margin-bottom:12px">&#9671;</div>
         <div style="font-size:17px;font-weight:600;margin-bottom:6px;color:var(--text)">Start a brainstorm</div>
         <div style="font-size:13px;color:var(--text3);line-height:1.6;margin-bottom:16px">Write your thoughts, paste meeting notes, attach docs &mdash; all at once. AI reads everything and creates organized, prioritized tasks.</div>
@@ -252,12 +270,12 @@ renderDashboard = function() {
       </div>
       <div style="font-size:12px;color:var(--text3);margin-bottom:20px">or add a task manually with the input above</div>
       <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:12px;text-align:left">
-        <div onclick="setView('dump');setTimeout(()=>{const t=document.getElementById('dumpText');if(t){t.value='Here are my plans for the week:\\n- ';t.focus();t.setSelectionRange(t.value.length,t.value.length)}},100)" class="dashboard-card-hover" style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px 16px;cursor:pointer">
+        <div onclick="setView('dump');setTimeout(()=>{const t=document.getElementById('dumpText');if(t){t.value='Here are my plans for the week:\\n- ';t.focus();t.setSelectionRange(t.value.length,t.value.length)}},100)" role="button" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click()}" class="dashboard-card-hover" style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px 16px;cursor:pointer">
           <div style="font-size:24px;margin-bottom:10px">&#9671;</div>
           <div style="font-size:13px;font-weight:600;margin-bottom:4px">Plan my week</div>
           <div style="font-size:12px;color:var(--text3);line-height:1.5">Drop your weekly goals and let AI organize them</div>
         </div>
-        <div onclick="setView('dump')" class="dashboard-card-hover" style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px 16px;cursor:pointer">
+        <div onclick="setView('dump')" role="button" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click()}" class="dashboard-card-hover" style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px 16px;cursor:pointer">
           <div style="font-size:24px;margin-bottom:10px">&#8623;</div>
           <div style="font-size:13px;font-weight:600;margin-bottom:4px">Import from notes</div>
           <div style="font-size:12px;color:var(--text3);line-height:1.5">Paste meeting notes, docs, or ideas &mdash; AI extracts tasks</div>
@@ -310,7 +328,7 @@ renderDashboard = function() {
       html += `<div class="ai-hero-nudge" style="border-left:3px solid ${colorMap[n.type] || 'var(--accent)'}">
         <span style="flex-shrink:0">${n.icon}</span>
         <span style="font-size:12px;color:var(--text2);line-height:1.4;flex:1">${n.text}</span>
-        ${n.actionLabel ? `<button class="btn btn-sm" onclick="${n.actionFn}" style="flex-shrink:0;font-size:11px;padding:3px 10px;white-space:nowrap">${n.actionLabel}</button>` : ''}
+        ${n.actionLabel ? `<button class="btn btn-sm" data-nudge-action="${esc(n.actionFn)}" style="flex-shrink:0;font-size:11px;padding:3px 10px;white-space:nowrap">${n.actionLabel}</button>` : ''}
       </div>`;
     });
     stuckTasks.slice(0, 2).forEach(t => {
@@ -320,7 +338,7 @@ renderDashboard = function() {
         <span style="flex-shrink:0">◇</span>
         <span style="font-size:12px;color:var(--text2);line-height:1.4;flex:1">
           <strong>${esc(t.title)}</strong> has been in-progress for ${days} days.
-          ${hasAI() ? `<span style="color:var(--accent);cursor:pointer" onclick="event.stopPropagation();offerStuckHelp('${t.id}')">Think through it?</span>` : ''}
+          ${hasAI() ? `<span style="color:var(--accent);cursor:pointer" data-stuck-task-id="${esc(t.id)}">Think through it?</span>` : ''}
         </span>
       </div>`;
     });
@@ -350,7 +368,7 @@ renderDashboard = function() {
       _brainstormStat = `Last: ${last.tasksCreated} task${last.tasksCreated !== 1 ? 's' : ''} from ${last.wordCount} words, ${agoStr}`;
     }
   }
-  html += `<div onclick="setView('dump')" class="brainstorm-cta-main" style="background:linear-gradient(135deg,rgba(129,140,248,.06),rgba(168,85,247,.03));border:1px solid ${_showDumpInvite ? 'var(--accent)' : 'rgba(129,140,248,0.2)'};border-radius:var(--radius);padding:20px 24px;cursor:pointer;transition:all 0.2s;margin-bottom:20px;display:flex;align-items:center;gap:16px;${_showDumpInvite ? 'box-shadow:0 0 0 1px rgba(129,140,248,0.1),0 4px 20px rgba(129,140,248,0.08)' : ''}">
+  html += `<div onclick="setView('dump')" role="button" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click()}" class="brainstorm-cta-main" style="background:linear-gradient(135deg,rgba(129,140,248,.06),rgba(168,85,247,.03));border:1px solid ${_showDumpInvite ? 'var(--accent)' : 'rgba(129,140,248,0.2)'};border-radius:var(--radius);padding:20px 24px;cursor:pointer;transition:all 0.2s;margin-bottom:20px;display:flex;align-items:center;gap:16px;${_showDumpInvite ? 'box-shadow:0 0 0 1px rgba(129,140,248,0.1),0 4px 20px rgba(129,140,248,0.08)' : ''}">
     <div style="font-size:28px;flex-shrink:0">&#9671;</div>
     <div style="flex:1;min-width:0">
       <div style="font-size:15px;font-weight:600;color:var(--text);margin-bottom:3px">Ready to brainstorm?</div>
@@ -364,7 +382,7 @@ renderDashboard = function() {
     const nfLabels = { overdue: 'Overdue tasks', stale: 'Stale tasks (10+ days)', unassigned: 'Unassigned tasks' };
     html += `<div style="display:flex;align-items:center;gap:8px;padding:6px 12px;margin-bottom:12px;background:var(--accent-dim);border:1px solid var(--accent);border-radius:var(--radius-xs)">
       <span style="font-size:12px;color:var(--accent);font-weight:500">Filtering: ${nfLabels[_nudgeFilter] || _nudgeFilter}</span>
-      <span style="font-size:11px;color:var(--accent);cursor:pointer;margin-left:auto" onclick="_nudgeFilter='';render()">Clear filter</span>
+      <span style="font-size:11px;color:var(--accent);cursor:pointer;margin-left:auto" data-nudge-action="clearNudgeFilter()">Clear filter</span>
     </div>`;
   }
 
@@ -455,9 +473,9 @@ renderDashboard = function() {
     if (cachedPlan) {
       try {
         const plan = JSON.parse(cachedPlan);
-        const doneCount = plan.filter(p => p.completedInPlan || (data.tasks.find(x => x.id === p.id) && data.tasks.find(x => x.id === p.id).status === 'done')).length;
-        const totalCount = plan.filter(p => data.tasks.find(x => x.id === p.id)).length;
-        const planMinutes = plan.reduce((sum, p) => { const t = data.tasks.find(x => x.id === p.id); return sum + (t && t.estimatedMinutes ? t.estimatedMinutes : 0); }, 0);
+        const doneCount = plan.filter(p => p.completedInPlan || (findTask(p.id) && findTask(p.id).status === 'done')).length;
+        const totalCount = plan.filter(p => findTask(p.id)).length;
+        const planMinutes = plan.reduce((sum, p) => { const t = findTask(p.id); return sum + (t && t.estimatedMinutes ? t.estimatedMinutes : 0); }, 0);
         const planTimeStr = planMinutes > 0 ? ` · ~${Math.round(planMinutes / 60 * 10) / 10}h` : '';
 
         html += `<div style="border-top:1px solid rgba(129,140,248,0.1);padding-top:12px;margin-top:8px">`;
@@ -468,7 +486,7 @@ renderDashboard = function() {
         </div>`;
 
         plan.forEach((p, i) => {
-          const t = data.tasks.find(x => x.id === p.id);
+          const t = findTask(p.id);
           if (!t) return;
           const isDone = p.completedInPlan || t.status === 'done';
           html += `<div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:2px;${isDone ? 'text-decoration:line-through;opacity:0.5' : ''}">
