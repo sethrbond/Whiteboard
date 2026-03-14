@@ -5,18 +5,18 @@
 let _smartFeedExpanded = false;
 let _todayBriefingExpanded = false;
 
-// Animated typing effect for empty-state welcome
-let _welcomeTypingInterval = null;
+// Animated typing effect for empty-state welcome (on window for cross-file cleanup on sign-out)
+window._welcomeTypingInterval = null;
 function startWelcomeTyping() {
   const el = document.getElementById('welcomeTyping');
-  if (!el || _welcomeTypingInterval) return;
+  if (!el || window._welcomeTypingInterval) return;
   let phrases;
   try { phrases = JSON.parse(el.dataset.phrases || '[]'); } catch(e) { return; }
   if (!phrases.length) return;
   let pi = 0, ci = 0, deleting = false;
-  _welcomeTypingInterval = setInterval(() => {
+  window._welcomeTypingInterval = setInterval(() => {
     const target = document.getElementById('welcomeTyping');
-    if (!target) { clearInterval(_welcomeTypingInterval); _welcomeTypingInterval = null; return; }
+    if (!target) { clearInterval(window._welcomeTypingInterval); window._welcomeTypingInterval = null; return; }
     const phrase = phrases[pi];
     if (!deleting) {
       ci++;
@@ -102,9 +102,9 @@ function bindNudgeActions() {
     const result = origRender.apply(this, arguments);
     requestAnimationFrame(() => {
       // Clean up typing interval if element was removed (replaces MutationObserver)
-      if (_welcomeTypingInterval && !document.getElementById('welcomeTyping')) {
-        clearInterval(_welcomeTypingInterval);
-        _welcomeTypingInterval = null;
+      if (window._welcomeTypingInterval && !document.getElementById('welcomeTyping')) {
+        clearInterval(window._welcomeTypingInterval);
+        window._welcomeTypingInterval = null;
       }
       startWelcomeTyping();
       setupQuickBrainstorm();

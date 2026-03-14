@@ -2306,6 +2306,7 @@ let syncStatus = 'offline'; // 'synced' | 'syncing' | 'offline'
 let syncTimer = null;
 let _lastCloudUpdatedAt = null; // track cloud's updated_at for conflict detection
 let _dataVersion = 0; // incremented on every saveData() call
+let _syncLock = false; // mutex to prevent concurrent sync/load operations
 
 // --- Landing Page ---
 function showAuthFromLanding(mode) {
@@ -2410,6 +2411,22 @@ async function initAuth() {
       expandedTask = null;
       if (window._focusInterval) { clearInterval(window._focusInterval); window._focusInterval = null; }
       _chatSessionStarted = false;
+      // Reset sync state to prevent cross-user contamination
+      _lastCloudUpdatedAt = null;
+      syncStatus = 'offline';
+      clearTimeout(syncTimer); syncTimer = null;
+      _renderCache = { version: -1 };
+      _taskMapVersion = -1; _taskMap = new Map();
+      _dataVersion = 0;
+      // Reset UI state
+      focusTask = null; focusStartTime = null; focusReason = '';
+      _focusSkipped = [];
+      bulkMode = false; bulkSelected = new Set();
+      chatContext = null;
+      _nudgeFilter = ''; _showTagFilter = false;
+      _briefingGenerating = false; _planGenerating = false;
+      if (window._welcomeTypingInterval) { clearInterval(window._welcomeTypingInterval); window._welcomeTypingInterval = null; }
+      if (window._dumpTimer) { clearTimeout(window._dumpTimer); window._dumpTimer = null; }
       var lp = document.getElementById('landingPage'); if (lp) { lp.style.display = ''; lp.classList.remove('hidden'); }
       document.getElementById('authScreen').style.display = 'none';
       document.querySelector('.sidebar').style.display = 'none';
@@ -2595,7 +2612,7 @@ function showFeatureTips() {
     const isLast = idx === tips.length - 1;
     document.getElementById('modalRoot').innerHTML = `<div class="modal-overlay" style="background:rgba(0,0,0,0.5)"><div class="modal" style="max-width:380px;text-align:center;padding:32px">
       <div style="font-size:32px;margin-bottom:12px;opacity:0.7">${t.icon}</div>
-      <div style="font-size:16px;font-weight:600;margin-bottom:8px">${t.title}</div>
+      <div style="font-size:16px;font-weight:600;margin-bottom:8px">${esc(t.title)}</div>
       <div style="font-size:13px;color:var(--text2);line-height:1.6;margin-bottom:20px">${t.desc}</div>
       <div style="display:flex;gap:8px;justify-content:center">
         <button class="btn" onclick="document.getElementById('modalRoot').innerHTML=''" style="font-size:12px">Skip</button>
@@ -2763,6 +2780,8 @@ async function signOut() {
 async function loadFromCloud() {
   if (syncTimer) clearTimeout(syncTimer);
   if (!currentUser) return;
+  if (_syncLock) { console.warn('[SYNC] Load skipped — sync in progress'); return; }
+  _syncLock = true;
   // Show loading indicator
   const mainEl = document.querySelector('.main .content');
   if (mainEl) mainEl.innerHTML = '<div style="padding:32px"><div style="display:flex;align-items:center;color:var(--text3);font-size:13px;margin-bottom:28px"><div class="spinner" style="margin-right:10px"></div>Loading your data...</div><div class="loading-skeleton"><div class="loading-skeleton-bar"></div><div class="loading-skeleton-bar"></div><div class="loading-skeleton-bar"></div></div></div>';
@@ -2778,6 +2797,7 @@ async function loadFromCloud() {
       const localHasData = data.tasks.length > 0 || data.projects.length > 0;
       if (cloudEmpty && localHasData) {
         console.warn('[LOAD] Cloud is empty but local has data — keeping local and syncing up.');
+        _syncLock = false; // release before calling syncToCloud which needs the lock
         await syncToCloud();
         syncStatus = 'synced';
         updateSyncDot();
@@ -2803,9 +2823,11 @@ async function loadFromCloud() {
       syncStatus = 'synced';
     } else {
       // First login — push local data up
+      _syncLock = false; // release before calling syncToCloud which needs the lock
       await syncToCloud();
     }
   } catch (e) { console.error('Cloud load failed:', e); syncStatus = 'offline'; updateSyncDot(); showToast('Could not load cloud data — using local copy', true); }
+  finally { _syncLock = false; }
 }
 
 function scheduleSyncToCloud() {
@@ -2818,6 +2840,8 @@ function scheduleSyncToCloud() {
 
 async function syncToCloud() {
   if (!currentUser || !sb) return;
+  if (_syncLock) { scheduleSyncToCloud(); return; } // retry after current op finishes
+  _syncLock = true;
   syncStatus = 'syncing';
   updateSyncDot();
   try {
@@ -2867,6 +2891,7 @@ async function syncToCloud() {
     console.error('Sync error:', e);
     syncStatus = 'offline';
   }
+  _syncLock = false;
   updateSyncDot();
 }
 
@@ -2875,6 +2900,10 @@ window.addEventListener('online', () => { if (currentUser && syncStatus === 'off
 window.addEventListener('pagehide', () => {
   if (syncTimer && currentUser) {
     clearTimeout(syncTimer);
+    // localStorage is already current (saveData writes immediately).
+    // Fire async sync — may not complete before unload, but data is safe locally.
+    // On next load, loadFromCloud will detect local>cloud and push up.
+    _syncLock = false; // release lock so sync can proceed
     syncToCloud();
   }
 });
@@ -3038,7 +3067,7 @@ function getLifeProjectId() {
   return life ? life.id : '';
 }
 
-function addTask(t) { data.tasks.push(t); saveData(data); }
+function addTask(t) { if (!currentUser) return; data.tasks.push(t); saveData(data); }
 function updateTask(id, u) {
   const t = findTask(id);
   if (!t) return;
@@ -3089,7 +3118,7 @@ function toggleSubtask(taskId, subtaskId) {
   const s = t.subtasks.find(x => x.id === subtaskId);
   if (s) { s.done = !s.done; saveData(data); render(); }
 }
-function addProject(p) { data.projects.push(p); saveData(data); }
+function addProject(p) { if (!currentUser) return; data.projects.push(p); saveData(data); }
 function updateProject(id, u) { const p = data.projects.find(x => x.id === id); if (p) { Object.assign(p, u); saveData(data); } }
 function deleteProject(id) {
   const p = data.projects.find(x => x.id === id);
