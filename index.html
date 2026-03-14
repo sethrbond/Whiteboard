@@ -5556,18 +5556,101 @@ function parseDumpResponse(content) {
   return parsed;
 }
 
-async function processDump() {
+// Curiosity pre-pass: if input is short/vague, AI asks clarifying questions first
+async function maybeClarify(text) {
+  // Only trigger for short inputs (under ~80 words) — long docs go straight to extraction
+  const wordCount = text.split(/\s+/).filter(Boolean).length;
+  if (wordCount > 80) return null;
+
+  try {
+    const reply = await callAI(`You are an executive assistant helping someone brainstorm. They just typed this into a quick capture box:
+
+"${text}"
+
+Is this clear enough to extract specific, actionable tasks? Or is it vague/missing key details?
+
+Rules:
+- If the input already contains specific tasks, deadlines, names, or enough detail to act on → respond with exactly: CLEAR
+- If it's vague, short, or missing important context (what specifically? when? who? which?) → respond with 2-4 SHORT clarifying questions that would help you extract better tasks. Be conversational and curious, not interrogative. Questions should feel like a smart assistant genuinely trying to help, not a form to fill out.
+
+Format if asking questions — respond ONLY with the questions, one per line, no numbering, no preamble. Keep each under 15 words.`, { maxTokens: 200 });
+
+    const trimmed = reply.trim();
+    if (trimmed === 'CLEAR' || trimmed.startsWith('CLEAR')) return null;
+    return trimmed;
+  } catch { return null; } // on error, skip clarify and proceed normally
+}
+
+function showClarifyUI(questions, originalText) {
+  const statusEl = $('#dumpStatus');
+  const lines = questions.split('\n').filter(l => l.trim());
+  let html = `<div class="clarify-card" style="background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius);padding:20px;margin-top:12px;animation:fadeIn .3s ease">
+    <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:12px">✦ A few quick questions to get you better results:</div>
+    <div style="display:flex;flex-direction:column;gap:8px">`;
+  lines.forEach((q, i) => {
+    html += `<div style="display:flex;gap:8px;align-items:start">
+      <span style="color:var(--accent);font-size:13px;flex-shrink:0;margin-top:6px">→</span>
+      <div style="flex:1">
+        <div style="font-size:12px;color:var(--text2);margin-bottom:4px">${esc(q.replace(/^[-•*]\s*/, ''))}</div>
+        <input type="text" class="clarify-input" data-idx="${i}" placeholder="Type your answer..." style="width:100%;padding:6px 10px;background:var(--surface3);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:13px;outline:none" onkeydown="if(event.key==='Enter'){event.preventDefault();submitClarify()}">
+      </div>
+    </div>`;
+  });
+  html += `</div>
+    <div style="display:flex;gap:8px;margin-top:14px">
+      <button class="btn btn-primary btn-sm" onclick="submitClarify()">✦ Continue with answers</button>
+      <button class="btn btn-sm" onclick="skipClarify()" style="color:var(--text3)">Skip — just extract what you can</button>
+    </div>
+  </div>`;
+  if (statusEl) statusEl.innerHTML = html;
+  // Focus first input
+  setTimeout(() => { const first = document.querySelector('.clarify-input'); if (first) first.focus(); }, 100);
+}
+
+function submitClarify() {
+  const inputs = document.querySelectorAll('.clarify-input');
+  const answers = [];
+  inputs.forEach(inp => { if (inp.value.trim()) answers.push(inp.value.trim()); });
+  const ta = $('#dumpText');
+  if (ta && answers.length) {
+    ta.value = ta.value.trim() + '\n\n--- Additional details ---\n' + answers.join('\n');
+    saveDumpDraft();
+  }
+  const statusEl = $('#dumpStatus');
+  if (statusEl) statusEl.innerHTML = '';
+  processDump(true); // skip clarify on second pass
+}
+
+function skipClarify() {
+  const statusEl = $('#dumpStatus');
+  if (statusEl) statusEl.innerHTML = '';
+  processDump(true); // skip clarify
+}
+
+async function processDump(skipClarifyPass) {
   const text = $('#dumpText')?.value?.trim();
   if (!text) return;
 
   if (!hasAI()) { processDumpManual(text); return; }
+
+  // Curiosity pass — ask clarifying questions for vague input
+  if (!skipClarifyPass) {
+    const statusEl = $('#dumpStatus');
+    if (statusEl) statusEl.innerHTML = `<div class="ai-status"><div class="spinner"></div>Thinking...</div>`;
+    const questions = await maybeClarify(text);
+    if (questions) {
+      showClarifyUI(questions, text);
+      return; // wait for user to answer or skip
+    }
+    if (statusEl) statusEl.innerHTML = '';
+  }
 
   _dumpInProgress = true;
 
   pushUndo('Brainstorm');
   dumpAbort = new AbortController();
   const statusEl = $('#dumpStatus');
-  if (statusEl) statusEl.innerHTML = `<div class="ai-status"><div class="spinner"></div>Analyzing document — extracting all tasks, context, and project details...<button class="btn btn-sm" style="margin-left:12px;font-size:10px;color:var(--red);border-color:var(--red)" onclick="cancelDump()">Cancel</button></div>`;
+  if (statusEl) statusEl.innerHTML = `<div class="ai-status"><div class="spinner"></div>Analyzing — extracting tasks, context, and project details...<button class="btn btn-sm" style="margin-left:12px;font-size:10px;color:var(--red);border-color:var(--red)" onclick="cancelDump()">Cancel</button></div>`;
 
   const existingTasks = data.tasks.map(t => ({ id: t.id, title: t.title, project: t.project, priority: t.priority, status: t.status, notes: t.notes, createdAt: t.createdAt }));
   const existingProjects = data.projects.map(p => ({ id: p.id, name: p.name, description: (p.description || '').slice(0, 200) }));
