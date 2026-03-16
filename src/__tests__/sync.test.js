@@ -855,3 +855,172 @@ describe('sync.js — createSync()', () => {
     expect(sync.getSyncStatus()).toBe('synced');
   });
 });
+
+// ── Additional coverage tests ─────────────────────────────────────────
+
+describe('sync.js — additional coverage', () => {
+  let sync;
+  let deps;
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    localStorage.clear();
+    document.body.innerHTML = `
+      <div id="syncBar" style="display:none"><span id="syncDot" class="sync-dot offline"></span><span id="syncLabel">Offline</span></div>
+      <div class="main"><div class="content"></div></div>
+    `;
+    deps = makeDeps();
+    sync = createSync(deps);
+  });
+
+  afterEach(() => {
+    sync.destroySyncListeners();
+    vi.useRealTimers();
+  });
+
+  // ── showSyncFailBanner rendering and retry button (lines 232-237) ──
+  describe('showSyncFailBanner', () => {
+    it('renders a banner with message and retry button', () => {
+      sync.showSyncFailBanner();
+      const banner = document.getElementById('sync-fail-banner');
+      expect(banner).not.toBeNull();
+      expect(banner.textContent).toContain('Could not save to cloud');
+      expect(banner.textContent).toContain('Retry');
+    });
+
+    it('retry button triggers syncToCloud', async () => {
+      const singleUpsert = vi.fn(() => Promise.resolve({ data: { updated_at: '2026-03-15T12:00:00Z' }, error: null }));
+      const sb = {
+        from: vi.fn(() => ({
+          select: vi.fn(() => ({
+            eq: vi.fn(() => ({ single: vi.fn(() => Promise.resolve({ data: null, error: null })) })),
+          })),
+          upsert: vi.fn(() => ({ select: vi.fn(() => ({ single: singleUpsert })) })),
+        })),
+        supabaseUrl: 'https://test.supabase.co',
+        supabaseKey: 'test-key',
+      };
+      deps.getCurrentUser.mockReturnValue({ id: 'u1' });
+      deps.sb = sb;
+      deps.getData.mockReturnValue({ tasks: [{ id: 't1', title: 'T' }], projects: [] });
+      deps.getSettings.mockReturnValue({ aiModel: 'claude' });
+      sync = createSync(deps);
+
+      sync.showSyncFailBanner();
+      const retryBtn = document.querySelector('#sync-fail-banner button');
+      expect(retryBtn).not.toBeNull();
+
+      // Click the retry button
+      retryBtn.click();
+
+      // Flush the promise-based sync queue
+      await vi.runAllTimersAsync();
+
+      // syncToCloud should have been triggered (sb.from called)
+      expect(sb.from).toHaveBeenCalled();
+    });
+
+    it('does not add duplicate banners', () => {
+      sync.showSyncFailBanner();
+      sync.showSyncFailBanner();
+      const banners = document.querySelectorAll('#sync-fail-banner');
+      expect(banners.length).toBe(1);
+    });
+  });
+
+  // ── clearSyncFailBanner (lines 332-333 equivalent) ─────────────────
+  describe('clearSyncFailBanner', () => {
+    it('removes the sync-fail-banner from DOM', () => {
+      sync.showSyncFailBanner();
+      expect(document.getElementById('sync-fail-banner')).not.toBeNull();
+
+      sync.clearSyncFailBanner();
+      expect(document.getElementById('sync-fail-banner')).toBeNull();
+    });
+
+    it('does nothing if banner does not exist', () => {
+      expect(() => sync.clearSyncFailBanner()).not.toThrow();
+    });
+  });
+
+  // ── Pagehide localStorage parse error branch (lines 366-367) ───────
+  describe('pagehide localStorage parse error branch', () => {
+    it('handles malformed auth token JSON gracefully', () => {
+      deps.getCurrentUser.mockReturnValue({ id: 'u1' });
+      deps.getData.mockReturnValue({ tasks: [{ id: 't1', title: 'Task' }], projects: [] });
+      deps.getSettings.mockReturnValue({ aiModel: 'claude' });
+
+      const sb = {
+        from: vi.fn(() => ({
+          select: vi.fn(() => ({
+            eq: vi.fn(() => ({ single: vi.fn(() => Promise.resolve({ data: null, error: null })) })),
+          })),
+          upsert: vi.fn(),
+        })),
+        supabaseUrl: 'https://test.supabase.co',
+        supabaseKey: 'test-key',
+      };
+      deps.sb = sb;
+      sync = createSync(deps);
+
+      // Schedule sync to create a pending timer
+      sync.scheduleSyncToCloud();
+      sync.setupSyncListeners();
+
+      // Store a malformed JSON string as auth token
+      localStorage.setItem('sb-broken-auth-token', '{not valid json!!!');
+
+      const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(() => Promise.resolve());
+
+      // Should not throw despite malformed JSON
+      expect(() => {
+        window.dispatchEvent(new Event('pagehide'));
+      }).not.toThrow();
+
+      // fetch should not have been called since no valid token was found
+      expect(fetchSpy).not.toHaveBeenCalled();
+      fetchSpy.mockRestore();
+    });
+  });
+
+  // ── Visibilitychange catch block (lines 366-367 in visibilitychange) ──
+  describe('visibilitychange catch block', () => {
+    it('handles exception from query gracefully', async () => {
+      vi.useRealTimers();
+
+      const sb = {
+        from: vi.fn(() => ({
+          select: vi.fn(() => ({
+            eq: vi.fn(() => ({
+              single: vi.fn(() => {
+                throw new Error('query exploded');
+              }),
+            })),
+          })),
+          upsert: vi.fn(),
+        })),
+        supabaseUrl: 'https://test.supabase.co',
+        supabaseKey: 'test-key',
+      };
+      deps.getCurrentUser.mockReturnValue({ id: 'u1' });
+      deps.sb = sb;
+      sync = createSync(deps);
+      sync.setSyncStatus('synced');
+      sync.setLastCloudUpdatedAt('2026-03-15T10:00:00Z');
+      sync.setupSyncListeners();
+
+      Object.defineProperty(document, 'hidden', { value: false, writable: true, configurable: true });
+
+      // Should not throw — the catch block handles it silently
+      document.dispatchEvent(new Event('visibilitychange'));
+
+      // Allow any async work to settle
+      await new Promise((r) => setTimeout(r, 50));
+
+      // Status should remain synced (error was caught and ignored)
+      expect(sync.getSyncStatus()).toBe('synced');
+
+      vi.useFakeTimers();
+    });
+  });
+});

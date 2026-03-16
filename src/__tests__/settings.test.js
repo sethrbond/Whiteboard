@@ -406,3 +406,352 @@ describe('settings.js — createSettings()', () => {
     expect(deps.render).toHaveBeenCalled();
   });
 });
+
+// ── Additional coverage tests ──────────────────────────────────────
+describe('settings.js — additional coverage', () => {
+  let settings;
+  let deps;
+
+  function makeDeps2(overrides = {}) {
+    return {
+      $: vi.fn((sel) => document.querySelector(sel)),
+      esc: vi.fn((s) => (s == null ? '' : String(s))),
+      todayStr: vi.fn(() => '2026-03-15'),
+      getData: vi.fn(() => ({
+        tasks: [],
+        projects: [
+          { id: 'p_1', name: 'Work', color: '#3b82f6', description: 'Work tasks' },
+          { id: 'p_life', name: 'Life', color: '#10b981', description: '' },
+        ],
+      })),
+      getSettings: vi.fn(() => ({ apiKey: 'sk-test', aiModel: 'claude-haiku-4-5-20251001' })),
+      setModalLabel: vi.fn(),
+      pushModalState: vi.fn(),
+      closeModal: vi.fn(),
+      trapFocus: vi.fn(() => vi.fn()),
+      getTrapFocusCleanup: vi.fn(() => null),
+      setTrapFocusCleanup: vi.fn(),
+      _getModalTriggerEl: vi.fn(() => null),
+      setModalTriggerEl: vi.fn(),
+      createProject: vi.fn((p) => ({ id: 'p_new', ...p })),
+      addProject: vi.fn(),
+      updateProject: vi.fn(),
+      setView: vi.fn(),
+      render: vi.fn(),
+      saveData: vi.fn(),
+      pushUndo: vi.fn(),
+      ensureLifeProject: vi.fn(),
+      showToast: vi.fn(),
+      getAIMemory: vi.fn(() => []),
+      saveAIMemory: vi.fn(),
+      getAIMemoryArchive: vi.fn(() => []),
+      PROJECT_COLORS: ['#3b82f6', '#10b981', '#f59e0b', '#ef4444'],
+      _getShowProjectBg: vi.fn(() => false),
+      setShowProjectBg: vi.fn(),
+      renderNotificationSettings: vi.fn(() => '<div>Notif</div>'),
+      getTemplates: vi.fn(() => []),
+      deleteTemplate: vi.fn(),
+      updateTemplate: vi.fn(),
+      getStorageUsage: vi.fn(() => ({ usedBytes: 1024 * 1024, totalKeys: 10 })),
+      cleanupStorage: vi.fn(() => 0),
+      ...overrides,
+    };
+  }
+
+  beforeEach(() => {
+    localStorage.clear();
+    deps = makeDeps2();
+    settings = createSettings(deps);
+  });
+
+  // ── _buildStorageHTML ─────────────────────────────────────────────
+  describe('_buildStorageHTML (via openSettings)', () => {
+    it('shows storage usage display with MB and key count', () => {
+      deps.getStorageUsage = vi.fn(() => ({ usedBytes: 2 * 1024 * 1024, totalKeys: 25 }));
+      settings = createSettings(deps);
+      settings.openSettings();
+      const modal = document.getElementById('modalRoot');
+      expect(modal.innerHTML).toContain('2.0 MB');
+      expect(modal.innerHTML).toContain('25 keys');
+      expect(modal.innerHTML).toContain('Storage');
+      expect(modal.innerHTML).toContain('cleanup-storage');
+    });
+
+    it('shows warning text when storage > 80%', () => {
+      deps.getStorageUsage = vi.fn(() => ({ usedBytes: 4.5 * 1024 * 1024, totalKeys: 50 }));
+      settings = createSettings(deps);
+      settings.openSettings();
+      const modal = document.getElementById('modalRoot');
+      expect(modal.innerHTML).toContain('Storage is getting full');
+      expect(modal.innerHTML).toContain('var(--red)');
+    });
+
+    it('shows orange bar color when storage is 60-80%', () => {
+      deps.getStorageUsage = vi.fn(() => ({ usedBytes: 3.5 * 1024 * 1024, totalKeys: 30 }));
+      settings = createSettings(deps);
+      settings.openSettings();
+      const modal = document.getElementById('modalRoot');
+      expect(modal.innerHTML).toContain('var(--orange)');
+      expect(modal.innerHTML).not.toContain('Storage is getting full');
+    });
+
+    it('shows accent bar color when storage < 60%', () => {
+      deps.getStorageUsage = vi.fn(() => ({ usedBytes: 1 * 1024 * 1024, totalKeys: 10 }));
+      settings = createSettings(deps);
+      settings.openSettings();
+      const modal = document.getElementById('modalRoot');
+      expect(modal.innerHTML).toContain('var(--accent)');
+      expect(modal.innerHTML).not.toContain('Storage is getting full');
+    });
+
+    it('skips storage section when getStorageUsage is not a function', () => {
+      deps.getStorageUsage = undefined;
+      settings = createSettings(deps);
+      settings.openSettings();
+      const modal = document.getElementById('modalRoot');
+      expect(modal.innerHTML).not.toContain('cleanup-storage');
+    });
+  });
+
+  // ── _buildTemplatesHTML ───────────────────────────────────────────
+  describe('_buildTemplatesHTML (via openSettings)', () => {
+    it('shows template list with edit and delete buttons', () => {
+      deps.getTemplates = vi.fn(() => [
+        { id: 'tmpl_1', name: 'Bug Report', priority: 'urgent', subtasks: ['Reproduce', 'Fix'], estimatedMinutes: 30 },
+      ]);
+      settings = createSettings(deps);
+      settings.openSettings();
+      const modal = document.getElementById('modalRoot');
+      expect(modal.innerHTML).toContain('Bug Report');
+      expect(modal.innerHTML).toContain('edit-template');
+      expect(modal.innerHTML).toContain('delete-template');
+      expect(modal.innerHTML).toContain('1/20');
+    });
+
+    it('shows singular subtask text when count is 1', () => {
+      deps.getTemplates = vi.fn(() => [{ id: 'tmpl_1', name: 'Single', priority: 'normal', subtasks: ['Step 1'] }]);
+      settings = createSettings(deps);
+      settings.openSettings();
+      const modal = document.getElementById('modalRoot');
+      expect(modal.innerHTML).toContain('1 subtask');
+      expect(modal.innerHTML).not.toContain('1 subtasks');
+    });
+
+    it('shows plural subtasks text when count > 1', () => {
+      deps.getTemplates = vi.fn(() => [{ id: 'tmpl_1', name: 'Multi', priority: 'normal', subtasks: ['A', 'B', 'C'] }]);
+      settings = createSettings(deps);
+      settings.openSettings();
+      const modal = document.getElementById('modalRoot');
+      expect(modal.innerHTML).toContain('3 subtasks');
+    });
+
+    it('shows empty state when no templates exist', () => {
+      deps.getTemplates = vi.fn(() => []);
+      settings = createSettings(deps);
+      settings.openSettings();
+      const modal = document.getElementById('modalRoot');
+      expect(modal.innerHTML).toContain('No templates yet');
+    });
+
+    it('hides subtask count when template has no subtasks', () => {
+      deps.getTemplates = vi.fn(() => [{ id: 'tmpl_1', name: 'NoSubs', priority: 'low', subtasks: [] }]);
+      settings = createSettings(deps);
+      settings.openSettings();
+      const modal = document.getElementById('modalRoot');
+      expect(modal.innerHTML).toContain('NoSubs');
+      expect(modal.innerHTML).not.toContain('0 subtask');
+    });
+
+    it('hides estimate when template has no estimatedMinutes', () => {
+      deps.getTemplates = vi.fn(() => [{ id: 'tmpl_1', name: 'NoEst', priority: 'normal' }]);
+      settings = createSettings(deps);
+      settings.openSettings();
+      const modal = document.getElementById('modalRoot');
+      expect(modal.innerHTML).toContain('NoEst');
+      expect(modal.innerHTML).not.toContain('min');
+    });
+
+    it('shows estimate when template has estimatedMinutes', () => {
+      deps.getTemplates = vi.fn(() => [
+        { id: 'tmpl_1', name: 'WithEst', priority: 'normal', subtasks: [], estimatedMinutes: 45 },
+      ]);
+      settings = createSettings(deps);
+      settings.openSettings();
+      const modal = document.getElementById('modalRoot');
+      expect(modal.innerHTML).toContain('45min');
+    });
+  });
+
+  // ── openEditTemplate ──────────────────────────────────────────────
+  describe('openEditTemplate', () => {
+    it('renders modal with template fields', () => {
+      deps.getTemplates = vi.fn(() => [
+        {
+          id: 'tmpl_1',
+          name: 'Bug Report',
+          priority: 'urgent',
+          project: 'p_1',
+          subtasks: ['Reproduce', 'Fix'],
+          estimatedMinutes: 30,
+        },
+      ]);
+      settings = createSettings(deps);
+      settings.openEditTemplate('tmpl_1');
+      const modal = document.getElementById('modalRoot');
+      expect(modal.innerHTML).toContain('Edit Template');
+      expect(document.getElementById('fTmplName').value).toBe('Bug Report');
+      expect(document.getElementById('fTmplPriority').value).toBe('urgent');
+      expect(document.getElementById('fTmplEstimate').value).toBe('30');
+    });
+
+    it('does nothing for missing template', () => {
+      deps.getTemplates = vi.fn(() => []);
+      settings = createSettings(deps);
+      document.getElementById('modalRoot').innerHTML = '';
+      settings.openEditTemplate('tmpl_nonexistent');
+      expect(document.getElementById('modalRoot').innerHTML).toBe('');
+    });
+
+    it('renders subtasks textarea with joined lines', () => {
+      deps.getTemplates = vi.fn(() => [
+        { id: 'tmpl_1', name: 'T', priority: 'normal', subtasks: ['A', 'B', 'C'], estimatedMinutes: 0 },
+      ]);
+      settings = createSettings(deps);
+      settings.openEditTemplate('tmpl_1');
+      const textarea = document.getElementById('fTmplSubtasks');
+      expect(textarea).toBeTruthy();
+      expect(deps.esc).toHaveBeenCalledWith('A\nB\nC');
+    });
+
+    it('renders project select with projects', () => {
+      deps.getTemplates = vi.fn(() => [{ id: 'tmpl_1', name: 'T', priority: 'normal', project: 'p_1', subtasks: [] }]);
+      settings = createSettings(deps);
+      settings.openEditTemplate('tmpl_1');
+      const select = document.getElementById('fTmplProject');
+      expect(select).toBeTruthy();
+      expect(select.innerHTML).toContain('Work');
+      expect(select.innerHTML).toContain('Life');
+      expect(select.innerHTML).toContain('None');
+    });
+
+    it('calls pushModalState with edit-template', () => {
+      deps.getTemplates = vi.fn(() => [{ id: 'tmpl_1', name: 'T', priority: 'normal', subtasks: [] }]);
+      settings = createSettings(deps);
+      settings.openEditTemplate('tmpl_1');
+      expect(deps.pushModalState).toHaveBeenCalledWith('edit-template');
+    });
+  });
+
+  // ── saveEditTemplate ──────────────────────────────────────────────
+  describe('saveEditTemplate', () => {
+    beforeEach(() => {
+      deps.getTemplates = vi.fn(() => [
+        { id: 'tmpl_1', name: 'Old', priority: 'normal', subtasks: ['A'], estimatedMinutes: 10 },
+      ]);
+      deps.updateTemplate = vi.fn();
+      settings = createSettings(deps);
+      settings.openEditTemplate('tmpl_1');
+    });
+
+    it('saves all fields when name is non-empty', () => {
+      document.getElementById('fTmplName').value = 'New Name';
+      document.getElementById('fTmplPriority').value = 'urgent';
+      document.getElementById('fTmplEstimate').value = '45';
+      document.getElementById('fTmplSubtasks').value = 'Step 1\nStep 2';
+      settings.saveEditTemplate('tmpl_1');
+      expect(deps.updateTemplate).toHaveBeenCalledWith('tmpl_1', {
+        name: 'New Name',
+        priority: 'urgent',
+        project: expect.any(String),
+        estimatedMinutes: 45,
+        subtasks: ['Step 1', 'Step 2'],
+      });
+      expect(deps.closeModal).toHaveBeenCalled();
+      expect(deps.showToast).toHaveBeenCalledWith('Template updated', false, true);
+    });
+
+    it('does nothing when name is empty', () => {
+      document.getElementById('fTmplName').value = '   ';
+      settings.saveEditTemplate('tmpl_1');
+      expect(deps.updateTemplate).not.toHaveBeenCalled();
+    });
+
+    it('filters empty subtask lines', () => {
+      document.getElementById('fTmplName').value = 'Valid';
+      document.getElementById('fTmplSubtasks').value = 'Step 1\n\n  \nStep 2\n';
+      settings.saveEditTemplate('tmpl_1');
+      expect(deps.updateTemplate).toHaveBeenCalledWith(
+        'tmpl_1',
+        expect.objectContaining({
+          subtasks: ['Step 1', 'Step 2'],
+        }),
+      );
+    });
+
+    it('re-opens settings after save', () => {
+      document.getElementById('fTmplName').value = 'Name';
+      settings.saveEditTemplate('tmpl_1');
+      expect(deps.pushModalState).toHaveBeenCalledWith('settings');
+    });
+  });
+
+  // ── Notification settings rendering ───────────────────────────────
+  describe('notification settings in openSettings', () => {
+    it('renders notification settings when renderNotificationSettings is provided', () => {
+      deps.renderNotificationSettings = vi.fn(() => '<div>Notif</div>');
+      settings = createSettings(deps);
+      settings.openSettings();
+      const modal = document.getElementById('modalRoot');
+      expect(modal.innerHTML).toContain('Notif');
+      expect(deps.renderNotificationSettings).toHaveBeenCalled();
+    });
+
+    it('skips notification settings when renderNotificationSettings is not provided', () => {
+      deps.renderNotificationSettings = undefined;
+      settings = createSettings(deps);
+      settings.openSettings();
+      const modal = document.getElementById('modalRoot');
+      expect(modal.innerHTML).toContain('Settings');
+    });
+  });
+
+  // ── Unknown memory types ──────────────────────────────────────────
+  describe('unknown memory types', () => {
+    it('groups unknown memory types under note', () => {
+      deps.getAIMemory.mockReturnValue([{ text: 'Custom type memory', type: 'totally_unknown' }]);
+      settings = createSettings(deps);
+      settings.openSettings();
+      const modal = document.getElementById('modalRoot');
+      expect(modal.innerHTML).toContain('Custom type memory');
+      expect(modal.innerHTML).toContain('Notes');
+    });
+  });
+
+  // ── editProjectBackground defaults ───────────────────────────────
+  describe('editProjectBackground defaults', () => {
+    it('pre-fills default template when project has no background', () => {
+      deps.getData.mockReturnValue({
+        tasks: [],
+        projects: [{ id: 'p_1', name: 'Work', color: '#3b82f6', description: '' }],
+      });
+      settings = createSettings(deps);
+      settings.editProjectBackground('p_1');
+      const editor = document.getElementById('bgEditor');
+      expect(editor).toBeTruthy();
+      const content = editor.textContent;
+      expect(content).toContain('Origin');
+      expect(content).toContain('Next Steps');
+    });
+
+    it('uses existing background when available', () => {
+      deps.getData.mockReturnValue({
+        tasks: [],
+        projects: [{ id: 'p_1', name: 'Work', color: '#3b82f6', description: '', background: '## Custom BG' }],
+      });
+      settings = createSettings(deps);
+      settings.editProjectBackground('p_1');
+      const editor = document.getElementById('bgEditor');
+      expect(editor.textContent).toContain('Custom BG');
+    });
+  });
+});
