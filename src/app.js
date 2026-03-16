@@ -673,6 +673,8 @@ const _settingsMod = createSettings({
   getTemplates,
   deleteTemplate,
   updateTemplate,
+  getStorageUsage: () => _dataLayer.getStorageUsage(),
+  cleanupStorage: () => _dataLayer.cleanupStorage(),
 });
 const openSettings = _settingsMod.openSettings;
 const deleteAIMemory = _settingsMod.deleteAIMemory;
@@ -801,9 +803,6 @@ async function _handleGoalPick(...args) {
 }
 async function _handleGoalStart() {
   return (await _loadFocus()).handleGoalStart();
-}
-async function getFocusStats() {
-  return (await _loadFocus()).getFocusStats();
 }
 
 // ============================================================
@@ -1123,7 +1122,6 @@ function showFollowUpToast(suggestions) {
     setTimeout(() => el.remove(), 500);
   }, 6000);
 }
-const maybeShowCheckIn = _proactive.maybeShowCheckIn;
 const dismissCheckIn = _proactive.dismissCheckIn;
 const detectVagueTasks = _proactive.detectVagueTasks;
 const breakdownTask = _proactive.breakdownTask;
@@ -1205,7 +1203,6 @@ const _dashboard = createDashboard({
   getSmartNudges,
   getStuckTasks,
   isWeekOverloaded,
-  maybeShowCheckIn,
   detectVagueTasks,
   nudgeFilterOverdue,
   nudgeFilterStale,
@@ -1243,7 +1240,6 @@ const _dashboard = createDashboard({
   handleSlashCommand,
   aiEnhanceTask,
   getEscalationBanner: () => (typeof renderEscalationBanner === 'function' ? renderEscalationBanner() : ''),
-  getFocusStats: (...args) => getFocusStats(...args),
   getAIMemory: () => (typeof getAIMemory === 'function' ? getAIMemory() : []),
   extractMemoryInsights: (...args) =>
     typeof extractMemoryInsights === 'function'
@@ -1509,6 +1505,7 @@ exposeWindowAPI(
     saveEditProject,
     saveEditTask,
     exportData,
+    cleanupStorage: () => _dataLayer.cleanupStorage(),
     confirmAction,
     confirmDeleteProject,
     confirmClearMemories,

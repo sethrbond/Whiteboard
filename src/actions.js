@@ -222,6 +222,12 @@ export function createActions(deps) {
       case 'toggle-chat':
         toggleChat();
         break;
+      case 'toggle-ai-insights': {
+        const cur = localStorage.getItem(userKey('wb_ai_insights_expanded'));
+        localStorage.setItem(userKey('wb_ai_insights_expanded'), cur === 'false' ? 'true' : 'false');
+        render();
+        break;
+      }
       case 'send-chat':
         sendChat();
         break;
@@ -354,6 +360,14 @@ export function createActions(deps) {
         break;
       case 'export-data':
         exportData();
+        break;
+      case 'cleanup-storage':
+        if (typeof deps.cleanupStorage === 'function') {
+          const freed = deps.cleanupStorage();
+          const freedKB = Math.round(freed / 1024);
+          showToast(freedKB > 0 ? `Freed ${freedKB} KB of storage` : 'Nothing to clean up');
+          if (typeof deps.openSettings === 'function') deps.openSettings();
+        }
         break;
       // Project view
       case 'project-view-mode':
