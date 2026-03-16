@@ -206,7 +206,8 @@ export function createDashboard(deps) {
     const dumpNav = $('.nav-item[data-view="dump"]');
     if (dumpNav) {
       let dumpSpinner = dumpNav.querySelector('.dump-spinner');
-      if (getBrainstormModule().isDumpInProgress()) {
+      const _bsMod = getBrainstormModule();
+      if (_bsMod && typeof _bsMod.isDumpInProgress === 'function' && _bsMod.isDumpInProgress()) {
         if (!dumpSpinner) {
           dumpSpinner = document.createElement('span');
           dumpSpinner.className = 'dump-spinner';
@@ -590,14 +591,35 @@ export function createDashboard(deps) {
           $('#viewTitle').textContent = 'Brainstorm';
           $('#viewSub').textContent = 'Write everything on your mind \u2014 AI will do the rest';
           ha.innerHTML = '';
-          c.innerHTML = renderDump();
-          initDumpDropZone();
+          {
+            const _dumpResult = renderDump();
+            if (_dumpResult && typeof _dumpResult.then === 'function') {
+              c.innerHTML = '';
+              _dumpResult.then((html) => {
+                c.innerHTML = html;
+                initDumpDropZone();
+              });
+            } else {
+              c.innerHTML = _dumpResult;
+              initDumpDropZone();
+            }
+          }
           break;
         case 'review':
           $('#viewTitle').textContent = 'Weekly Review';
           $('#viewSub').textContent = 'Reflect, reset, plan ahead';
           ha.innerHTML = '';
-          c.innerHTML = renderWeeklyReview();
+          {
+            const _reviewResult = renderWeeklyReview();
+            if (_reviewResult && typeof _reviewResult.then === 'function') {
+              c.innerHTML = '';
+              _reviewResult.then((html) => {
+                c.innerHTML = html;
+              });
+            } else {
+              c.innerHTML = _reviewResult;
+            }
+          }
           break;
         case 'archive':
           $('#viewTitle').textContent = 'Archive';
@@ -885,10 +907,11 @@ export function createDashboard(deps) {
 
     html += `</div>`; // end ai-hero-card
 
-    // Brainstorm CTA card
+    // Brainstorm CTA card (getBrainstormModule is async — guard against unresolved Promise)
     const _brainstorm = getBrainstormModule();
-    const _dumpHistory = _brainstorm.getDumpHistory();
-    const _showDumpInvite = _brainstorm.shouldShowDumpInvite();
+    const _brainstormReady = _brainstorm && typeof _brainstorm.getDumpHistory === 'function';
+    const _dumpHistory = _brainstormReady ? _brainstorm.getDumpHistory() : [];
+    const _showDumpInvite = _brainstormReady ? _brainstorm.shouldShowDumpInvite() : true;
     let _brainstormStat = '';
     if (_dumpHistory.length > 0) {
       const last = _dumpHistory[0];

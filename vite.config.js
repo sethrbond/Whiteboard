@@ -39,5 +39,15 @@ export default defineConfig({
     environment: 'jsdom',
     globals: true,
     setupFiles: ['./src/__tests__/setup.js'],
+    coverage: {
+      provider: 'v8',
+      exclude: ['**/app.js', '**/init.js', '**/node_modules/**', '**/__tests__/**'],
+      thresholds: {
+        lines: 80,
+        functions: 80,
+        branches: 80,
+        statements: 80,
+      },
+    },
   },
 });
