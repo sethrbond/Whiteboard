@@ -1918,3 +1918,1458 @@ describe('dashboard.js — createDashboard()', () => {
     });
   });
 });
+
+// ══════════════════════════════════════════════════════════════
+// Additional coverage tests — targeting functions at 0% coverage
+// ══════════════════════════════════════════════════════════════
+
+describe('dashboard.js — additional coverage', () => {
+  let dashboard;
+  let deps;
+
+  function makeDeps2(overrides = {}) {
+    return {
+      $: vi.fn((sel) => document.querySelector(sel)),
+      $$: vi.fn((sel) => document.querySelectorAll(sel)),
+      esc: vi.fn((s) => String(s ?? '')),
+      sanitizeAIHTML: vi.fn((s) => String(s ?? '')),
+      fmtDate: vi.fn((d) => d || ''),
+      todayStr: vi.fn(() => '2026-03-15'),
+      PRIORITY_ORDER,
+      getData: vi.fn(() => ({ tasks: [], projects: [] })),
+      userKey: vi.fn((k) => `user1_${k}`),
+      findTask: vi.fn(() => null),
+      activeTasks: vi.fn(() => []),
+      doneTasks: vi.fn(() => []),
+      urgentTasks: vi.fn(() => []),
+      projectTasks: vi.fn(() => []),
+      archivedTasks: vi.fn(() => []),
+      sortTasksDeps: {
+        PRIORITY_ORDER,
+        todayStr: () => '2026-03-15',
+        userKey: (k) => `user1_${k}`,
+        getDataVersion: () => 0,
+      },
+      hasAI: vi.fn(() => false),
+      showToast: vi.fn(),
+      render: vi.fn(),
+      setView: vi.fn(),
+      updateTask: vi.fn(),
+      addTask: vi.fn(),
+      createTask: vi.fn((o) => ({ id: 't_new', status: 'todo', priority: 'normal', ...o })),
+      renderTaskRow: vi.fn((t) => `<div data-task="${t.id}">${t.title}</div>`),
+      renderPriorityTag: vi.fn((p) => `<span>${p}</span>`),
+      priorityColor: vi.fn(() => '#888'),
+      renderCalendar: vi.fn(() => '<div>calendar</div>'),
+      getCurrentView: vi.fn(() => 'dashboard'),
+      getCurrentProject: vi.fn(() => null),
+      getDashViewMode: vi.fn(() => 'list'),
+      getShowCompleted: vi.fn(() => false),
+      getProjectViewMode: vi.fn(() => 'list'),
+      getShowProjectBg: vi.fn(() => false),
+      parseProjectBackground: vi.fn(() => null),
+      getBulkMode: vi.fn(() => false),
+      getSectionShowCount: vi.fn(() => 50),
+      getArchiveShowCount: vi.fn(() => 20),
+      renderBulkBar: vi.fn(() => ''),
+      attachListeners: vi.fn(),
+      getBrainstormModule: vi.fn(() => ({
+        isDumpInProgress: () => false,
+        getDumpHistory: () => [],
+        shouldShowDumpInvite: () => false,
+      })),
+      getAIStatusItems: vi.fn(() => []),
+      getSmartFeedItems: vi.fn(() => []),
+      getSmartNudges: vi.fn(() => []),
+      getStuckTasks: vi.fn(() => []),
+      nudgeFilterOverdue: vi.fn(),
+      nudgeFilterStale: vi.fn(),
+      nudgeFilterUnassigned: vi.fn(),
+      startFocus: vi.fn(),
+      offerStuckHelp: vi.fn(),
+      generateAIBriefing: vi.fn(() => Promise.resolve()),
+      planMyDay: vi.fn(() => Promise.resolve()),
+      runProactiveWorker: vi.fn(),
+      getBriefingGenerating: vi.fn(() => false),
+      setBriefingGenerating: vi.fn(),
+      getBriefingContent: vi.fn(() => null),
+      setBriefingContent: vi.fn(),
+      getPlanGenerating: vi.fn(() => false),
+      setPlanGenerating: vi.fn(),
+      getPlanContent: vi.fn(() => null),
+      setPlanContent: vi.fn(),
+      getNudgeFilter: vi.fn(() => ''),
+      setNudgeFilter: vi.fn(),
+      getSmartFeedExpanded: vi.fn(() => false),
+      getTodayBriefingExpanded: vi.fn(() => false),
+      getShowTagFilter: vi.fn(() => false),
+      getActiveTagFilter: vi.fn(() => ''),
+      getAllTags: vi.fn(() => []),
+      getTagColor: vi.fn(() => ({ bg: '#eee', color: '#333' })),
+      getOnboardingStep: vi.fn(() => -1),
+      setOnboardingStep: vi.fn(),
+      getExpandedTask: vi.fn(() => null),
+      setExpandedTask: vi.fn(),
+      openQuickAdd: vi.fn(),
+      isComplexInput: vi.fn(() => false),
+      parseQuickInput: vi.fn((v) => ({ title: v, priority: 'normal', dueDate: '' })),
+      handleSlashCommand: vi.fn(() => false),
+      aiEnhanceTask: vi.fn(),
+      addSubtask: vi.fn(),
+      toggleSubtask: vi.fn(),
+      openTaskEditor: vi.fn(),
+      pushUndo: vi.fn(),
+      toggleChat: vi.fn(),
+      sendChat: vi.fn(),
+      renderDump: vi.fn(() => '<div>dump</div>'),
+      initDumpDropZone: vi.fn(),
+      renderWeeklyReview: vi.fn(() => '<div>review</div>'),
+      ...overrides,
+    };
+  }
+
+  beforeEach(() => {
+    localStorage.clear();
+    document.body.innerHTML = '<div id="projectList"></div><div id="archiveBadge"></div><div id="content"></div>';
+    deps = makeDeps2();
+    dashboard = createDashboard(deps);
+  });
+
+  afterEach(() => {
+    if (window._welcomeTypingInterval) {
+      clearInterval(window._welcomeTypingInterval);
+      window._welcomeTypingInterval = null;
+    }
+    delete window._dashV2Hooked;
+  });
+
+  // ── renderArchive (extended) ─────────────────────────────────────
+  describe('renderArchive (extended)', () => {
+    it('shows "Show more" button when archived tasks exceed archiveShowCount', () => {
+      const archived = [];
+      for (let i = 0; i < 25; i++) {
+        archived.push({ id: `a${i}`, title: `Archived ${i}`, archived: true });
+      }
+      deps.archivedTasks.mockReturnValue(archived);
+      deps.getArchiveShowCount.mockReturnValue(20);
+      dashboard = createDashboard(deps);
+
+      const html = dashboard.renderArchive();
+      expect(html).toContain('Show more');
+      expect(html).toContain('5 remaining');
+      expect(html).toContain('data-action="archive-show-more"');
+    });
+
+    it('does not show "Show more" when all archived tasks are visible', () => {
+      const archived = [
+        { id: 'a1', title: 'Task 1', archived: true },
+        { id: 'a2', title: 'Task 2', archived: true },
+      ];
+      deps.archivedTasks.mockReturnValue(archived);
+      deps.getArchiveShowCount.mockReturnValue(20);
+      dashboard = createDashboard(deps);
+
+      const html = dashboard.renderArchive();
+      expect(html).not.toContain('Show more');
+    });
+
+    it('shows delete all button and count', () => {
+      const archived = [{ id: 'a1', title: 'Task 1', archived: true }];
+      deps.archivedTasks.mockReturnValue(archived);
+      dashboard = createDashboard(deps);
+
+      const html = dashboard.renderArchive();
+      expect(html).toContain('data-action="delete-archived"');
+      expect(html).toContain('Delete All');
+      expect(html).toContain('1 archived');
+    });
+
+    it('renders restore button with correct task id', () => {
+      const archived = [{ id: 'myTask123', title: 'Restore me', archived: true }];
+      deps.archivedTasks.mockReturnValue(archived);
+      dashboard = createDashboard(deps);
+
+      const html = dashboard.renderArchive();
+      expect(html).toContain('data-action="restore-task"');
+      expect(html).toContain('data-task-id="myTask123"');
+    });
+  });
+
+  // ── renderMemoryInsightsCard ─────────────────────────────────────
+  describe('renderMemoryInsightsCard', () => {
+    it('returns empty string when getAIMemory is not a function', () => {
+      deps.getAIMemory = undefined;
+      deps.extractMemoryInsights = undefined;
+      dashboard = createDashboard(deps);
+
+      const html = dashboard.renderMemoryInsightsCard();
+      expect(html).toBe('');
+    });
+
+    it('returns empty string when fewer than 5 memories', () => {
+      deps.getAIMemory = vi.fn(() => [1, 2, 3, 4]);
+      deps.extractMemoryInsights = vi.fn(() => ({}));
+      dashboard = createDashboard(deps);
+
+      const html = dashboard.renderMemoryInsightsCard();
+      expect(html).toBe('');
+    });
+
+    it('returns empty string when no insights lines or tip', () => {
+      deps.getAIMemory = vi.fn(() => [1, 2, 3, 4, 5]);
+      deps.extractMemoryInsights = vi.fn(() => ({
+        procrastination_types: [],
+      }));
+      dashboard = createDashboard(deps);
+
+      const html = dashboard.renderMemoryInsightsCard();
+      expect(html).toBe('');
+    });
+
+    it('renders avg tasks per day insight', () => {
+      deps.getAIMemory = vi.fn(() => [1, 2, 3, 4, 5]);
+      deps.extractMemoryInsights = vi.fn(() => ({
+        avg_tasks_per_day: 4,
+        procrastination_types: [],
+      }));
+      dashboard = createDashboard(deps);
+
+      const html = dashboard.renderMemoryInsightsCard();
+      expect(html).toContain('memory-insights-card');
+      expect(html).toContain('Learned Patterns');
+      expect(html).toContain('You complete ~4 tasks per day');
+      expect(html).toContain('5 memories');
+    });
+
+    it('renders most productive day insight', () => {
+      deps.getAIMemory = vi.fn(() => [1, 2, 3, 4, 5]);
+      deps.extractMemoryInsights = vi.fn(() => ({
+        most_productive_day: 'Monday',
+        procrastination_types: [],
+      }));
+      dashboard = createDashboard(deps);
+
+      const html = dashboard.renderMemoryInsightsCard();
+      expect(html).toContain('Most productive: Mondays');
+    });
+
+    it('renders peak time insight', () => {
+      deps.getAIMemory = vi.fn(() => [1, 2, 3, 4, 5]);
+      deps.extractMemoryInsights = vi.fn(() => ({
+        productive_time: 'morning',
+        procrastination_types: [],
+      }));
+      dashboard = createDashboard(deps);
+
+      const html = dashboard.renderMemoryInsightsCard();
+      expect(html).toContain('Peak time: morning');
+      expect(html).toContain('Protect your morning for deep work');
+    });
+
+    it('renders hard-first tip', () => {
+      deps.getAIMemory = vi.fn(() => [1, 2, 3, 4, 5]);
+      deps.extractMemoryInsights = vi.fn(() => ({
+        avg_tasks_per_day: 3,
+        task_order_preference: 'hard-first',
+        procrastination_types: [],
+      }));
+      dashboard = createDashboard(deps);
+
+      const html = dashboard.renderMemoryInsightsCard();
+      expect(html).toContain('You do best tackling hard tasks first');
+    });
+
+    it('renders easy-first tip', () => {
+      deps.getAIMemory = vi.fn(() => [1, 2, 3, 4, 5]);
+      deps.extractMemoryInsights = vi.fn(() => ({
+        avg_tasks_per_day: 3,
+        task_order_preference: 'easy-first',
+        procrastination_types: [],
+      }));
+      dashboard = createDashboard(deps);
+
+      const html = dashboard.renderMemoryInsightsCard();
+      expect(html).toContain('Quick wins first works well for you');
+    });
+
+    it('renders procrastination tip when no order preference', () => {
+      deps.getAIMemory = vi.fn(() => [1, 2, 3, 4, 5]);
+      deps.extractMemoryInsights = vi.fn(() => ({
+        avg_tasks_per_day: 3,
+        procrastination_types: ['writing'],
+      }));
+      dashboard = createDashboard(deps);
+
+      const html = dashboard.renderMemoryInsightsCard();
+      expect(html).toContain('Schedule writing tasks when your energy is highest');
+    });
+  });
+
+  // ── _renderDashboardFilters (via renderDashboard) ────────────────
+  describe('_renderDashboardFilters (via renderDashboard)', () => {
+    function setupDashWithTasks() {
+      const tasks = [{ id: 't1', title: 'Task', status: 'todo', priority: 'normal' }];
+      deps.getData.mockReturnValue({ tasks, projects: [{ id: 'p1', name: 'W', color: '#f00' }] });
+      deps.urgentTasks.mockReturnValue([]);
+      deps.activeTasks.mockReturnValue(tasks);
+      deps.doneTasks.mockReturnValue([]);
+      deps.projectTasks.mockReturnValue(tasks);
+      deps.getBrainstormModule.mockReturnValue({
+        isDumpInProgress: () => false,
+        getDumpHistory: () => [],
+        shouldShowDumpInvite: () => false,
+      });
+    }
+
+    it('renders "Filter by tag" toggle when tags exist but filter not shown', () => {
+      setupDashWithTasks();
+      deps.getAllTags.mockReturnValue(['bug', 'feature']);
+      deps.getShowTagFilter.mockReturnValue(false);
+      dashboard = createDashboard(deps);
+
+      const html = dashboard.renderDashboard();
+      expect(html).toContain('Filter by tag');
+      expect(html).toContain('data-action="toggle-tag-filter"');
+    });
+
+    it('renders nudge filter with stale label', () => {
+      setupDashWithTasks();
+      deps.getNudgeFilter.mockReturnValue('stale');
+      dashboard = createDashboard(deps);
+
+      const html = dashboard.renderDashboard();
+      expect(html).toContain('Filtering: Stale tasks (10+ days)');
+    });
+
+    it('renders nudge filter with unassigned label', () => {
+      setupDashWithTasks();
+      deps.getNudgeFilter.mockReturnValue('unassigned');
+      dashboard = createDashboard(deps);
+
+      const html = dashboard.renderDashboard();
+      expect(html).toContain('Filtering: Unassigned tasks');
+    });
+
+    it('does not render tag filter section when no tags', () => {
+      setupDashWithTasks();
+      deps.getAllTags.mockReturnValue([]);
+      dashboard = createDashboard(deps);
+
+      const html = dashboard.renderDashboard();
+      expect(html).not.toContain('Filter by tag');
+      expect(html).not.toContain('tag-filter-btn');
+    });
+  });
+
+  // ── _renderDashboardSmartFeed (via renderDashboard) ──────────────
+  describe('_renderDashboardSmartFeed (via renderDashboard)', () => {
+    function setupDashWithTasks(tasks) {
+      deps.getData.mockReturnValue({ tasks, projects: [{ id: 'p1', name: 'W', color: '#f00' }] });
+      deps.urgentTasks.mockReturnValue([]);
+      deps.activeTasks.mockReturnValue(tasks);
+      deps.doneTasks.mockReturnValue([]);
+      deps.projectTasks.mockReturnValue(tasks);
+      deps.getBrainstormModule.mockReturnValue({
+        isDumpInProgress: () => false,
+        getDumpHistory: () => [],
+        shouldShowDumpInvite: () => false,
+      });
+    }
+
+    it('renders "Show less" button when feed is expanded and > 10 items', () => {
+      const tasks = [];
+      const feedItems = [];
+      for (let i = 0; i < 15; i++) {
+        const t = { id: `t${i}`, title: `Task ${i}`, status: 'todo', priority: 'normal' };
+        tasks.push(t);
+        feedItems.push({ task: t, source: 'urgent' });
+      }
+      setupDashWithTasks(tasks);
+      deps.getSmartFeedItems.mockReturnValue(feedItems);
+      deps.getSmartFeedExpanded.mockReturnValue(true);
+      dashboard = createDashboard(deps);
+
+      const html = dashboard.renderDashboard();
+      expect(html).toContain('smart-feed-collapse');
+      expect(html).toContain('Show less');
+    });
+
+    it('does not render smart feed when no feed items', () => {
+      const tasks = [{ id: 't1', title: 'Task', status: 'todo', priority: 'normal' }];
+      setupDashWithTasks(tasks);
+      deps.getSmartFeedItems.mockReturnValue([]);
+      dashboard = createDashboard(deps);
+
+      const html = dashboard.renderDashboard();
+      expect(html).not.toContain('smart-feed-header');
+    });
+
+    it('filters feed by overdue nudge filter', () => {
+      const tasks = [
+        { id: 't1', title: 'Overdue', status: 'todo', priority: 'normal', dueDate: '2026-03-10' },
+        { id: 't2', title: 'Future', status: 'todo', priority: 'normal', dueDate: '2026-04-01' },
+      ];
+      deps.getData.mockReturnValue({ tasks, projects: [{ id: 'p1', name: 'W', color: '#f00' }] });
+      deps.urgentTasks.mockReturnValue([]);
+      deps.activeTasks.mockReturnValue(tasks);
+      deps.doneTasks.mockReturnValue([]);
+      deps.projectTasks.mockReturnValue(tasks);
+      deps.getBrainstormModule.mockReturnValue({
+        isDumpInProgress: () => false,
+        getDumpHistory: () => [],
+        shouldShowDumpInvite: () => false,
+      });
+      deps.getNudgeFilter.mockReturnValue('overdue');
+      deps.getSmartFeedItems.mockReturnValue([]);
+      dashboard = createDashboard(deps);
+
+      const html = dashboard.renderDashboard();
+      expect(html).toContain('smart-feed');
+      expect(deps.renderTaskRow).toHaveBeenCalled();
+    });
+
+    it('filters feed by unassigned nudge filter', () => {
+      const tasks = [
+        { id: 't1', title: 'No project', status: 'todo', priority: 'normal' },
+        { id: 't2', title: 'Has project', status: 'todo', priority: 'normal', project: 'p1' },
+      ];
+      deps.getData.mockReturnValue({ tasks, projects: [{ id: 'p1', name: 'W', color: '#f00' }] });
+      deps.urgentTasks.mockReturnValue([]);
+      deps.activeTasks.mockReturnValue(tasks);
+      deps.doneTasks.mockReturnValue([]);
+      deps.projectTasks.mockReturnValue(tasks);
+      deps.getBrainstormModule.mockReturnValue({
+        isDumpInProgress: () => false,
+        getDumpHistory: () => [],
+        shouldShowDumpInvite: () => false,
+      });
+      deps.getNudgeFilter.mockReturnValue('unassigned');
+      deps.getSmartFeedItems.mockReturnValue([]);
+      dashboard = createDashboard(deps);
+
+      const html = dashboard.renderDashboard();
+      expect(html).toContain('smart-feed');
+    });
+
+    it('filters feed by stale nudge filter', () => {
+      const staleDate = new Date(Date.now() - 15 * 86400000).toISOString();
+      const tasks = [{ id: 't1', title: 'Stale', status: 'todo', priority: 'normal', createdAt: staleDate }];
+      deps.getData.mockReturnValue({ tasks, projects: [{ id: 'p1', name: 'W', color: '#f00' }] });
+      deps.urgentTasks.mockReturnValue([]);
+      deps.activeTasks.mockReturnValue(tasks);
+      deps.doneTasks.mockReturnValue([]);
+      deps.projectTasks.mockReturnValue(tasks);
+      deps.getBrainstormModule.mockReturnValue({
+        isDumpInProgress: () => false,
+        getDumpHistory: () => [],
+        shouldShowDumpInvite: () => false,
+      });
+      deps.getNudgeFilter.mockReturnValue('stale');
+      deps.getSmartFeedItems.mockReturnValue([]);
+      dashboard = createDashboard(deps);
+
+      const html = dashboard.renderDashboard();
+      expect(html).toContain('smart-feed');
+    });
+  });
+
+  // ── _renderDashboardBoards (via renderDashboard) ─────────────────
+  describe('_renderDashboardBoards (via renderDashboard)', () => {
+    it('renders project cards with task counts and urgent badge', () => {
+      const tasks = [
+        { id: 't1', title: 'Task 1', status: 'todo', priority: 'urgent', project: 'p1' },
+        { id: 't2', title: 'Task 2', status: 'todo', priority: 'normal', project: 'p1' },
+      ];
+      const projects = [{ id: 'p1', name: 'Work', color: '#818cf8', description: 'Work stuff' }];
+      deps.getData.mockReturnValue({ tasks, projects });
+      deps.urgentTasks.mockReturnValue([tasks[0]]);
+      deps.activeTasks.mockReturnValue(tasks);
+      deps.doneTasks.mockReturnValue([]);
+      deps.projectTasks.mockReturnValue(tasks);
+      deps.getBrainstormModule.mockReturnValue({
+        isDumpInProgress: () => false,
+        getDumpHistory: () => [],
+        shouldShowDumpInvite: () => false,
+      });
+      dashboard = createDashboard(deps);
+
+      const html = dashboard.renderDashboard();
+      expect(html).toContain('project-grid-card');
+      expect(html).toContain('project-grid-stats');
+      expect(html).toContain('<strong>2</strong> active');
+    });
+
+    it('renders top 3 tasks on project card', () => {
+      const tasks = [
+        { id: 't1', title: 'First', status: 'todo', priority: 'urgent' },
+        { id: 't2', title: 'Second', status: 'todo', priority: 'normal' },
+        { id: 't3', title: 'Third', status: 'todo', priority: 'low' },
+        { id: 't4', title: 'Fourth', status: 'todo', priority: 'low' },
+      ];
+      deps.getData.mockReturnValue({ tasks, projects: [{ id: 'p1', name: 'W', color: '#f00' }] });
+      deps.urgentTasks.mockReturnValue([]);
+      deps.activeTasks.mockReturnValue(tasks);
+      deps.doneTasks.mockReturnValue([]);
+      deps.projectTasks.mockReturnValue(tasks);
+      deps.getBrainstormModule.mockReturnValue({
+        isDumpInProgress: () => false,
+        getDumpHistory: () => [],
+        shouldShowDumpInvite: () => false,
+      });
+      dashboard = createDashboard(deps);
+
+      const html = dashboard.renderDashboard();
+      expect(html).toContain('project-grid-tasks');
+      expect(html).toContain('mini-dot');
+    });
+
+    it('renders project description truncated', () => {
+      const longDesc = 'A'.repeat(200);
+      const tasks = [{ id: 't1', title: 'Task', status: 'todo', priority: 'normal' }];
+      deps.getData.mockReturnValue({
+        tasks,
+        projects: [{ id: 'p1', name: 'W', color: '#f00', description: longDesc }],
+      });
+      deps.urgentTasks.mockReturnValue([]);
+      deps.activeTasks.mockReturnValue(tasks);
+      deps.doneTasks.mockReturnValue([]);
+      deps.projectTasks.mockReturnValue(tasks);
+      deps.getBrainstormModule.mockReturnValue({
+        isDumpInProgress: () => false,
+        getDumpHistory: () => [],
+        shouldShowDumpInvite: () => false,
+      });
+      dashboard = createDashboard(deps);
+
+      const html = dashboard.renderDashboard();
+      expect(html).toContain('ai-summary');
+      expect(html).toContain('...');
+    });
+  });
+
+  // ── _renderAIInsights (via renderDashboard) ──────────────────────
+  describe('_renderAIInsights (via renderDashboard)', () => {
+    function setupDashWithTasks() {
+      const tasks = [{ id: 't1', title: 'Task', status: 'todo', priority: 'normal' }];
+      deps.getData.mockReturnValue({ tasks, projects: [{ id: 'p1', name: 'W', color: '#f00' }] });
+      deps.urgentTasks.mockReturnValue([]);
+      deps.activeTasks.mockReturnValue(tasks);
+      deps.doneTasks.mockReturnValue([]);
+      deps.projectTasks.mockReturnValue(tasks);
+      deps.getBrainstormModule.mockReturnValue({
+        isDumpInProgress: () => false,
+        getDumpHistory: () => [],
+        shouldShowDumpInvite: () => false,
+      });
+    }
+
+    it('renders AI Insights section with stuck tasks', () => {
+      setupDashWithTasks();
+      const stuckTask = {
+        id: 'ts1',
+        title: 'Blocked work',
+        status: 'in-progress',
+        priority: 'normal',
+        createdAt: '2026-01-01',
+      };
+      deps.getStuckTasks.mockReturnValue([stuckTask]);
+      deps.hasAI.mockReturnValue(true);
+      dashboard = createDashboard(deps);
+
+      const html = dashboard.renderDashboard();
+      expect(html).toContain('AI Insights');
+      expect(html).toContain('ai-insights-section');
+      expect(html).toContain('stuck-card');
+      expect(html).toContain('Stuck Tasks');
+      expect(html).toContain('Blocked work');
+      expect(html).toContain('data-action="stuck-help"');
+      expect(html).toContain('data-action="stuck-breakdown"');
+      expect(html).toContain('data-action="stuck-reschedule"');
+    });
+
+    it('renders escalation banner when available', () => {
+      setupDashWithTasks();
+      deps.getEscalationBanner = vi.fn(() => '<div class="escalation-banner">Critical deadline!</div>');
+      dashboard = createDashboard(deps);
+
+      const html = dashboard.renderDashboard();
+      expect(html).toContain('AI Insights');
+      expect(html).toContain('escalation-banner');
+      expect(html).toContain('Critical deadline!');
+    });
+
+    it('renders vague task suggestion when detectVagueTasks returns a task', () => {
+      setupDashWithTasks();
+      deps.detectVagueTasks = vi.fn(() => ({ id: 'v1', title: 'Do stuff and things later maybe' }));
+      dashboard = createDashboard(deps);
+
+      const html = dashboard.renderDashboard();
+      expect(html).toContain('seems vague');
+      expect(html).toContain('Break it down?');
+      expect(html).toContain('data-action="breakdown-task"');
+      expect(html).toContain('data-action="breakdown-dismiss"');
+    });
+
+    it('renders collapsed AI Insights when localStorage flag is false', () => {
+      setupDashWithTasks();
+      deps.hasAI.mockReturnValue(true);
+      deps.getStuckTasks.mockReturnValue([
+        { id: 'ts1', title: 'Stuck', status: 'in-progress', createdAt: '2026-01-01' },
+      ]);
+      localStorage.setItem('user1_wb_ai_insights_expanded', 'false');
+      dashboard = createDashboard(deps);
+
+      const html = dashboard.renderDashboard();
+      expect(html).toContain('AI Insights');
+      expect(html).toContain('aria-expanded="false"');
+      expect(html).not.toContain('ai-insights-body');
+    });
+
+    it('renders expanded AI Insights by default', () => {
+      setupDashWithTasks();
+      deps.hasAI.mockReturnValue(true);
+      deps.getStuckTasks.mockReturnValue([
+        { id: 'ts1', title: 'Stuck', status: 'in-progress', createdAt: '2026-01-01' },
+      ]);
+      dashboard = createDashboard(deps);
+
+      const html = dashboard.renderDashboard();
+      expect(html).toContain('ai-insights-body');
+      expect(html).toContain('aria-expanded="true"');
+    });
+
+    it('renders summary text with stuck and nudge counts', () => {
+      setupDashWithTasks();
+      deps.getStuckTasks.mockReturnValue([
+        { id: 'ts1', title: 'Stuck', status: 'in-progress', createdAt: '2026-01-01' },
+      ]);
+      deps.getSmartNudges.mockReturnValue([
+        { type: 'urgent', icon: '!', text: 'Overdue', actionLabel: 'Fix', actionFn: 'nudgeFilterOverdue()' },
+      ]);
+      dashboard = createDashboard(deps);
+
+      const html = dashboard.renderDashboard();
+      expect(html).toContain('1 stuck');
+      expect(html).toContain('1 nudge');
+    });
+
+    it('does not render AI Insights when no AI content exists', () => {
+      setupDashWithTasks();
+      deps.getStuckTasks.mockReturnValue([]);
+      deps.getSmartNudges.mockReturnValue([]);
+      deps.hasAI.mockReturnValue(false);
+      dashboard = createDashboard(deps);
+
+      const html = dashboard.renderDashboard();
+      expect(html).not.toContain('ai-insights-section');
+    });
+  });
+
+  // ── _renderDashboardNudgesInner (via renderDashboard) ────────────
+  describe('_renderDashboardNudgesInner (via renderDashboard)', () => {
+    function setupDashWithTasks() {
+      const tasks = [{ id: 't1', title: 'Task', status: 'todo', priority: 'normal' }];
+      deps.getData.mockReturnValue({ tasks, projects: [{ id: 'p1', name: 'W', color: '#f00' }] });
+      deps.urgentTasks.mockReturnValue([]);
+      deps.activeTasks.mockReturnValue(tasks);
+      deps.doneTasks.mockReturnValue([]);
+      deps.projectTasks.mockReturnValue(tasks);
+      deps.getBrainstormModule.mockReturnValue({
+        isDumpInProgress: () => false,
+        getDumpHistory: () => [],
+        shouldShowDumpInvite: () => false,
+      });
+    }
+
+    it('renders nudges with different type colors', () => {
+      setupDashWithTasks();
+      deps.getSmartNudges.mockReturnValue([
+        { type: 'warning', icon: '!', text: 'Something is off', actionLabel: 'Check', actionFn: 'nudgeFilterStale()' },
+        { type: 'positive', icon: 'v', text: 'Great progress!' },
+      ]);
+      dashboard = createDashboard(deps);
+
+      const html = dashboard.renderDashboard();
+      expect(html).toContain('ai-hero-nudges');
+      expect(html).toContain('Something is off');
+      expect(html).toContain('Great progress!');
+      expect(html).toContain('var(--orange)');
+      expect(html).toContain('var(--green)');
+    });
+
+    it('renders stuck tasks with days in progress and "Think through it" link when AI available', () => {
+      setupDashWithTasks();
+      const stuckTask = {
+        id: 'ts1',
+        title: 'Long running task',
+        status: 'in-progress',
+        priority: 'normal',
+        createdAt: new Date(Date.now() - 7 * 86400000).toISOString(),
+      };
+      deps.getStuckTasks.mockReturnValue([stuckTask]);
+      deps.hasAI.mockReturnValue(true);
+      dashboard = createDashboard(deps);
+
+      const html = dashboard.renderDashboard();
+      expect(html).toContain('Long running task');
+      expect(html).toContain('has been in-progress for');
+      expect(html).toContain('Think through it?');
+      expect(html).toContain('data-stuck-task-id="ts1"');
+    });
+
+    it('renders stuck tasks with update date instead of createdAt', () => {
+      setupDashWithTasks();
+      const stuckTask = {
+        id: 'ts1',
+        title: 'Updated task',
+        status: 'in-progress',
+        priority: 'normal',
+        createdAt: new Date(Date.now() - 30 * 86400000).toISOString(),
+        updates: [{ date: new Date(Date.now() - 5 * 86400000).toISOString(), text: 'update' }],
+      };
+      deps.getStuckTasks.mockReturnValue([stuckTask]);
+      deps.hasAI.mockReturnValue(false);
+      dashboard = createDashboard(deps);
+
+      const html = dashboard.renderDashboard();
+      expect(html).toContain('Updated task');
+      expect(html).toContain('5 days');
+      expect(html).not.toContain('Think through it?');
+    });
+  });
+
+  // ── _renderDashboardToday / _renderTodayBriefingAndPlan ──────────
+  describe('_renderDashboardToday (via renderDashboard)', () => {
+    function setupDashWithTasks() {
+      const tasks = [{ id: 't1', title: 'Task', status: 'todo', priority: 'normal' }];
+      deps.getData.mockReturnValue({ tasks, projects: [{ id: 'p1', name: 'W', color: '#f00' }] });
+      deps.urgentTasks.mockReturnValue([]);
+      deps.activeTasks.mockReturnValue(tasks);
+      deps.doneTasks.mockReturnValue([]);
+      deps.projectTasks.mockReturnValue(tasks);
+      deps.getBrainstormModule.mockReturnValue({
+        isDumpInProgress: () => false,
+        getDumpHistory: () => [],
+        shouldShowDumpInvite: () => false,
+      });
+    }
+
+    it('renders expanded briefing with "Show less" button', () => {
+      setupDashWithTasks();
+      deps.hasAI.mockReturnValue(true);
+      deps.getTodayBriefingExpanded.mockReturnValue(true);
+      localStorage.setItem('user1_whiteboard_briefing_2026-03-15', '<p>Full briefing content</p>');
+      dashboard = createDashboard(deps);
+
+      const html = dashboard.renderDashboard();
+      expect(html).toContain('today-briefing-body');
+      expect(html).toContain('Full briefing content');
+      expect(html).toContain('Show less');
+      expect(html).toContain('data-action="briefing-collapse"');
+    });
+
+    it('renders collapsed briefing with "Read more" button', () => {
+      setupDashWithTasks();
+      deps.hasAI.mockReturnValue(true);
+      deps.getTodayBriefingExpanded.mockReturnValue(false);
+      localStorage.setItem('user1_whiteboard_briefing_2026-03-15', '<p>Collapsed briefing</p>');
+      dashboard = createDashboard(deps);
+
+      const html = dashboard.renderDashboard();
+      expect(html).toContain('Collapsed briefing');
+      expect(html).toContain('Read more');
+      expect(html).toContain('data-action="briefing-expand"');
+    });
+
+    it('renders plan generating state', () => {
+      setupDashWithTasks();
+      deps.hasAI.mockReturnValue(true);
+      deps.getPlanGenerating.mockReturnValue(true);
+      localStorage.setItem('user1_whiteboard_briefing_2026-03-15', '<p>Briefing</p>');
+      dashboard = createDashboard(deps);
+
+      const html = dashboard.renderDashboard();
+      expect(html).toContain('Planning your day...');
+    });
+
+    it('renders day plan with task items and why reasons', () => {
+      setupDashWithTasks();
+      deps.hasAI.mockReturnValue(true);
+      const task = { id: 't1', title: 'Planned task', status: 'todo', priority: 'normal' };
+      deps.findTask.mockImplementation((id) => (id === 't1' ? task : null));
+      const plan = [{ id: 't1', why: 'Top priority for today' }];
+      localStorage.setItem('user1_whiteboard_plan_2026-03-15', JSON.stringify(plan));
+      dashboard = createDashboard(deps);
+
+      const html = dashboard.renderDashboard();
+      expect(html).toContain('Day Plan');
+      expect(html).toContain('Top priority for today');
+      expect(html).toContain('Replan');
+      expect(html).toContain('data-action="replan-day"');
+      expect(html).toContain('data-action="clear-plan"');
+      expect(html).toContain('snooze');
+    });
+
+    it('renders plan with done/total count and time estimate', () => {
+      setupDashWithTasks();
+      deps.hasAI.mockReturnValue(true);
+      const task1 = { id: 't1', title: 'Done task', status: 'done', priority: 'normal', estimatedMinutes: 30 };
+      const task2 = { id: 't2', title: 'Todo task', status: 'todo', priority: 'normal', estimatedMinutes: 60 };
+      deps.findTask.mockImplementation((id) => {
+        if (id === 't1') return task1;
+        if (id === 't2') return task2;
+        return null;
+      });
+      const plan = [
+        { id: 't1', why: 'Done' },
+        { id: 't2', why: 'Next' },
+      ];
+      localStorage.setItem('user1_whiteboard_plan_2026-03-15', JSON.stringify(plan));
+      dashboard = createDashboard(deps);
+
+      const html = dashboard.renderDashboard();
+      expect(html).toContain('1/2 done');
+      expect(html).toContain('~1.5h');
+    });
+
+    it('renders Refresh button when briefing already exists', () => {
+      setupDashWithTasks();
+      deps.hasAI.mockReturnValue(true);
+      localStorage.setItem('user1_whiteboard_briefing_2026-03-15', '<p>Existing</p>');
+      dashboard = createDashboard(deps);
+
+      const html = dashboard.renderDashboard();
+      expect(html).toContain('Refresh');
+    });
+
+    it('renders plan item without snooze button when done', () => {
+      setupDashWithTasks();
+      deps.hasAI.mockReturnValue(true);
+      const task = { id: 't1', title: 'Completed', status: 'done', priority: 'normal' };
+      deps.findTask.mockImplementation((id) => (id === 't1' ? task : null));
+      const plan = [{ id: 't1', completedInPlan: true }];
+      localStorage.setItem('user1_whiteboard_plan_2026-03-15', JSON.stringify(plan));
+      dashboard = createDashboard(deps);
+
+      const html = dashboard.renderDashboard();
+      expect(html).toContain('line-through');
+      expect(html).toContain('opacity:0.5');
+    });
+  });
+
+  // ── _renderProjectKanban (via renderProject) ─────────────────────
+  describe('_renderProjectKanban (via renderProject)', () => {
+    const project = { id: 'p1', name: 'Work', color: '#818cf8', description: 'Work project' };
+
+    it('renders kanban column counts', () => {
+      const tasks = [
+        { id: 't1', title: 'Todo 1', status: 'todo', priority: 'normal' },
+        { id: 't2', title: 'Todo 2', status: 'todo', priority: 'normal' },
+        { id: 't3', title: 'WIP', status: 'in-progress', priority: 'normal' },
+        { id: 't4', title: 'Done', status: 'done', priority: 'normal' },
+      ];
+      deps.projectTasks.mockReturnValue(tasks);
+      deps.getProjectViewMode.mockReturnValue('board');
+      dashboard = createDashboard(deps);
+
+      const html = dashboard.renderProject(project);
+      expect(html).toContain('kanban-col-count');
+      const todoCountMatch = html.match(/To Do <span class="kanban-col-count">(\d+)<\/span>/);
+      expect(todoCountMatch[1]).toBe('2');
+    });
+
+    it('renders kanban card with priority tag and due date', () => {
+      const tasks = [{ id: 't1', title: 'Card', status: 'todo', priority: 'urgent', dueDate: '2026-03-20' }];
+      deps.projectTasks.mockReturnValue(tasks);
+      deps.getProjectViewMode.mockReturnValue('board');
+      deps.fmtDate.mockReturnValue('Mar 20');
+      dashboard = createDashboard(deps);
+
+      const html = dashboard.renderProject(project);
+      expect(html).toContain('kanban-card-meta');
+      expect(html).toContain('tag-date');
+      expect(deps.renderPriorityTag).toHaveBeenCalledWith('urgent');
+      expect(deps.fmtDate).toHaveBeenCalledWith('2026-03-20');
+    });
+
+    it('limits done column to MAX_KANBAN_DONE and shows overflow count', () => {
+      const tasks = [];
+      for (let i = 0; i < 25; i++) {
+        tasks.push({ id: `d${i}`, title: `Done ${i}`, status: 'done', priority: 'normal' });
+      }
+      deps.projectTasks.mockReturnValue(tasks);
+      deps.getProjectViewMode.mockReturnValue('board');
+      dashboard = createDashboard(deps);
+
+      const html = dashboard.renderProject(project);
+      expect(html).toContain('+5 more');
+    });
+  });
+
+  // ── _renderProjectRoadmap (via renderProject) ────────────────────
+  describe('_renderProjectRoadmap (via renderProject)', () => {
+    const project = { id: 'p1', name: 'Work', color: '#818cf8' };
+
+    it('marks completed phase as done', () => {
+      const tasks = [
+        { id: 't1', title: 'Done phase', status: 'done', priority: 'normal', phase: 'Phase 1' },
+        { id: 't2', title: 'Active phase', status: 'in-progress', priority: 'normal', phase: 'Phase 2' },
+      ];
+      deps.projectTasks.mockReturnValue(tasks);
+      dashboard = createDashboard(deps);
+
+      const html = dashboard.renderProject(project);
+      expect(html).toContain('roadmap-dot done');
+      expect(html).toContain('roadmap-dot active');
+      expect(html).toContain('1/1 complete');
+    });
+
+    it('shows phase progress counts', () => {
+      const tasks = [
+        { id: 't1', title: 'Done', status: 'done', priority: 'normal', phase: 'Alpha' },
+        { id: 't2', title: 'Todo', status: 'todo', priority: 'normal', phase: 'Alpha' },
+        { id: 't3', title: 'Other', status: 'todo', priority: 'normal', phase: 'Beta' },
+      ];
+      deps.projectTasks.mockReturnValue(tasks);
+      dashboard = createDashboard(deps);
+
+      const html = dashboard.renderProject(project);
+      expect(html).toContain('1/2 complete');
+      expect(html).toContain('0/1 complete');
+    });
+
+    it('does not render roadmap when no phases', () => {
+      const tasks = [{ id: 't1', title: 'No phase', status: 'todo', priority: 'normal' }];
+      deps.projectTasks.mockReturnValue(tasks);
+      dashboard = createDashboard(deps);
+
+      const html = dashboard.renderProject(project);
+      expect(html).not.toContain('Roadmap');
+    });
+  });
+
+  // ── _renderProjectTaskSections (via renderProject) ───────────────
+  describe('_renderProjectTaskSections (via renderProject)', () => {
+    const project = { id: 'p1', name: 'Work', color: '#818cf8' };
+
+    it('renders overdue tasks in urgent section', () => {
+      const tasks = [{ id: 't1', title: 'Overdue task', status: 'todo', priority: 'normal', dueDate: '2026-03-10' }];
+      deps.projectTasks.mockReturnValue(tasks);
+      dashboard = createDashboard(deps);
+
+      const html = dashboard.renderProject(project);
+      expect(html).toContain('Urgent');
+    });
+
+    it('renders all sections together', () => {
+      const tasks = [
+        { id: 't1', title: 'Urgent', status: 'todo', priority: 'urgent' },
+        { id: 't2', title: 'WIP', status: 'in-progress', priority: 'normal' },
+        { id: 't3', title: 'Todo', status: 'todo', priority: 'normal' },
+        { id: 't4', title: 'Done', status: 'done', priority: 'normal' },
+      ];
+      deps.projectTasks.mockReturnValue(tasks);
+      deps.getShowCompleted.mockReturnValue(true);
+      dashboard = createDashboard(deps);
+
+      const html = dashboard.renderProject(project);
+      expect(html).toContain('Urgent');
+      expect(html).toContain('In Progress');
+      expect(html).toContain('Upcoming');
+      expect(html).toContain('Completed');
+    });
+  });
+
+  // ── _renderDashboardHero brainstorm stats ────────────────────────
+  describe('_renderDashboardHero brainstorm stats (via renderDashboard)', () => {
+    it('renders brainstorm stat with dump history', () => {
+      const tasks = [{ id: 't1', title: 'Task', status: 'todo', priority: 'normal' }];
+      deps.getData.mockReturnValue({ tasks, projects: [{ id: 'p1', name: 'W', color: '#f00' }] });
+      deps.urgentTasks.mockReturnValue([]);
+      deps.activeTasks.mockReturnValue(tasks);
+      deps.doneTasks.mockReturnValue([]);
+      deps.projectTasks.mockReturnValue(tasks);
+      deps.getBrainstormModule.mockReturnValue({
+        isDumpInProgress: () => false,
+        getDumpHistory: () => [{ date: new Date(Date.now() - 3600000).toISOString(), tasksCreated: 5, wordCount: 200 }],
+        shouldShowDumpInvite: () => false,
+      });
+      dashboard = createDashboard(deps);
+
+      const html = dashboard.renderDashboard();
+      expect(html).toContain('Last: 5 tasks from 200 words');
+    });
+
+    it('renders brainstorm CTA with invite styling when shouldShowDumpInvite is true', () => {
+      const tasks = [{ id: 't1', title: 'Task', status: 'todo', priority: 'normal' }];
+      deps.getData.mockReturnValue({ tasks, projects: [{ id: 'p1', name: 'W', color: '#f00' }] });
+      deps.urgentTasks.mockReturnValue([]);
+      deps.activeTasks.mockReturnValue(tasks);
+      deps.doneTasks.mockReturnValue([]);
+      deps.projectTasks.mockReturnValue(tasks);
+      deps.getBrainstormModule.mockReturnValue({
+        isDumpInProgress: () => false,
+        getDumpHistory: () => [],
+        shouldShowDumpInvite: () => true,
+      });
+      dashboard = createDashboard(deps);
+
+      const html = dashboard.renderDashboard();
+      expect(html).toContain('brainstorm-cta-main');
+      expect(html).toContain('border:1px solid var(--accent)');
+    });
+
+    it('renders due today sub-greeting', () => {
+      const tasks = [{ id: 't1', title: 'Due task', status: 'todo', priority: 'normal', dueDate: '2026-03-15' }];
+      deps.getData.mockReturnValue({ tasks, projects: [{ id: 'p1', name: 'W', color: '#f00' }] });
+      deps.urgentTasks.mockReturnValue([]);
+      deps.activeTasks.mockReturnValue(tasks);
+      deps.doneTasks.mockReturnValue([]);
+      deps.projectTasks.mockReturnValue(tasks);
+      deps.getBrainstormModule.mockReturnValue({
+        isDumpInProgress: () => false,
+        getDumpHistory: () => [],
+        shouldShowDumpInvite: () => false,
+      });
+      dashboard = createDashboard(deps);
+
+      const html = dashboard.renderDashboard();
+      expect(html).toContain('1 due today');
+    });
+  });
+
+  // ── invalidateRenderMemo ─────────────────────────────────────────
+  describe('invalidateRenderMemo', () => {
+    it('is a callable function', () => {
+      expect(typeof dashboard.invalidateRenderMemo).toBe('function');
+    });
+
+    it('allows _renderNow to run again after invalidation', () => {
+      document.body.innerHTML = `
+        <div id="projectList"></div>
+        <div id="archiveBadge"></div>
+        <div id="content"></div>
+        <div id="viewTitle"></div>
+        <div id="viewSub"></div>
+        <div id="headerActions"></div>
+        <div class="nav-item" data-view="dashboard"></div>
+      `;
+      deps.$.mockImplementation((sel) => document.querySelector(sel));
+      deps.$$.mockImplementation((sel) => document.querySelectorAll(sel));
+      deps.getData.mockReturnValue({ tasks: [], projects: [] });
+      deps.getCurrentView.mockReturnValue('archive');
+      deps.activeTasks.mockReturnValue([]);
+      deps.archivedTasks.mockReturnValue([]);
+      deps.getBrainstormModule.mockReturnValue({
+        isDumpInProgress: () => false,
+        getDumpHistory: () => [],
+        shouldShowDumpInvite: () => false,
+      });
+      dashboard = createDashboard(deps);
+
+      dashboard._renderNow();
+      expect(deps.attachListeners).toHaveBeenCalledTimes(1);
+
+      dashboard._renderNow();
+      expect(deps.attachListeners).toHaveBeenCalledTimes(1);
+
+      dashboard.invalidateRenderMemo();
+      dashboard._renderNow();
+      expect(deps.attachListeners).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  // ── _renderEndOfDay (via renderDashboard) ────────────────────────
+  describe('_renderEndOfDay (via renderDashboard)', () => {
+    function setupDashWithCompletedTasks() {
+      const completedTask = {
+        id: 't1',
+        title: 'Done today',
+        status: 'done',
+        priority: 'normal',
+        completedAt: '2026-03-15T14:00:00Z',
+      };
+      const tasks = [completedTask];
+      deps.getData.mockReturnValue({ tasks, projects: [{ id: 'p1', name: 'W', color: '#f00' }] });
+      deps.urgentTasks.mockReturnValue([]);
+      deps.activeTasks.mockReturnValue([]);
+      deps.doneTasks.mockReturnValue(tasks);
+      deps.projectTasks.mockReturnValue([]);
+      deps.getBrainstormModule.mockReturnValue({
+        isDumpInProgress: () => false,
+        getDumpHistory: () => [],
+        shouldShowDumpInvite: () => false,
+      });
+      deps.hasAI.mockReturnValue(true);
+    }
+
+    it('renders EOD prompt card after 5pm when completed tasks exist', () => {
+      setupDashWithCompletedTasks();
+      const realDate = global.Date;
+      const mockDate = new realDate('2026-03-15T18:00:00Z');
+      vi.spyOn(global, 'Date').mockImplementation(function (...args) {
+        if (args.length === 0) return mockDate;
+        return new realDate(...args);
+      });
+      global.Date.now = realDate.now;
+
+      dashboard = createDashboard(deps);
+
+      const html = dashboard.renderDashboard();
+      expect(html).toContain('eod-card');
+      expect(html).toContain('How did today go?');
+      expect(html).toContain('data-action="submit-eod"');
+      expect(html).toContain('data-action="skip-eod"');
+
+      vi.restoreAllMocks();
+    });
+
+    it('renders cached EOD response when available', () => {
+      setupDashWithCompletedTasks();
+      localStorage.setItem('user1_wb_eod_2026-03-15', '<p>Great day! You completed 3 tasks.</p>');
+      const realDate = global.Date;
+      const mockDate = new realDate('2026-03-15T18:00:00Z');
+      vi.spyOn(global, 'Date').mockImplementation(function (...args) {
+        if (args.length === 0) return mockDate;
+        return new realDate(...args);
+      });
+      global.Date.now = realDate.now;
+
+      dashboard = createDashboard(deps);
+
+      const html = dashboard.renderDashboard();
+      expect(html).toContain('End of Day');
+      expect(html).toContain('eod-response');
+      expect(html).toContain('Great day! You completed 3 tasks.');
+
+      vi.restoreAllMocks();
+    });
+  });
+
+  // ── _renderNow error handling ────────────────────────────────────
+  describe('_renderNow error handling', () => {
+    it('renders error state when render throws inside try block', () => {
+      document.body.innerHTML = `
+        <div id="projectList"></div>
+        <div id="archiveBadge"></div>
+        <div id="content"></div>
+        <div id="viewTitle"></div>
+        <div id="viewSub"></div>
+        <div id="headerActions"></div>
+        <div class="nav-item" data-view="dashboard"></div>
+      `;
+      deps.$.mockImplementation((sel) => document.querySelector(sel));
+      // Make $$ throw inside renderSidebar (which is inside the try block)
+      deps.$$.mockImplementation(() => {
+        throw new Error('Render failure');
+      });
+      deps.getData.mockReturnValue({ tasks: [{ id: 't1', status: 'todo' }], projects: [] });
+      deps.getCurrentView.mockReturnValue('dashboard');
+      deps.getDashViewMode.mockReturnValue('list');
+      deps.activeTasks.mockReturnValue([]);
+      deps.archivedTasks.mockReturnValue([]);
+      deps.getBrainstormModule.mockReturnValue({
+        isDumpInProgress: () => false,
+        getDumpHistory: () => [],
+        shouldShowDumpInvite: () => false,
+      });
+      dashboard = createDashboard(deps);
+
+      dashboard._renderNow();
+      const content = document.getElementById('content');
+      expect(content.innerHTML).toContain('Something went wrong');
+      expect(content.innerHTML).toContain('Render failure');
+      expect(content.innerHTML).toContain('data-action="reload-page"');
+      expect(content.innerHTML).toContain('data-action="export-data"');
+    });
+  });
+
+  // ── _renderNow dump view with async renderDump ───────────────────
+  describe('_renderNow dump view async', () => {
+    it('handles async renderDump that returns a promise', async () => {
+      document.body.innerHTML = `
+        <div id="projectList"></div>
+        <div id="archiveBadge"></div>
+        <div id="content"></div>
+        <div id="viewTitle"></div>
+        <div id="viewSub"></div>
+        <div id="headerActions"></div>
+        <div class="nav-item" data-view="dashboard"></div>
+      `;
+      deps.$.mockImplementation((sel) => document.querySelector(sel));
+      deps.$$.mockImplementation((sel) => document.querySelectorAll(sel));
+      deps.getData.mockReturnValue({ tasks: [], projects: [] });
+      deps.getCurrentView.mockReturnValue('dump');
+      deps.activeTasks.mockReturnValue([]);
+      deps.archivedTasks.mockReturnValue([]);
+      deps.renderDump.mockReturnValue(Promise.resolve('<div>async dump</div>'));
+      deps.getBrainstormModule.mockReturnValue({
+        isDumpInProgress: () => false,
+        getDumpHistory: () => [],
+        shouldShowDumpInvite: () => false,
+      });
+      dashboard = createDashboard(deps);
+
+      dashboard._renderNow();
+      await vi.waitFor(() => {
+        expect(document.getElementById('content').innerHTML).toContain('async dump');
+      });
+      expect(deps.initDumpDropZone).toHaveBeenCalled();
+    });
+  });
+
+  // ── _renderNow review view with async renderWeeklyReview ─────────
+  describe('_renderNow review view async', () => {
+    it('handles async renderWeeklyReview that returns a promise', async () => {
+      document.body.innerHTML = `
+        <div id="projectList"></div>
+        <div id="archiveBadge"></div>
+        <div id="content"></div>
+        <div id="viewTitle"></div>
+        <div id="viewSub"></div>
+        <div id="headerActions"></div>
+        <div class="nav-item" data-view="dashboard"></div>
+      `;
+      deps.$.mockImplementation((sel) => document.querySelector(sel));
+      deps.$$.mockImplementation((sel) => document.querySelectorAll(sel));
+      deps.getData.mockReturnValue({ tasks: [], projects: [] });
+      deps.getCurrentView.mockReturnValue('review');
+      deps.activeTasks.mockReturnValue([]);
+      deps.archivedTasks.mockReturnValue([]);
+      deps.renderWeeklyReview.mockReturnValue(Promise.resolve('<div>async review</div>'));
+      deps.getBrainstormModule.mockReturnValue({
+        isDumpInProgress: () => false,
+        getDumpHistory: () => [],
+        shouldShowDumpInvite: () => false,
+      });
+      dashboard = createDashboard(deps);
+
+      dashboard._renderNow();
+      await vi.waitFor(() => {
+        expect(document.getElementById('content').innerHTML).toContain('async review');
+      });
+    });
+  });
+
+  // ── _triggerAutoAI (via _renderNow) ──────────────────────────────
+  describe('_triggerAutoAI (via _renderNow)', () => {
+    function setupForAutoAI() {
+      document.body.innerHTML = `
+        <div id="projectList"></div>
+        <div id="archiveBadge"></div>
+        <div id="content"></div>
+        <div id="viewTitle"></div>
+        <div id="viewSub"></div>
+        <div id="headerActions"></div>
+        <div class="nav-item" data-view="dashboard"></div>
+      `;
+      deps.$.mockImplementation((sel) => document.querySelector(sel));
+      deps.$$.mockImplementation((sel) => document.querySelectorAll(sel));
+      const tasks = [
+        { id: 't1', status: 'todo', priority: 'normal' },
+        { id: 't2', status: 'todo', priority: 'normal' },
+        { id: 't3', status: 'todo', priority: 'normal' },
+      ];
+      deps.getData.mockReturnValue({ tasks, projects: [{ id: 'p1', name: 'W', color: '#f00' }] });
+      deps.getCurrentView.mockReturnValue('dashboard');
+      deps.getDashViewMode.mockReturnValue('list');
+      deps.activeTasks.mockReturnValue(tasks);
+      deps.urgentTasks.mockReturnValue([]);
+      deps.doneTasks.mockReturnValue([]);
+      deps.projectTasks.mockReturnValue([]);
+      deps.archivedTasks.mockReturnValue([]);
+      deps.hasAI.mockReturnValue(true);
+      deps.getBriefingGenerating.mockReturnValue(false);
+      deps.getPlanGenerating.mockReturnValue(false);
+      deps.generateAIBriefing.mockReturnValue(Promise.resolve());
+      deps.planMyDay.mockReturnValue(Promise.resolve());
+      deps.getBrainstormModule.mockReturnValue({
+        isDumpInProgress: () => false,
+        getDumpHistory: () => [],
+        shouldShowDumpInvite: () => false,
+      });
+    }
+
+    it('triggers auto briefing and plan when conditions are met', () => {
+      setupForAutoAI();
+      dashboard = createDashboard(deps);
+
+      dashboard._renderNow();
+
+      expect(deps.setBriefingGenerating).toHaveBeenCalledWith(true);
+      expect(deps.generateAIBriefing).toHaveBeenCalled();
+      expect(deps.setPlanGenerating).toHaveBeenCalledWith(true);
+      expect(deps.planMyDay).toHaveBeenCalled();
+    });
+
+    it('does not trigger briefing when already cached', () => {
+      setupForAutoAI();
+      localStorage.setItem('user1_whiteboard_briefing_2026-03-15', '<p>Already briefed</p>');
+      dashboard = createDashboard(deps);
+
+      dashboard._renderNow();
+
+      expect(deps.generateAIBriefing).not.toHaveBeenCalled();
+    });
+
+    it('runs proactive worker when plan already exists', () => {
+      setupForAutoAI();
+      localStorage.setItem('user1_whiteboard_briefing_2026-03-15', '<p>Briefed</p>');
+      localStorage.setItem('user1_whiteboard_plan_2026-03-15', JSON.stringify([{ id: 't1' }]));
+      dashboard = createDashboard(deps);
+
+      dashboard._renderNow();
+
+      expect(deps.runProactiveWorker).toHaveBeenCalled();
+      expect(deps.planMyDay).not.toHaveBeenCalled();
+    });
+
+    it('does not trigger auto AI when not on dashboard view', () => {
+      setupForAutoAI();
+      deps.getCurrentView.mockReturnValue('archive');
+      dashboard = createDashboard(deps);
+
+      dashboard._renderNow();
+
+      expect(deps.generateAIBriefing).not.toHaveBeenCalled();
+      expect(deps.planMyDay).not.toHaveBeenCalled();
+    });
+  });
+
+  // ── renderSidebar memoization ────────────────────────────────────
+  describe('renderSidebar memoization', () => {
+    function addDashNavItem() {
+      const navItem = document.createElement('div');
+      navItem.className = 'nav-item';
+      navItem.dataset.view = 'dashboard';
+      document.body.appendChild(navItem);
+      return navItem;
+    }
+
+    it('skips re-render when sidebar state has not changed', () => {
+      const navItem = addDashNavItem();
+      const projects = [{ id: 'p1', name: 'Work', color: '#818cf8' }];
+      deps.getData.mockReturnValue({ tasks: [], projects });
+      deps.activeTasks.mockReturnValue([]);
+      deps.projectTasks.mockReturnValue([]);
+      deps.archivedTasks.mockReturnValue([]);
+      deps.$$.mockReturnValue([]);
+      deps.$.mockImplementation((sel) => document.querySelector(sel));
+      dashboard = createDashboard(deps);
+
+      dashboard.renderSidebar();
+      const firstHTML = document.getElementById('projectList').innerHTML;
+
+      dashboard.renderSidebar();
+      expect(document.getElementById('projectList').innerHTML).toBe(firstHTML);
+
+      navItem.remove();
+    });
+  });
+
+  // ── _renderProjectHeader background ──────────────────────────────
+  describe('_renderProjectHeader (via renderProject)', () => {
+    it('renders background panel with partial fields', () => {
+      deps.projectTasks.mockReturnValue([]);
+      deps.getShowProjectBg.mockReturnValue(true);
+      deps.parseProjectBackground.mockReturnValue({
+        origin: 'From scratch',
+        direction: null,
+        roadblocks: null,
+        nextSteps: 'Launch it',
+        notes: null,
+      });
+      const bgProject = { id: 'p1', name: 'Work', color: '#818cf8', background: 'raw text' };
+      dashboard = createDashboard(deps);
+
+      const html = dashboard.renderProject(bgProject);
+      expect(html).toContain('From scratch');
+      expect(html).toContain('Origin');
+      expect(html).toContain('Launch it');
+      expect(html).toContain('Next Steps');
+      expect(html).not.toContain('Roadblocks');
+    });
+
+    it('renders chevron in open state when background panel is open', () => {
+      deps.projectTasks.mockReturnValue([]);
+      deps.getShowProjectBg.mockReturnValue(true);
+      const project = { id: 'p1', name: 'Work', color: '#818cf8' };
+      dashboard = createDashboard(deps);
+
+      const html = dashboard.renderProject(project);
+      expect(html).toContain('chevron open');
+      expect(html).toContain('project-bg-panel open');
+    });
+  });
+
+  // ── renderDashboard welcome state ────────────────────────────────
+  describe('renderDashboard welcome state', () => {
+    it('renders welcome state with "Plan my week" and "Import from notes" cards', () => {
+      deps.getData.mockReturnValue({ tasks: [], projects: [] });
+      deps.urgentTasks.mockReturnValue([]);
+      deps.activeTasks.mockReturnValue([]);
+      deps.doneTasks.mockReturnValue([]);
+      dashboard = createDashboard(deps);
+
+      const html = dashboard.renderDashboard();
+      expect(html).toContain('Plan my week');
+      expect(html).toContain('Import from notes');
+      expect(html).toContain('data-action="go-dump-weekly"');
+      expect(html).toContain('Open brainstorm');
+    });
+
+    it('does not show welcome state when more than 1 project exists', () => {
+      deps.getData.mockReturnValue({
+        tasks: [],
+        projects: [
+          { id: 'p1', name: 'A', color: '#f00' },
+          { id: 'p2', name: 'B', color: '#0f0' },
+        ],
+      });
+      deps.urgentTasks.mockReturnValue([]);
+      deps.activeTasks.mockReturnValue([]);
+      deps.doneTasks.mockReturnValue([]);
+      deps.projectTasks.mockReturnValue([]);
+      deps.getBrainstormModule.mockReturnValue({
+        isDumpInProgress: () => false,
+        getDumpHistory: () => [],
+        shouldShowDumpInvite: () => false,
+      });
+      dashboard = createDashboard(deps);
+
+      const html = dashboard.renderDashboard();
+      expect(html).not.toContain('welcomeTyping');
+    });
+  });
+
+  // ── sortTasks edge cases ─────────────────────────────────────────
+  describe('sortTasks edge cases', () => {
+    it('handles corrupted plan JSON gracefully', () => {
+      localStorage.setItem('user1_whiteboard_plan_2026-03-15', 'not valid json');
+      dashboard = createDashboard(deps);
+
+      const tasks = [
+        { id: 'a', status: 'todo', priority: 'urgent' },
+        { id: 'b', status: 'todo', priority: 'low' },
+      ];
+      const sorted = dashboard.sortTasks(tasks);
+      expect(sorted[0].id).toBe('a');
+      expect(sorted[1].id).toBe('b');
+    });
+
+    it('uses cached plan index on second call (same data version)', () => {
+      const planData = [{ id: 'b' }, { id: 'a' }];
+      localStorage.setItem('user1_whiteboard_plan_2026-03-15', JSON.stringify(planData));
+      dashboard = createDashboard(deps);
+
+      const tasks = [
+        { id: 'a', status: 'todo', priority: 'normal' },
+        { id: 'b', status: 'todo', priority: 'normal' },
+      ];
+      dashboard.sortTasks(tasks);
+      const sorted = dashboard.sortTasks(tasks);
+      expect(sorted[0].id).toBe('b');
+      expect(sorted[1].id).toBe('a');
+    });
+  });
+});

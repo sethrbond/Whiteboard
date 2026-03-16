@@ -350,3 +350,330 @@ describe('events.js — createEvents()', () => {
     });
   });
 });
+
+// ── Additional coverage: delegated click and keyboard handlers ──────
+describe('events.js — delegated listeners coverage', () => {
+  let events2;
+  let deps2;
+
+  function makeDeps2(overrides = {}) {
+    return {
+      $: vi.fn((sel) => document.querySelector(sel)),
+      $$: vi.fn((sel) => document.querySelectorAll(sel)),
+      esc: vi.fn((s) => String(s ?? '')),
+      findTask: vi.fn(() => null),
+      updateTask: vi.fn(),
+      deleteProject: vi.fn(),
+      setView: vi.fn(),
+      render: vi.fn(),
+      showToast: vi.fn(),
+      filterByTag: vi.fn(),
+      attachInlineEdit: vi.fn(),
+      attachBulkListeners: vi.fn(),
+      saveAIMemory: vi.fn(),
+      saveAIMemoryArchive: vi.fn(),
+      syncToCloud: vi.fn(),
+      loadData: vi.fn(() => ({ tasks: [], projects: [] })),
+      ensureLifeProject: vi.fn(),
+      saveData: vi.fn(),
+      openSettings: vi.fn(),
+      STORE_KEY: 'taskboard_data',
+      userKey: vi.fn((k) => `user2_${k}`),
+      getKbIdx: vi.fn(() => 0),
+      getExpandedTask: vi.fn(() => null),
+      setExpandedTask: vi.fn(),
+      setData: vi.fn(),
+      getData: vi.fn(() => ({ tasks: [], projects: [] })),
+      ...overrides,
+    };
+  }
+
+  beforeEach(() => {
+    localStorage.clear();
+    document.getElementById('modalRoot').innerHTML = '';
+    deps2 = makeDeps2();
+    events2 = createEvents(deps2);
+    events2.ensureDelegatedListeners();
+  });
+
+  afterEach(() => {
+    document.querySelectorAll('[role="alertdialog"]').forEach((el) => el.remove());
+  });
+
+  // ── data-toggle task completion ───────────────────────────────────
+  describe('data-toggle task completion', () => {
+    it('toggles task from todo to done', () => {
+      deps2.findTask.mockReturnValue({ id: 't_1', title: 'Test', status: 'todo' });
+      const el = document.createElement('div');
+      el.dataset.toggle = 't_1';
+      document.body.appendChild(el);
+      el.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      expect(deps2.updateTask).toHaveBeenCalledWith('t_1', { status: 'done' });
+      expect(deps2.render).toHaveBeenCalled();
+      expect(deps2.showToast).toHaveBeenCalled();
+      el.remove();
+    });
+
+    it('toggles task from done back to todo', () => {
+      deps2.findTask.mockReturnValue({ id: 't_1', title: 'Test', status: 'done' });
+      const el = document.createElement('div');
+      el.dataset.toggle = 't_1';
+      document.body.appendChild(el);
+      el.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      expect(deps2.updateTask).toHaveBeenCalledWith('t_1', { status: 'todo' });
+      expect(deps2.render).toHaveBeenCalled();
+      el.remove();
+    });
+
+    it('does nothing when task is not found', () => {
+      deps2.findTask.mockReturnValue(null);
+      const el = document.createElement('div');
+      el.dataset.toggle = 't_nonexistent';
+      document.body.appendChild(el);
+      el.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      expect(deps2.updateTask).not.toHaveBeenCalled();
+      el.remove();
+    });
+
+    it('collapses expanded task when marking as done', () => {
+      deps2.findTask.mockReturnValue({ id: 't_1', title: 'Test', status: 'todo' });
+      const el = document.createElement('div');
+      el.dataset.toggle = 't_1';
+      document.body.appendChild(el);
+      el.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      expect(deps2.setExpandedTask).toHaveBeenCalledWith(null);
+      el.remove();
+    });
+  });
+
+  // ── project grid card click ───────────────────────────────────────
+  describe('project grid card click', () => {
+    it('navigates to project view on card click', () => {
+      const card = document.createElement('div');
+      card.className = 'project-grid-card';
+      card.dataset.project = 'p_42';
+      document.body.appendChild(card);
+      card.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      expect(deps2.setView).toHaveBeenCalledWith('project', 'p_42');
+      card.remove();
+    });
+
+    it('navigates when clicking child of project grid card', () => {
+      const card = document.createElement('div');
+      card.className = 'project-grid-card';
+      card.dataset.project = 'p_42';
+      const child = document.createElement('span');
+      child.textContent = 'Card Title';
+      card.appendChild(child);
+      document.body.appendChild(card);
+      child.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      expect(deps2.setView).toHaveBeenCalledWith('project', 'p_42');
+      card.remove();
+    });
+  });
+
+  // ── sidebar project nav click ────────────────────────────────────
+  describe('sidebar project nav click', () => {
+    it('navigates to project view on nav item click', () => {
+      const nav = document.createElement('div');
+      nav.className = 'project-nav-item';
+      nav.dataset.project = 'p_99';
+      document.body.appendChild(nav);
+      nav.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      expect(deps2.setView).toHaveBeenCalledWith('project', 'p_99');
+      nav.remove();
+    });
+  });
+
+  // ── tag filter click ─────────────────────────────────────────────
+  describe('tag filter click', () => {
+    it('calls filterByTag when tag filter button is clicked', () => {
+      const btn = document.createElement('button');
+      btn.className = 'tag-filter-btn';
+      btn.dataset.tag = 'bug';
+      document.body.appendChild(btn);
+      btn.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      expect(deps2.filterByTag).toHaveBeenCalledWith('bug');
+      btn.remove();
+    });
+
+    it('does not call filterByTag when tag is null', () => {
+      const btn = document.createElement('button');
+      btn.className = 'tag-filter-btn';
+      // no data-tag set
+      document.body.appendChild(btn);
+      btn.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      expect(deps2.filterByTag).not.toHaveBeenCalled();
+      btn.remove();
+    });
+  });
+
+  // ── task row expand/collapse ──────────────────────────────────────
+  describe('task row expand/collapse', () => {
+    it('expands a task when clicking on task row', () => {
+      deps2.getExpandedTask.mockReturnValue(null);
+      const row = document.createElement('div');
+      row.dataset.task = 't_5';
+      document.body.appendChild(row);
+      row.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      expect(deps2.setExpandedTask).toHaveBeenCalledWith('t_5');
+      expect(deps2.render).toHaveBeenCalled();
+      row.remove();
+    });
+
+    it('collapses a task when clicking on already-expanded task row', () => {
+      deps2.getExpandedTask.mockReturnValue('t_5');
+      const row = document.createElement('div');
+      row.dataset.task = 't_5';
+      document.body.appendChild(row);
+      row.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      expect(deps2.setExpandedTask).toHaveBeenCalledWith(null);
+      expect(deps2.render).toHaveBeenCalled();
+      row.remove();
+    });
+
+    it('does not expand when clicking on a btn inside task row', () => {
+      const row = document.createElement('div');
+      row.dataset.task = 't_5';
+      const btn = document.createElement('button');
+      btn.className = 'btn';
+      row.appendChild(btn);
+      document.body.appendChild(row);
+      btn.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      expect(deps2.setExpandedTask).not.toHaveBeenCalled();
+      row.remove();
+    });
+
+    it('does not expand when clicking on data-toggle inside task row', () => {
+      deps2.findTask.mockReturnValue({ id: 't_5', title: 'T', status: 'todo' });
+      const row = document.createElement('div');
+      row.dataset.task = 't_5';
+      const toggle = document.createElement('div');
+      toggle.dataset.toggle = 't_5';
+      row.appendChild(toggle);
+      document.body.appendChild(row);
+      toggle.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      // toggle should be handled by toggle handler, not expand
+      expect(deps2.updateTask).toHaveBeenCalled();
+      row.remove();
+    });
+  });
+
+  // ── Keyboard: data-toggle Enter/Space ─────────────────────────────
+  describe('keyboard: data-toggle Enter/Space', () => {
+    it('Enter on data-toggle triggers click', () => {
+      const el = document.createElement('div');
+      el.dataset.toggle = 't_1';
+      el.tabIndex = 0;
+      document.body.appendChild(el);
+      const clickSpy = vi.spyOn(el, 'click');
+      el.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+      expect(clickSpy).toHaveBeenCalled();
+      el.remove();
+    });
+
+    it('Space on data-toggle triggers click', () => {
+      const el = document.createElement('div');
+      el.dataset.toggle = 't_1';
+      el.tabIndex = 0;
+      document.body.appendChild(el);
+      const clickSpy = vi.spyOn(el, 'click');
+      el.dispatchEvent(new KeyboardEvent('keydown', { key: ' ', bubbles: true }));
+      expect(clickSpy).toHaveBeenCalled();
+      el.remove();
+    });
+
+    it('other keys on data-toggle do not trigger click', () => {
+      const el = document.createElement('div');
+      el.dataset.toggle = 't_1';
+      el.tabIndex = 0;
+      document.body.appendChild(el);
+      const clickSpy = vi.spyOn(el, 'click');
+      el.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', bubbles: true }));
+      expect(clickSpy).not.toHaveBeenCalled();
+      el.remove();
+    });
+  });
+
+  // ── Keyboard: role="button" Enter/Space ───────────────────────────
+  describe('keyboard: role="button" Enter/Space', () => {
+    it('Enter on role="button" triggers click', () => {
+      const el = document.createElement('div');
+      el.setAttribute('role', 'button');
+      el.tabIndex = 0;
+      document.body.appendChild(el);
+      const clickSpy = vi.spyOn(el, 'click');
+      el.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+      expect(clickSpy).toHaveBeenCalled();
+      el.remove();
+    });
+
+    it('Space on role="button" triggers click', () => {
+      const el = document.createElement('div');
+      el.setAttribute('role', 'button');
+      el.tabIndex = 0;
+      document.body.appendChild(el);
+      const clickSpy = vi.spyOn(el, 'click');
+      el.dispatchEvent(new KeyboardEvent('keydown', { key: ' ', bubbles: true }));
+      expect(clickSpy).toHaveBeenCalled();
+      el.remove();
+    });
+  });
+
+  // ── Keyboard: role="checkbox" with data-action Enter/Space ────────
+  describe('keyboard: role="checkbox" with data-action Enter/Space', () => {
+    it('Enter on role="checkbox" with data-action triggers click', () => {
+      const el = document.createElement('div');
+      el.setAttribute('role', 'checkbox');
+      el.dataset.action = 'toggle-subtask';
+      el.tabIndex = 0;
+      document.body.appendChild(el);
+      const clickSpy = vi.spyOn(el, 'click');
+      el.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+      expect(clickSpy).toHaveBeenCalled();
+      el.remove();
+    });
+
+    it('Space on role="checkbox" with data-action triggers click', () => {
+      const el = document.createElement('div');
+      el.setAttribute('role', 'checkbox');
+      el.dataset.action = 'toggle-subtask';
+      el.tabIndex = 0;
+      document.body.appendChild(el);
+      const clickSpy = vi.spyOn(el, 'click');
+      el.dispatchEvent(new KeyboardEvent('keydown', { key: ' ', bubbles: true }));
+      expect(clickSpy).toHaveBeenCalled();
+      el.remove();
+    });
+
+    it('does not trigger click for checkbox without data-action', () => {
+      const el = document.createElement('div');
+      el.setAttribute('role', 'checkbox');
+      // no data-action
+      el.tabIndex = 0;
+      document.body.appendChild(el);
+      const clickSpy = vi.spyOn(el, 'click');
+      el.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+      expect(clickSpy).not.toHaveBeenCalled();
+      el.remove();
+    });
+  });
+
+  // ── ensureDelegatedListeners idempotency ──────────────────────────
+  describe('ensureDelegatedListeners', () => {
+    it('only attaches listeners once', () => {
+      // Call multiple times - should not throw or double-attach
+      events2.ensureDelegatedListeners();
+      events2.ensureDelegatedListeners();
+      // Verify basic functionality still works
+      const card = document.createElement('div');
+      card.className = 'project-grid-card';
+      card.dataset.project = 'p_1';
+      document.body.appendChild(card);
+      card.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      // Should only be called once, not multiple times
+      expect(deps2.setView).toHaveBeenCalledTimes(1);
+      card.remove();
+    });
+  });
+});

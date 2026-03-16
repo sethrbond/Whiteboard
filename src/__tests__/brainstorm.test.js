@@ -1616,4 +1616,1138 @@ describe('brainstorm.js — createBrainstorm()', () => {
     statusEl.remove();
     modalRoot.remove();
   });
+
+  // ── processDump — clarify pass (non-skip path) ───────────────────
+  it('processDump triggers clarify UI when callAI returns questions', async () => {
+    const ta = document.createElement('textarea');
+    ta.id = 'dumpText';
+    ta.value = 'vague idea about stuff';
+    document.body.appendChild(ta);
+
+    const statusEl = document.createElement('div');
+    statusEl.id = 'dumpStatus';
+    document.body.appendChild(statusEl);
+
+    deps.hasAI.mockReturnValue(true);
+    deps.getSettings.mockReturnValue({ apiKey: 'test-key', aiModel: 'test-model' });
+    deps.callAI.mockResolvedValue('What specifically?\nWhen is it due?');
+
+    await bs.processDump(false);
+
+    expect(deps.callAI).toHaveBeenCalled();
+    expect(statusEl.innerHTML).toContain('clarify-card');
+    expect(statusEl.innerHTML).toContain('What specifically?');
+
+    ta.remove();
+    statusEl.remove();
+  });
+
+  it('processDump clarify returns CLEAR and proceeds to AI fetch', async () => {
+    const ta = document.createElement('textarea');
+    ta.id = 'dumpText';
+    ta.value = 'buy groceries: milk, eggs, bread';
+    document.body.appendChild(ta);
+
+    const statusEl = document.createElement('div');
+    statusEl.id = 'dumpStatus';
+    document.body.appendChild(statusEl);
+
+    const modalRoot = document.createElement('div');
+    modalRoot.id = 'modalRoot';
+    document.body.appendChild(modalRoot);
+
+    deps.hasAI.mockReturnValue(true);
+    deps.getSettings.mockReturnValue({ apiKey: 'test-key', aiModel: 'test-model' });
+    deps.callAI.mockResolvedValue('CLEAR');
+
+    const aiResponse = {
+      tasks: [{ action: 'create', title: 'Buy groceries', priority: 'normal', status: 'todo', suggestedProject: '' }],
+      projectUpdates: [],
+      patterns: [],
+    };
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() =>
+        Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({ content: [{ text: JSON.stringify(aiResponse) }] }),
+        }),
+      ),
+    );
+    deps.$.mockImplementation((sel) => document.querySelector(sel));
+    bs = createBrainstorm(deps);
+
+    await bs.processDump(false);
+
+    expect(globalThis.fetch).toHaveBeenCalled();
+
+    vi.unstubAllGlobals();
+    ta.remove();
+    statusEl.remove();
+    modalRoot.remove();
+  });
+
+  it('processDump skips clarify when text has attachments', async () => {
+    const file = new File(['some file content here'], 'notes.txt', { type: 'text/plain' });
+    await bs.handleDumpFiles([file]);
+
+    const ta = document.createElement('textarea');
+    ta.id = 'dumpText';
+    ta.value = 'short idea';
+    document.body.appendChild(ta);
+
+    const statusEl = document.createElement('div');
+    statusEl.id = 'dumpStatus';
+    document.body.appendChild(statusEl);
+
+    const modalRoot = document.createElement('div');
+    modalRoot.id = 'modalRoot';
+    document.body.appendChild(modalRoot);
+
+    deps.hasAI.mockReturnValue(true);
+    deps.getSettings.mockReturnValue({ apiKey: 'test-key', aiModel: 'test-model' });
+
+    const aiResponse = {
+      tasks: [{ action: 'create', title: 'Process notes', priority: 'normal', status: 'todo', suggestedProject: '' }],
+      projectUpdates: [],
+      patterns: [],
+    };
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() =>
+        Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({ content: [{ text: JSON.stringify(aiResponse) }] }),
+        }),
+      ),
+    );
+    deps.$.mockImplementation((sel) => document.querySelector(sel));
+    bs = createBrainstorm(deps);
+    await bs.handleDumpFiles([file]);
+
+    await bs.processDump(false);
+
+    expect(deps.callAI).not.toHaveBeenCalled();
+    expect(globalThis.fetch).toHaveBeenCalled();
+
+    vi.unstubAllGlobals();
+    ta.remove();
+    statusEl.remove();
+    modalRoot.remove();
+  });
+
+  it('processDump skips clarify for long text (>80 words)', async () => {
+    const ta = document.createElement('textarea');
+    ta.id = 'dumpText';
+    ta.value = Array.from({ length: 100 }, (_, i) => 'word' + i).join(' ');
+    document.body.appendChild(ta);
+
+    const statusEl = document.createElement('div');
+    statusEl.id = 'dumpStatus';
+    document.body.appendChild(statusEl);
+
+    const modalRoot = document.createElement('div');
+    modalRoot.id = 'modalRoot';
+    document.body.appendChild(modalRoot);
+
+    deps.hasAI.mockReturnValue(true);
+    deps.getSettings.mockReturnValue({ apiKey: 'test-key', aiModel: 'test-model' });
+
+    const aiResponse = {
+      tasks: [{ action: 'create', title: 'Long task', priority: 'normal', status: 'todo', suggestedProject: '' }],
+      projectUpdates: [],
+      patterns: [],
+    };
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() =>
+        Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({ content: [{ text: JSON.stringify(aiResponse) }] }),
+        }),
+      ),
+    );
+    deps.$.mockImplementation((sel) => document.querySelector(sel));
+    bs = createBrainstorm(deps);
+
+    await bs.processDump(false);
+
+    expect(deps.callAI).not.toHaveBeenCalled();
+    expect(globalThis.fetch).toHaveBeenCalled();
+
+    vi.unstubAllGlobals();
+    ta.remove();
+    statusEl.remove();
+    modalRoot.remove();
+  });
+
+  it('processDump handles clarify AI failure gracefully', async () => {
+    const ta = document.createElement('textarea');
+    ta.id = 'dumpText';
+    ta.value = 'vague idea about stuff';
+    document.body.appendChild(ta);
+
+    const statusEl = document.createElement('div');
+    statusEl.id = 'dumpStatus';
+    document.body.appendChild(statusEl);
+
+    const modalRoot = document.createElement('div');
+    modalRoot.id = 'modalRoot';
+    document.body.appendChild(modalRoot);
+
+    deps.hasAI.mockReturnValue(true);
+    deps.getSettings.mockReturnValue({ apiKey: 'test-key', aiModel: 'test-model' });
+    deps.callAI.mockRejectedValue(new Error('AI unavailable'));
+
+    const aiResponse = {
+      tasks: [{ action: 'create', title: 'Some task', priority: 'normal', status: 'todo', suggestedProject: '' }],
+      projectUpdates: [],
+      patterns: [],
+    };
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() =>
+        Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({ content: [{ text: JSON.stringify(aiResponse) }] }),
+        }),
+      ),
+    );
+    deps.$.mockImplementation((sel) => document.querySelector(sel));
+    bs = createBrainstorm(deps);
+
+    await bs.processDump(false);
+
+    expect(globalThis.fetch).toHaveBeenCalled();
+
+    vi.unstubAllGlobals();
+    ta.remove();
+    statusEl.remove();
+    modalRoot.remove();
+  });
+
+  // ── _applyProjectUpdates branches ────────────────────────────────
+  it('applyDumpResults updates existing project with long description and no background', () => {
+    deps.findSimilarProject.mockReturnValue({
+      id: 'p_existing',
+      name: 'Existing Project',
+      description:
+        'This is a very long existing description that is definitely over eighty characters long to test the branch path',
+    });
+
+    window._dumpReviewData = {
+      parsed: {
+        tasks: [
+          {
+            action: 'create',
+            title: 'Task A',
+            suggestedProject: 'Existing Project',
+            priority: 'normal',
+            status: 'todo',
+          },
+        ],
+        projectUpdates: [
+          {
+            name: 'Existing Project',
+            description:
+              'This is also a long description exceeding eighty characters to trigger the no-background fallback path in the code logic',
+          },
+        ],
+        patterns: [],
+      },
+      inputText: 'task a',
+    };
+
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.checked = true;
+    cb.dataset.dumpCheck = '0';
+    document.body.appendChild(cb);
+
+    const ta = document.createElement('textarea');
+    ta.id = 'dumpText';
+    document.body.appendChild(ta);
+
+    bs.applyDumpResults();
+
+    expect(deps.updateProject).toHaveBeenCalledWith(
+      'p_existing',
+      expect.objectContaining({
+        background: expect.any(String),
+      }),
+    );
+
+    cb.remove();
+    ta.remove();
+  });
+
+  it('applyDumpResults updates existing project with short description', () => {
+    deps.findSimilarProject.mockReturnValue({
+      id: 'p_existing',
+      name: 'Existing Project',
+      description: '',
+    });
+
+    window._dumpReviewData = {
+      parsed: {
+        tasks: [
+          {
+            action: 'create',
+            title: 'Task A',
+            suggestedProject: 'Existing Project',
+            priority: 'normal',
+            status: 'todo',
+          },
+        ],
+        projectUpdates: [{ name: 'Existing Project', description: 'Short desc' }],
+        patterns: [],
+      },
+      inputText: 'task a',
+    };
+
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.checked = true;
+    cb.dataset.dumpCheck = '0';
+    document.body.appendChild(cb);
+
+    const ta = document.createElement('textarea');
+    ta.id = 'dumpText';
+    document.body.appendChild(ta);
+
+    bs.applyDumpResults();
+
+    expect(deps.updateProject).toHaveBeenCalledWith(
+      'p_existing',
+      expect.objectContaining({ description: expect.any(String) }),
+    );
+
+    cb.remove();
+    ta.remove();
+  });
+
+  it('applyDumpResults no-ops project update when no fields change', () => {
+    deps.findSimilarProject.mockReturnValue({
+      id: 'p_existing',
+      name: 'Existing Project',
+      description: 'Short',
+    });
+
+    window._dumpReviewData = {
+      parsed: {
+        tasks: [
+          {
+            action: 'create',
+            title: 'Task A',
+            suggestedProject: 'Existing Project',
+            priority: 'normal',
+            status: 'todo',
+          },
+        ],
+        projectUpdates: [{ name: 'Existing Project' }],
+        patterns: [],
+      },
+      inputText: 'task a',
+    };
+
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.checked = true;
+    cb.dataset.dumpCheck = '0';
+    document.body.appendChild(cb);
+
+    const ta = document.createElement('textarea');
+    ta.id = 'dumpText';
+    document.body.appendChild(ta);
+
+    bs.applyDumpResults();
+
+    expect(deps.updateProject).not.toHaveBeenCalled();
+
+    cb.remove();
+    ta.remove();
+  });
+
+  it('applyDumpResults skips project update with isNew=false and no match', () => {
+    deps.findSimilarProject.mockReturnValue(null);
+
+    window._dumpReviewData = {
+      parsed: {
+        tasks: [{ action: 'create', title: 'Task A', suggestedProject: '', priority: 'normal', status: 'todo' }],
+        projectUpdates: [{ name: 'Ghost Project', description: 'Desc', isNew: false }],
+        patterns: [],
+      },
+      inputText: 'task a',
+    };
+
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.checked = true;
+    cb.dataset.dumpCheck = '0';
+    document.body.appendChild(cb);
+
+    const ta = document.createElement('textarea');
+    ta.id = 'dumpText';
+    document.body.appendChild(ta);
+
+    bs.applyDumpResults();
+
+    expect(deps.createProject).not.toHaveBeenCalled();
+
+    cb.remove();
+    ta.remove();
+  });
+
+  it('applyDumpResults skips projectUpdate with no name', () => {
+    window._dumpReviewData = {
+      parsed: {
+        tasks: [{ action: 'create', title: 'Task A', suggestedProject: '', priority: 'normal', status: 'todo' }],
+        projectUpdates: [{ name: '', description: 'Desc' }],
+        patterns: [],
+      },
+      inputText: 'task a',
+    };
+
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.checked = true;
+    cb.dataset.dumpCheck = '0';
+    document.body.appendChild(cb);
+
+    const ta = document.createElement('textarea');
+    ta.id = 'dumpText';
+    document.body.appendChild(ta);
+
+    bs.applyDumpResults();
+
+    expect(deps.createProject).not.toHaveBeenCalled();
+    expect(deps.updateProject).not.toHaveBeenCalled();
+
+    cb.remove();
+    ta.remove();
+  });
+
+  // ── _applyTaskItem dedup branches ────────────────────────────────
+  it('applyDumpResults dedup no-ops when no fields differ', () => {
+    deps.findSimilarTask.mockReturnValue({
+      id: 't_dup',
+      title: 'Same task',
+      status: 'todo',
+      notes: 'existing notes',
+      priority: 'normal',
+      dueDate: '2026-04-01',
+      estimatedMinutes: 30,
+    });
+
+    window._dumpReviewData = {
+      parsed: {
+        tasks: [
+          {
+            action: 'create',
+            title: 'Same task',
+            suggestedProject: '',
+            priority: 'normal',
+            status: 'todo',
+            notes: 'existing notes',
+            dueDate: '2026-04-01',
+            estimatedMinutes: 30,
+          },
+        ],
+        projectUpdates: [],
+        patterns: [],
+      },
+      inputText: 'same task',
+    };
+
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.checked = true;
+    cb.dataset.dumpCheck = '0';
+    document.body.appendChild(cb);
+
+    const ta = document.createElement('textarea');
+    ta.id = 'dumpText';
+    document.body.appendChild(ta);
+
+    bs.applyDumpResults();
+
+    expect(deps.updateTask).not.toHaveBeenCalled();
+    expect(deps.createTask).not.toHaveBeenCalled();
+
+    cb.remove();
+    ta.remove();
+  });
+
+  it('applyDumpResults dedup updates estimatedMinutes when not set on existing', () => {
+    deps.findSimilarTask.mockReturnValue({
+      id: 't_dup',
+      title: 'Task',
+      status: 'todo',
+      notes: '',
+      priority: 'normal',
+      estimatedMinutes: 0,
+    });
+
+    window._dumpReviewData = {
+      parsed: {
+        tasks: [
+          {
+            action: 'create',
+            title: 'Task',
+            suggestedProject: '',
+            priority: 'normal',
+            status: 'todo',
+            estimatedMinutes: 60,
+          },
+        ],
+        projectUpdates: [],
+        patterns: [],
+      },
+      inputText: 'task',
+    };
+
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.checked = true;
+    cb.dataset.dumpCheck = '0';
+    document.body.appendChild(cb);
+
+    const ta = document.createElement('textarea');
+    ta.id = 'dumpText';
+    document.body.appendChild(ta);
+
+    bs.applyDumpResults();
+
+    expect(deps.updateTask).toHaveBeenCalledWith('t_dup', expect.objectContaining({ estimatedMinutes: 60 }));
+
+    cb.remove();
+    ta.remove();
+  });
+
+  it('applyDumpResults dedup updates dueDate when not set on existing', () => {
+    deps.findSimilarTask.mockReturnValue({
+      id: 't_dup',
+      title: 'Task',
+      status: 'todo',
+      notes: '',
+      priority: 'normal',
+    });
+
+    window._dumpReviewData = {
+      parsed: {
+        tasks: [
+          {
+            action: 'create',
+            title: 'Task',
+            suggestedProject: '',
+            priority: 'normal',
+            status: 'todo',
+            dueDate: '2026-05-01',
+          },
+        ],
+        projectUpdates: [],
+        patterns: [],
+      },
+      inputText: 'task',
+    };
+
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.checked = true;
+    cb.dataset.dumpCheck = '0';
+    document.body.appendChild(cb);
+
+    const ta = document.createElement('textarea');
+    ta.id = 'dumpText';
+    document.body.appendChild(ta);
+
+    bs.applyDumpResults();
+
+    expect(deps.updateTask).toHaveBeenCalledWith('t_dup', expect.objectContaining({ dueDate: '2026-05-01' }));
+
+    cb.remove();
+    ta.remove();
+  });
+
+  it('applyDumpResults dedup appends notes when different', () => {
+    deps.findSimilarTask.mockReturnValue({
+      id: 't_dup',
+      title: 'Task',
+      status: 'todo',
+      notes: 'old note',
+      priority: 'normal',
+    });
+
+    window._dumpReviewData = {
+      parsed: {
+        tasks: [
+          {
+            action: 'create',
+            title: 'Task',
+            suggestedProject: '',
+            priority: 'normal',
+            status: 'todo',
+            notes: 'new note',
+          },
+        ],
+        projectUpdates: [],
+        patterns: [],
+      },
+      inputText: 'task',
+    };
+
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.checked = true;
+    cb.dataset.dumpCheck = '0';
+    document.body.appendChild(cb);
+
+    const ta = document.createElement('textarea');
+    ta.id = 'dumpText';
+    document.body.appendChild(ta);
+
+    bs.applyDumpResults();
+
+    expect(deps.updateTask).toHaveBeenCalledWith('t_dup', expect.objectContaining({ notes: 'old note\nnew note' }));
+
+    cb.remove();
+    ta.remove();
+  });
+
+  // ── _applyTaskItem update branches ───────────────────────────────
+  it('applyDumpResults update action without updateFields property', () => {
+    window._dumpReviewData = {
+      parsed: {
+        tasks: [{ action: 'update', id: 't_existing', dueDate: '2026-06-01' }],
+        projectUpdates: [],
+        patterns: [],
+      },
+      inputText: 'update',
+    };
+
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.checked = true;
+    cb.dataset.dumpCheck = '0';
+    document.body.appendChild(cb);
+
+    const ta = document.createElement('textarea');
+    ta.id = 'dumpText';
+    document.body.appendChild(ta);
+
+    bs.applyDumpResults();
+
+    expect(deps.updateTask).toHaveBeenCalledWith('t_existing', expect.objectContaining({ dueDate: '2026-06-01' }));
+
+    cb.remove();
+    ta.remove();
+  });
+
+  it('applyDumpResults update action initializes updates array when missing', () => {
+    const existingTask = { id: 't_existing', title: 'Old' };
+    deps.findTask.mockReturnValue(existingTask);
+
+    window._dumpReviewData = {
+      parsed: {
+        tasks: [{ action: 'update', id: 't_existing', notes: 'add this info', updateFields: {} }],
+        projectUpdates: [],
+        patterns: [],
+      },
+      inputText: 'update',
+    };
+
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.checked = true;
+    cb.dataset.dumpCheck = '0';
+    document.body.appendChild(cb);
+
+    const ta = document.createElement('textarea');
+    ta.id = 'dumpText';
+    document.body.appendChild(ta);
+
+    bs.applyDumpResults();
+
+    expect(existingTask.updates).toBeDefined();
+    expect(existingTask.updates.length).toBe(1);
+    expect(existingTask.updates[0].text).toBe('add this info');
+
+    cb.remove();
+    ta.remove();
+  });
+
+  it('applyDumpResults update action filters to allowed fields only', () => {
+    window._dumpReviewData = {
+      parsed: {
+        tasks: [
+          {
+            action: 'update',
+            id: 't_existing',
+            updateFields: {
+              title: 'New Title',
+              dangerousField: 'bad',
+              status: 'done',
+            },
+          },
+        ],
+        projectUpdates: [],
+        patterns: [],
+      },
+      inputText: 'update',
+    };
+
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.checked = true;
+    cb.dataset.dumpCheck = '0';
+    document.body.appendChild(cb);
+
+    const ta = document.createElement('textarea');
+    ta.id = 'dumpText';
+    document.body.appendChild(ta);
+
+    bs.applyDumpResults();
+
+    const updateCall = deps.updateTask.mock.calls[0];
+    expect(updateCall[1].title).toBe('New Title');
+    expect(updateCall[1].status).toBe('done');
+    expect(updateCall[1].dangerousField).toBeUndefined();
+
+    cb.remove();
+    ta.remove();
+  });
+
+  // ── _applyTaskItem create — all fields and defaults ──────────────
+  it('applyDumpResults create with all fields populated', () => {
+    window._dumpReviewData = {
+      parsed: {
+        tasks: [
+          {
+            action: 'create',
+            title: 'Full Task',
+            suggestedProject: '',
+            priority: 'urgent',
+            status: 'in-progress',
+            notes: 'Detailed notes',
+            dueDate: '2026-04-15',
+            phase: 'Phase 1: Foundation',
+            subtasks: ['Step A', 'Step B'],
+            recurrence: 'weekly',
+            estimatedMinutes: 120,
+            horizon: 'long',
+          },
+        ],
+        projectUpdates: [],
+        patterns: [],
+      },
+      inputText: 'full task',
+    };
+
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.checked = true;
+    cb.dataset.dumpCheck = '0';
+    document.body.appendChild(cb);
+
+    const ta = document.createElement('textarea');
+    ta.id = 'dumpText';
+    document.body.appendChild(ta);
+
+    bs.applyDumpResults();
+
+    const createCall = deps.createTask.mock.calls[0][0];
+    expect(createCall.title).toBe('Full Task');
+    expect(createCall.priority).toBe('urgent');
+    expect(createCall.status).toBe('in-progress');
+    expect(createCall.notes).toBe('Detailed notes');
+    expect(createCall.dueDate).toBe('2026-04-15');
+    expect(createCall.phase).toBe('Phase 1: Foundation');
+    expect(createCall.recurrence).toBe('weekly');
+    expect(createCall.estimatedMinutes).toBe(120);
+    expect(createCall.horizon).toBe('long');
+    expect(createCall.subtasks).toHaveLength(2);
+
+    cb.remove();
+    ta.remove();
+  });
+
+  it('applyDumpResults create uses default values when fields are missing', () => {
+    window._dumpReviewData = {
+      parsed: {
+        tasks: [{ title: 'Minimal Task' }],
+        projectUpdates: [],
+        patterns: [],
+      },
+      inputText: 'minimal',
+    };
+
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.checked = true;
+    cb.dataset.dumpCheck = '0';
+    document.body.appendChild(cb);
+
+    const ta = document.createElement('textarea');
+    ta.id = 'dumpText';
+    document.body.appendChild(ta);
+
+    bs.applyDumpResults();
+
+    const createCall = deps.createTask.mock.calls[0][0];
+    expect(createCall.priority).toBe('normal');
+    expect(createCall.status).toBe('todo');
+    expect(createCall.horizon).toBe('short');
+    expect(createCall.dueDate).toBe('');
+    expect(createCall.phase).toBe('');
+    expect(createCall.recurrence).toBe('');
+    expect(createCall.estimatedMinutes).toBe(0);
+    expect(createCall.subtasks).toEqual([]);
+
+    cb.remove();
+    ta.remove();
+  });
+
+  it('applyDumpResults handles parsed as array instead of object with tasks', () => {
+    window._dumpReviewData = {
+      parsed: [{ action: 'create', title: 'Array Task', suggestedProject: '', priority: 'normal', status: 'todo' }],
+      inputText: 'array task',
+    };
+
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.checked = true;
+    cb.dataset.dumpCheck = '0';
+    document.body.appendChild(cb);
+
+    const ta = document.createElement('textarea');
+    ta.id = 'dumpText';
+    document.body.appendChild(ta);
+
+    bs.applyDumpResults();
+
+    expect(deps.createTask).toHaveBeenCalled();
+    const createCall = deps.createTask.mock.calls[0][0];
+    expect(createCall.title).toBe('Array Task');
+
+    cb.remove();
+    ta.remove();
+  });
+
+  // ── _resolveItemProject branches ─────────────────────────────────
+  it('applyDumpResults resolves project already in map without extra lookup', () => {
+    deps.findSimilarProject.mockReturnValue(null);
+
+    window._dumpReviewData = {
+      parsed: {
+        tasks: [
+          { action: 'create', title: 'Task 1', suggestedProject: 'New Board', priority: 'normal', status: 'todo' },
+          { action: 'create', title: 'Task 2', suggestedProject: 'New Board', priority: 'normal', status: 'todo' },
+        ],
+        projectUpdates: [{ name: 'New Board', description: 'A new board', isNew: true }],
+        patterns: [],
+      },
+      inputText: 'tasks',
+    };
+
+    const container = document.createElement('div');
+    [0, 1].forEach((i) => {
+      const cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.checked = true;
+      cb.dataset.dumpCheck = String(i);
+      container.appendChild(cb);
+    });
+    document.body.appendChild(container);
+
+    const ta = document.createElement('textarea');
+    ta.id = 'dumpText';
+    document.body.appendChild(ta);
+
+    bs.applyDumpResults();
+
+    expect(deps.createTask).toHaveBeenCalledTimes(2);
+    const proj1 = deps.createTask.mock.calls[0][0].project;
+    const proj2 = deps.createTask.mock.calls[1][0].project;
+    expect(proj1).toBe(proj2);
+
+    container.remove();
+    ta.remove();
+  });
+
+  it('applyDumpResults resolves no suggestedProject by skipping lookup', () => {
+    window._dumpReviewData = {
+      parsed: {
+        tasks: [{ action: 'create', title: 'No Project Task', priority: 'normal', status: 'todo' }],
+        projectUpdates: [],
+        patterns: [],
+      },
+      inputText: 'task',
+    };
+
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.checked = true;
+    cb.dataset.dumpCheck = '0';
+    document.body.appendChild(cb);
+
+    const ta = document.createElement('textarea');
+    ta.id = 'dumpText';
+    document.body.appendChild(ta);
+
+    bs.applyDumpResults();
+
+    expect(deps.createTask).toHaveBeenCalled();
+    const createCall = deps.createTask.mock.calls[0][0];
+    expect(createCall.project).toBe('');
+
+    cb.remove();
+    ta.remove();
+  });
+
+  it('applyDumpResults resolves explicitly created project from projectUpdates', () => {
+    deps.findSimilarProject.mockReturnValue(null);
+
+    window._dumpReviewData = {
+      parsed: {
+        tasks: [
+          { action: 'create', title: 'Task A', suggestedProject: 'My Board', priority: 'normal', status: 'todo' },
+        ],
+        projectUpdates: [{ name: 'My Board', description: 'Board desc', isNew: true }],
+        patterns: [],
+      },
+      inputText: 'task a',
+    };
+
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.checked = true;
+    cb.dataset.dumpCheck = '0';
+    document.body.appendChild(cb);
+
+    const ta = document.createElement('textarea');
+    ta.id = 'dumpText';
+    document.body.appendChild(ta);
+
+    bs.applyDumpResults();
+
+    expect(deps.createProject).toHaveBeenCalled();
+
+    cb.remove();
+    ta.remove();
+  });
+
+  // ── initDumpDropZone — drop event and dragleave within area ──────
+  it('initDumpDropZone handles drop event with files', async () => {
+    const ta = document.createElement('textarea');
+    ta.id = 'dumpText';
+    const overlay = document.createElement('div');
+    overlay.id = 'dumpDropOverlay';
+    overlay.style.display = 'flex';
+    const area = document.createElement('div');
+    area.className = 'dump-area';
+    area.appendChild(ta);
+    area.appendChild(overlay);
+    document.body.appendChild(area);
+
+    bs.initDumpDropZone();
+
+    const file = new File(['drop content'], 'dropped.txt', { type: 'text/plain' });
+    const dropEvent = new Event('drop', { bubbles: true });
+    dropEvent.preventDefault = vi.fn();
+    Object.defineProperty(dropEvent, 'dataTransfer', {
+      value: { files: [file] },
+    });
+    area.dispatchEvent(dropEvent);
+
+    expect(dropEvent.preventDefault).toHaveBeenCalled();
+    expect(overlay.style.display).toBe('none');
+
+    area.remove();
+  });
+
+  it('initDumpDropZone keeps overlay when dragleave target is within area', () => {
+    const ta = document.createElement('textarea');
+    ta.id = 'dumpText';
+    const overlay = document.createElement('div');
+    overlay.id = 'dumpDropOverlay';
+    overlay.style.display = 'flex';
+    const area = document.createElement('div');
+    area.className = 'dump-area';
+    area.appendChild(ta);
+    area.appendChild(overlay);
+    document.body.appendChild(area);
+
+    bs.initDumpDropZone();
+
+    const leaveEvent = new Event('dragleave', { bubbles: true });
+    Object.defineProperty(leaveEvent, 'relatedTarget', { value: ta });
+    area.dispatchEvent(leaveEvent);
+
+    expect(overlay.style.display).toBe('flex');
+
+    area.remove();
+  });
+
+  // ── handleDumpFiles — legacy .doc rejection ──────────────────────
+  it('handleDumpFiles rejects legacy .doc files', async () => {
+    const content = new ArrayBuffer(100);
+    const file = new File([content], 'report.doc', { type: 'application/msword' });
+
+    await bs.handleDumpFiles([file]);
+    expect(deps.showToast).toHaveBeenCalledWith(expect.stringContaining('Could not process'), true);
+  });
+
+  // ── Error paths ──────────────────────────────────────────────────
+  it('processDump shows service down message for 503', async () => {
+    const ta = document.createElement('textarea');
+    ta.id = 'dumpText';
+    ta.value = 'test input with enough words';
+    document.body.appendChild(ta);
+
+    const statusEl = document.createElement('div');
+    statusEl.id = 'dumpStatus';
+    document.body.appendChild(statusEl);
+
+    deps.hasAI.mockReturnValue(true);
+    deps.getSettings.mockReturnValue({ apiKey: 'test-key', aiModel: 'test-model' });
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() =>
+        Promise.resolve({
+          ok: false,
+          status: 503,
+          json: () => Promise.resolve({}),
+        }),
+      ),
+    );
+    deps.$.mockImplementation((sel) => document.querySelector(sel));
+    bs = createBrainstorm(deps);
+
+    await bs.processDump(true);
+    expect(statusEl.innerHTML).toContain('temporarily down');
+
+    vi.unstubAllGlobals();
+    ta.remove();
+    statusEl.remove();
+  });
+
+  it('processDump shows specific API error message when available', async () => {
+    const ta = document.createElement('textarea');
+    ta.id = 'dumpText';
+    ta.value = 'test input with enough words';
+    document.body.appendChild(ta);
+
+    const statusEl = document.createElement('div');
+    statusEl.id = 'dumpStatus';
+    document.body.appendChild(statusEl);
+
+    deps.hasAI.mockReturnValue(true);
+    deps.getSettings.mockReturnValue({ apiKey: 'test-key', aiModel: 'test-model' });
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() =>
+        Promise.resolve({
+          ok: false,
+          status: 400,
+          json: () => Promise.resolve({ error: { message: 'Invalid model specified' } }),
+        }),
+      ),
+    );
+    deps.$.mockImplementation((sel) => document.querySelector(sel));
+    bs = createBrainstorm(deps);
+
+    await bs.processDump(true);
+    expect(statusEl.innerHTML).toContain('Invalid model specified');
+
+    vi.unstubAllGlobals();
+    ta.remove();
+    statusEl.remove();
+  });
+
+  it('processDump handles JSON parse failure on error response', async () => {
+    const ta = document.createElement('textarea');
+    ta.id = 'dumpText';
+    ta.value = 'test input with enough words';
+    document.body.appendChild(ta);
+
+    const statusEl = document.createElement('div');
+    statusEl.id = 'dumpStatus';
+    document.body.appendChild(statusEl);
+
+    deps.hasAI.mockReturnValue(true);
+    deps.getSettings.mockReturnValue({ apiKey: 'test-key', aiModel: 'test-model' });
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() =>
+        Promise.resolve({
+          ok: false,
+          status: 400,
+          json: () => Promise.reject(new Error('not json')),
+        }),
+      ),
+    );
+    deps.$.mockImplementation((sel) => document.querySelector(sel));
+    bs = createBrainstorm(deps);
+
+    await bs.processDump(true);
+    expect(statusEl.innerHTML).toContain('Error');
+
+    vi.unstubAllGlobals();
+    ta.remove();
+    statusEl.remove();
+  });
+
+  it('processDump shows error when parsed response is null', async () => {
+    const ta = document.createElement('textarea');
+    ta.id = 'dumpText';
+    ta.value = 'test input with enough words';
+    document.body.appendChild(ta);
+
+    const statusEl = document.createElement('div');
+    statusEl.id = 'dumpStatus';
+    document.body.appendChild(statusEl);
+
+    deps.hasAI.mockReturnValue(true);
+    deps.getSettings.mockReturnValue({ apiKey: 'test-key', aiModel: 'test-model' });
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() =>
+        Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({ content: [{ text: 'not valid json at all' }] }),
+        }),
+      ),
+    );
+    deps.$.mockImplementation((sel) => document.querySelector(sel));
+    bs = createBrainstorm(deps);
+
+    await bs.processDump(true);
+    expect(statusEl.innerHTML).toContain('Error');
+
+    vi.unstubAllGlobals();
+    ta.remove();
+    statusEl.remove();
+  });
+
+  // ── skipClarify clears status element ─────────────────────────────
+  it('skipClarify clears the status element content', () => {
+    const statusEl = document.createElement('div');
+    statusEl.id = 'dumpStatus';
+    statusEl.innerHTML = '<div class="clarify-card">question here</div>';
+    document.body.appendChild(statusEl);
+
+    const ta = document.createElement('textarea');
+    ta.id = 'dumpText';
+    ta.value = 'task one';
+    document.body.appendChild(ta);
+
+    deps.hasAI.mockReturnValue(false);
+
+    bs.skipClarify();
+
+    expect(statusEl.innerHTML).toBe('');
+
+    statusEl.remove();
+    ta.remove();
+  });
 });

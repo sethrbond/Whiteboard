@@ -670,4 +670,275 @@ describe('chat.js — createChat()', () => {
     expect(messages.innerHTML).toContain('on your mind');
     vi.useRealTimers();
   });
+
+  // ── maybeProactiveChat ────────────────────────────────────────────
+  it('maybeProactiveChat does nothing when already triggered', () => {
+    const freshDeps = makeDeps({
+      hasAI: vi.fn(() => true),
+      getStuckTasks: vi.fn(() => [{ id: 't_1', title: 'Stuck task', project: 'p_1' }]),
+    });
+    const freshChat = createChat(freshDeps);
+    const panel = document.getElementById('chatPanel');
+    panel.classList.remove('open');
+
+    freshChat.maybeProactiveChat(); // first call
+    freshChat.maybeProactiveChat(); // second call should no-op
+
+    expect(panel.classList.contains('open')).toBe(true);
+    // History should only have 1 proactive message, not 2
+    expect(freshChat.getChatHistory().length).toBe(1);
+  });
+
+  it('maybeProactiveChat does nothing when no AI', () => {
+    const freshDeps = makeDeps({
+      hasAI: vi.fn(() => false),
+      getStuckTasks: vi.fn(() => [{ id: 't_1', title: 'Stuck', project: 'p_1' }]),
+    });
+    const freshChat = createChat(freshDeps);
+    const panel = document.getElementById('chatPanel');
+    panel.classList.remove('open');
+
+    freshChat.maybeProactiveChat();
+
+    expect(panel.classList.contains('open')).toBe(false);
+  });
+
+  it('maybeProactiveChat does nothing when no stuck tasks', () => {
+    const freshDeps = makeDeps({
+      hasAI: vi.fn(() => true),
+      getStuckTasks: vi.fn(() => []),
+    });
+    const freshChat = createChat(freshDeps);
+    const panel = document.getElementById('chatPanel');
+    panel.classList.remove('open');
+
+    freshChat.maybeProactiveChat();
+
+    expect(panel.classList.contains('open')).toBe(false);
+  });
+
+  it('maybeProactiveChat does nothing when panel already open', () => {
+    const freshDeps = makeDeps({
+      hasAI: vi.fn(() => true),
+      getStuckTasks: vi.fn(() => [{ id: 't_1', title: 'Stuck', project: 'p_1' }]),
+    });
+    const freshChat = createChat(freshDeps);
+    const panel = document.getElementById('chatPanel');
+    panel.classList.add('open');
+
+    freshChat.maybeProactiveChat();
+
+    // Should not have added to history since panel was already open
+    expect(freshChat.getChatHistory().length).toBe(0);
+  });
+
+  it('maybeProactiveChat opens panel with stuck task message on success', () => {
+    const freshDeps = makeDeps({
+      hasAI: vi.fn(() => true),
+      getStuckTasks: vi.fn(() => [{ id: 't_1', title: 'Build landing page', project: 'p_1' }]),
+    });
+    const freshChat = createChat(freshDeps);
+    const panel = document.getElementById('chatPanel');
+    panel.classList.remove('open');
+
+    freshChat.maybeProactiveChat();
+
+    expect(panel.classList.contains('open')).toBe(true);
+    expect(freshChat.getChatSessionStarted()).toBe(true);
+    expect(freshChat.getChatContext()).toBe('p_1');
+    const history = freshChat.getChatHistory();
+    expect(history.length).toBe(1);
+    expect(history[0].role).toBe('assistant');
+    expect(history[0].content).toContain('Build landing page');
+    const messagesEl = document.getElementById('chatMessages');
+    expect(messagesEl.innerHTML).toContain('Build landing page');
+  });
+
+  it('maybeProactiveChat sets context to null when stuck task has no project', () => {
+    const freshDeps = makeDeps({
+      hasAI: vi.fn(() => true),
+      getStuckTasks: vi.fn(() => [{ id: 't_1', title: 'No project task' }]),
+    });
+    const freshChat = createChat(freshDeps);
+    const panel = document.getElementById('chatPanel');
+    panel.classList.remove('open');
+
+    freshChat.maybeProactiveChat();
+
+    expect(freshChat.getChatContext()).toBeNull();
+  });
+
+  it('maybeProactiveChat handles getStuckTasks not being a function', () => {
+    const freshDeps = makeDeps({
+      hasAI: vi.fn(() => true),
+      getStuckTasks: undefined,
+    });
+    const freshChat = createChat(freshDeps);
+    const panel = document.getElementById('chatPanel');
+    panel.classList.remove('open');
+
+    expect(() => freshChat.maybeProactiveChat()).not.toThrow();
+    expect(panel.classList.contains('open')).toBe(false);
+  });
+
+  // ── getChatGreeting branches ──────────────────────────────────────
+  it('toggleChat shows Monday morning greeting', () => {
+    vi.useFakeTimers({ now: new Date(2026, 2, 16, 9, 0, 0) }); // March 16, 2026 is a Monday
+    document.getElementById('chatMessages').innerHTML = '';
+    deps.getData.mockReturnValue({
+      tasks: [{ id: 't_1', title: 'Active task', status: 'todo' }],
+      projects: [],
+    });
+    const panel = document.getElementById('chatPanel');
+    panel.classList.remove('open');
+    const freshChat = createChat(deps);
+    freshChat.toggleChat();
+    const messages = document.getElementById('chatMessages');
+    expect(messages.innerHTML).toContain('Fresh week');
+    vi.useRealTimers();
+  });
+
+  it('toggleChat shows stale task greeting when tasks are old', () => {
+    vi.useFakeTimers({ now: new Date(2026, 2, 18, 14, 0, 0) });
+    document.getElementById('chatMessages').innerHTML = '';
+    const oldDate = new Date(Date.now() - 15 * 86400000).toISOString();
+    deps.getData.mockReturnValue({
+      tasks: [{ id: 't_1', title: 'Very old stale task that needs attention', status: 'todo', createdAt: oldDate }],
+      projects: [],
+    });
+    const panel = document.getElementById('chatPanel');
+    panel.classList.remove('open');
+    const freshChat = createChat(deps);
+    freshChat.toggleChat();
+    const messages = document.getElementById('chatMessages');
+    expect(messages.innerHTML).toContain('sitting for');
+    vi.useRealTimers();
+  });
+
+  it('toggleChat shows unassigned task greeting when 3+ tasks have no project', () => {
+    vi.useFakeTimers({ now: new Date(2026, 2, 18, 14, 0, 0) });
+    document.getElementById('chatMessages').innerHTML = '';
+    deps.getData.mockReturnValue({
+      tasks: [
+        { id: 't_1', title: 'Unassigned 1', status: 'todo' },
+        { id: 't_2', title: 'Unassigned 2', status: 'todo' },
+        { id: 't_3', title: 'Unassigned 3', status: 'todo' },
+      ],
+      projects: [],
+    });
+    const panel = document.getElementById('chatPanel');
+    panel.classList.remove('open');
+    const freshChat = createChat(deps);
+    freshChat.toggleChat();
+    const messages = document.getElementById('chatMessages');
+    expect(messages.innerHTML).toContain('unassigned');
+    vi.useRealTimers();
+  });
+
+  // ── toggleChat FAB visibility ─────────────────────────────────────
+  it('toggleChat hides mobile FAB when opening', () => {
+    const fab = document.getElementById('mobileChatFab');
+    fab.classList.add('unread');
+    fab.classList.remove('hidden');
+
+    const panel = document.getElementById('chatPanel');
+    panel.classList.remove('open');
+    const freshChat = createChat(deps);
+    freshChat.toggleChat();
+
+    expect(fab.classList.contains('hidden')).toBe(true);
+    expect(fab.classList.contains('unread')).toBe(false);
+  });
+
+  it('toggleChat shows mobile FAB when closing', () => {
+    const fab = document.getElementById('mobileChatFab');
+    fab.classList.add('hidden');
+
+    const panel = document.getElementById('chatPanel');
+    panel.classList.add('open');
+    chat.toggleChat();
+
+    expect(fab.classList.contains('hidden')).toBe(false);
+  });
+
+  // ── sendChat SSE streaming path ───────────────────────────────────
+  it('sendChat handles SSE streaming response', async () => {
+    document.getElementById('chatInput').value = 'hello';
+    deps.hasAI.mockReturnValue(true);
+
+    const encoder = new globalThis.TextEncoder();
+    const sseData =
+      'data: {"type":"content_block_delta","delta":{"text":"Hi "}}\ndata: {"type":"content_block_delta","delta":{"text":"there!"}}\n';
+
+    let readerDone = false;
+    const mockReader = {
+      read: vi.fn(() => {
+        if (!readerDone) {
+          readerDone = true;
+          return Promise.resolve({ done: false, value: encoder.encode(sseData) });
+        }
+        return Promise.resolve({ done: true, value: undefined });
+      }),
+    };
+
+    const origFetch = globalThis.fetch;
+    globalThis.fetch = vi.fn(() =>
+      Promise.resolve({
+        ok: true,
+        headers: new Headers({ 'content-type': 'text/event-stream' }),
+        body: { getReader: () => mockReader },
+      }),
+    );
+
+    await chat.sendChat();
+
+    const history = chat.getChatHistory();
+    expect(history.length).toBeGreaterThanOrEqual(2);
+    const lastMsg = history[history.length - 1];
+    expect(lastMsg.role).toBe('assistant');
+    expect(lastMsg.content).toContain('Hi ');
+
+    globalThis.fetch = origFetch;
+  });
+
+  // ── sendChat with applied actions but no clean reply text ─────────
+  it('sendChat processes actions from non-streaming response and calls render', async () => {
+    document.getElementById('chatInput').value = 'create a task';
+    deps.hasAI.mockReturnValue(true);
+    deps.executeAIActions.mockResolvedValue({ applied: 2, insights: [] });
+
+    const origFetch = globalThis.fetch;
+    globalThis.fetch = vi.fn(() =>
+      Promise.resolve({
+        ok: true,
+        headers: new Headers({ 'content-type': 'application/json' }),
+        json: () => Promise.resolve({ content: [{ text: 'Done! ```actions\n[{"action":"create_task"}]\n```' }] }),
+      }),
+    );
+
+    await chat.sendChat();
+
+    expect(deps.executeAIActions).toHaveBeenCalled();
+    expect(deps.render).toHaveBeenCalled();
+    expect(deps.incrementAIInteraction).toHaveBeenCalled();
+
+    globalThis.fetch = origFetch;
+  });
+
+  // ── sendChat network error (TypeError) ────────────────────────────
+  it('sendChat shows no internet message for TypeError', async () => {
+    document.getElementById('chatInput').value = 'hello';
+    deps.hasAI.mockReturnValue(true);
+
+    const origFetch = globalThis.fetch;
+    const typeError = new TypeError('Failed to fetch');
+    globalThis.fetch = vi.fn(() => Promise.reject(typeError));
+
+    await chat.sendChat();
+
+    const chatMsgs = document.getElementById('chatMessages');
+    expect(chatMsgs.innerHTML).toContain('No internet');
+
+    globalThis.fetch = origFetch;
+  });
 });

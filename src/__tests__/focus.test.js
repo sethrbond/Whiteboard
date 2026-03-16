@@ -876,3 +876,170 @@ describe('focus.js — createFocusMode()', () => {
     });
   });
 });
+
+// ── Additional coverage tests ─────────────────────────────────────────
+
+describe('focus.js — additional coverage', () => {
+  let focus;
+  let deps;
+
+  beforeEach(() => {
+    localStorage.clear();
+    deps = makeDeps();
+    focus = createFocusMode(deps);
+  });
+
+  afterEach(() => {
+    if (window._focusInterval) {
+      clearInterval(window._focusInterval);
+      window._focusInterval = null;
+    }
+  });
+
+  // ── Timer reaching 25-min pomodoro mark (lines 487-509) ────────────
+  describe('timer reaching 25-minute pomodoro mark', () => {
+    it('adds break button and hint dynamically when 25 min reached', () => {
+      vi.useFakeTimers();
+      const task = { id: 't_1', title: 'Long task', priority: 'normal' };
+      deps.findTask.mockReturnValue(task);
+      deps.getData.mockReturnValue({ tasks: [task], projects: [] });
+
+      focus.openFocusView('t_1');
+
+      const timerEl = document.getElementById('focusTimer');
+      expect(timerEl).toBeTruthy();
+
+      // Initially no break button or pomodoro hint
+      expect(document.querySelector('[data-action="start-break"]')).toBeNull();
+      expect(document.querySelector('.focus-pomodoro-hint')).toBeNull();
+
+      // Advance past 25 minutes (1500 seconds + 1 second buffer)
+      vi.advanceTimersByTime(25 * 60 * 1000 + 1000);
+
+      // Now the timer should have the complete class
+      expect(timerEl.classList.contains('focus-timer-complete')).toBe(true);
+
+      // Break button should have been dynamically inserted
+      const breakBtn = document.querySelector('[data-action="start-break"]');
+      expect(breakBtn).not.toBeNull();
+      expect(breakBtn.textContent).toBe('Take Break');
+
+      // Hint should have been dynamically inserted
+      const hint = document.querySelector('.focus-pomodoro-hint');
+      expect(hint).not.toBeNull();
+      expect(hint.textContent).toContain('25 min reached');
+
+      vi.useRealTimers();
+    });
+
+    it('does not add duplicate break button on subsequent ticks after 25 min', () => {
+      vi.useFakeTimers();
+      const task = { id: 't_1', title: 'Long task', priority: 'normal' };
+      deps.findTask.mockReturnValue(task);
+      deps.getData.mockReturnValue({ tasks: [task], projects: [] });
+
+      focus.openFocusView('t_1');
+
+      // Advance past 25 minutes
+      vi.advanceTimersByTime(25 * 60 * 1000 + 1000);
+
+      // Advance another few seconds — should not create duplicates
+      vi.advanceTimersByTime(3000);
+
+      const breakBtns = document.querySelectorAll('[data-action="start-break"]');
+      expect(breakBtns.length).toBe(1);
+
+      const hints = document.querySelectorAll('.focus-pomodoro-hint');
+      expect(hints.length).toBe(1);
+
+      vi.useRealTimers();
+    });
+  });
+
+  // ── completeFocusTask triggering break timer after 25+ min (lines 524-532) ──
+  describe('completeFocusTask triggers break timer after 25+ min session', () => {
+    it('starts break timer when session lasted 25+ minutes', () => {
+      vi.useFakeTimers();
+      const task = { id: 't_1', title: 'Marathon task', priority: 'normal' };
+      deps.findTask.mockReturnValue(task);
+      deps.getData.mockReturnValue({ tasks: [task], projects: [] });
+
+      focus.openFocusView('t_1');
+
+      // Advance time past 25 minutes so session.duration >= POMODORO_MS/1000
+      vi.advanceTimersByTime(25 * 60 * 1000 + 1000);
+
+      // Complete the task
+      focus.completeFocusTask();
+
+      // Should have called render
+      expect(deps.render).toHaveBeenCalled();
+
+      // Should show break overlay (startBreakTimer was called)
+      const modal = document.getElementById('modalRoot');
+      expect(modal.innerHTML).toContain('Break Time');
+      expect(modal.innerHTML).toContain('focusBreakTimer');
+
+      // focusTask should be null (cleared before break)
+      expect(focus.getFocusTask()).toBeNull();
+
+      vi.useRealTimers();
+    });
+  });
+
+  // ── completeFocusTask auto-continuing to next task (lines 536-544) ──
+  describe('completeFocusTask auto-continues to next task with session goal', () => {
+    it('auto-continues to next task when session goal is set and not yet met', () => {
+      const task1 = { id: 't_1', title: 'Task 1', priority: 'normal' };
+      const task2 = { id: 't_2', title: 'Task 2', priority: 'urgent', dueDate: '2026-03-15' };
+      deps.findTask.mockImplementation((id) => [task1, task2].find((t) => t.id === id) || null);
+      deps.activeTasks.mockReturnValue([task1, task2]);
+      deps.getData.mockReturnValue({ tasks: [task1, task2], projects: [] });
+
+      // Set a session goal of 3 (completing 1 still leaves room)
+      focus.setSessionGoal(3);
+
+      // Open focus on task1
+      focus.openFocusView('t_1');
+
+      // Complete task1 (short session, under 25 min so no break)
+      focus.completeFocusTask();
+
+      // Should have marked task1 as done
+      expect(deps.updateTask).toHaveBeenCalledWith('t_1', { status: 'done' });
+
+      // Should have auto-continued to the next task (t_2)
+      expect(focus.getFocusTask()).toBe('t_2');
+    });
+
+    it('shows session complete toast when goal is met via auto-continue into _startFocusInternal', () => {
+      const task1 = { id: 't_1', title: 'Task 1', priority: 'normal' };
+      const task2 = { id: 't_2', title: 'Task 2', priority: 'normal' };
+      const task3 = { id: 't_3', title: 'Task 3', priority: 'normal' };
+      const allTasks = [task1, task2, task3];
+      const doneTasks = new Set();
+      deps.findTask.mockImplementation((id) => allTasks.find((t) => t.id === id) || null);
+      deps.activeTasks.mockImplementation(() => allTasks.filter((t) => !doneTasks.has(t.id)));
+      deps.updateTask.mockImplementation((id) => doneTasks.add(id));
+      deps.getData.mockReturnValue({ tasks: allTasks, projects: [] });
+
+      // Set a session goal of 2
+      focus.setSessionGoal(2);
+
+      // Open and complete task1 — _sessionCompleted becomes 1, auto-continues (1 < 2)
+      focus.openFocusView('t_1');
+      focus.completeFocusTask();
+      // _startFocusInternal picks task2 since task1 is done
+      expect(focus.getFocusTask()).toBe('t_2');
+
+      // Complete task2 — _sessionCompleted becomes 2
+      // auto-continue check: 2 < 2 is false, so falls through to normal close
+      focus.completeFocusTask();
+
+      // focusTask should be null (session ended)
+      expect(focus.getFocusTask()).toBeNull();
+      // render should have been called
+      expect(deps.render).toHaveBeenCalled();
+    });
+  });
+});

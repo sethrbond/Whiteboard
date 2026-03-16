@@ -142,6 +142,31 @@ function makeDeps(overrides = {}) {
     todayStr: vi.fn(() => '2026-03-15'),
     handleDumpFiles: vi.fn(),
     openProjectChat: vi.fn(),
+    restoreFromBackup: vi.fn(),
+    dismissCorruption: vi.fn(),
+    dismissCheckIn: vi.fn(),
+    breakdownTask: vi.fn(),
+    dismissVagueTask: vi.fn(),
+    offerStuckHelp: vi.fn(),
+    handleEscalationAction: vi.fn(),
+    autoRebalanceWeek: vi.fn(),
+    acceptReschedule: vi.fn(),
+    skipReschedule: vi.fn(),
+    acceptAllReschedules: vi.fn(),
+    cleanupStorage: vi.fn(() => 0),
+    getNotifications: vi.fn(() => ({
+      getPrefs: vi.fn(() => ({ enabled: false })),
+      savePrefs: vi.fn(),
+      requestPermission: vi.fn(() => Promise.resolve()),
+      clearScheduled: vi.fn(),
+      scheduleNotifications: vi.fn(),
+    })),
+    guardedCloseEditModal: vi.fn(),
+    saveAsTemplate: vi.fn(),
+    deleteTemplate: vi.fn(),
+    openEditTemplate: vi.fn(),
+    saveEditTemplate: vi.fn(),
+    applyTemplateToQuickAdd: vi.fn(),
     ...overrides,
   };
 }
@@ -1215,6 +1240,450 @@ describe('actions.js — createActions()', () => {
       keydown(document.body, { key: 'Enter' });
       expect(deps.setExpandedTask).toHaveBeenCalledWith('t_1');
       expect(deps.render).toHaveBeenCalled();
+    });
+  });
+
+  // ── Additional coverage: uncovered click actions ──────────────────
+  describe('click — additional uncovered actions', () => {
+    function makeActionEl(action, extras = {}) {
+      const el = document.createElement('button');
+      el.dataset.action = action;
+      Object.entries(extras).forEach(([k, v]) => {
+        el.dataset[k] = v;
+      });
+      document.body.appendChild(el);
+      return el;
+    }
+
+    it('toggle-ai-insights toggles localStorage and renders', () => {
+      localStorage.setItem('u1_wb_ai_insights_expanded', 'true');
+      click(makeActionEl('toggle-ai-insights'));
+      expect(localStorage.getItem('u1_wb_ai_insights_expanded')).toBe('false');
+      expect(deps.render).toHaveBeenCalled();
+    });
+
+    it('toggle-ai-insights toggles from false to true', () => {
+      localStorage.setItem('u1_wb_ai_insights_expanded', 'false');
+      click(makeActionEl('toggle-ai-insights'));
+      expect(localStorage.getItem('u1_wb_ai_insights_expanded')).toBe('true');
+    });
+
+    it('set-estimate sets value and highlights button', () => {
+      const estimateInput = document.createElement('input');
+      estimateInput.id = 'fEstimate';
+      document.body.appendChild(estimateInput);
+      const parent = document.createElement('div');
+      const btn = document.createElement('button');
+      btn.dataset.action = 'set-estimate';
+      btn.dataset.minutes = '30';
+      btn.className = 'btn';
+      parent.appendChild(btn);
+      document.body.appendChild(parent);
+      click(btn);
+      expect(estimateInput.value).toBe('30');
+      expect(btn.style.background).toBe('var(--accent)');
+      expect(btn.style.color).toBe('rgb(255, 255, 255)');
+      estimateInput.remove();
+      parent.remove();
+    });
+
+    it('pick-color sets border and picked attribute', () => {
+      const colorsDiv = document.createElement('div');
+      colorsDiv.id = 'fColors';
+      const c1 = document.createElement('div');
+      c1.dataset.action = 'pick-color';
+      c1.dataset.color = '#ff0000';
+      colorsDiv.appendChild(c1);
+      document.body.appendChild(colorsDiv);
+      click(c1);
+      expect(c1.style.borderColor).toBe('rgb(255, 255, 255)');
+      expect(c1.dataset.picked).toBe('1');
+      colorsDiv.remove();
+    });
+
+    it('save-settings saves API key and closes modal', () => {
+      const apiInput = document.createElement('input');
+      apiInput.id = 'fApiKey';
+      apiInput.value = 'sk-new-key';
+      document.body.appendChild(apiInput);
+      deps.getSettings.mockReturnValue({ apiKey: '' });
+      click(makeActionEl('save-settings'));
+      expect(deps.saveSettings).toHaveBeenCalled();
+      expect(deps.closeModal).toHaveBeenCalled();
+      expect(deps.showToast).toHaveBeenCalledWith('Saved');
+      apiInput.remove();
+    });
+
+    it('toggle-api-key-vis toggles password/text type', () => {
+      const apiInput = document.createElement('input');
+      apiInput.id = 'fApiKey';
+      apiInput.type = 'password';
+      document.body.appendChild(apiInput);
+      const btn = makeActionEl('toggle-api-key-vis');
+      click(btn);
+      expect(apiInput.type).toBe('text');
+      expect(btn.textContent).toBe('hide');
+      click(btn);
+      expect(apiInput.type).toBe('password');
+      expect(btn.textContent).toBe('show');
+      apiInput.remove();
+    });
+
+    it('show-tips-again removes tip flag and shows tips', () => {
+      vi.useFakeTimers();
+      localStorage.setItem('u1_wb_tips_seen', '1');
+      click(makeActionEl('show-tips-again'));
+      expect(localStorage.getItem('u1_wb_tips_seen')).toBeNull();
+      expect(deps.closeModal).toHaveBeenCalled();
+      vi.advanceTimersByTime(500);
+      expect(deps.showFeatureTips).toHaveBeenCalled();
+      vi.useRealTimers();
+    });
+
+    it('cleanup-storage calls cleanupStorage and shows freed KB', () => {
+      deps.cleanupStorage.mockReturnValue(2048);
+      click(makeActionEl('cleanup-storage'));
+      expect(deps.cleanupStorage).toHaveBeenCalled();
+      expect(deps.showToast).toHaveBeenCalledWith('Freed 2 KB of storage');
+      expect(deps.openSettings).toHaveBeenCalled();
+    });
+
+    it('cleanup-storage shows nothing to clean up when 0 freed', () => {
+      deps.cleanupStorage.mockReturnValue(0);
+      click(makeActionEl('cleanup-storage'));
+      expect(deps.showToast).toHaveBeenCalledWith('Nothing to clean up');
+    });
+
+    it('open-project-chat calls openProjectChat', () => {
+      click(makeActionEl('open-project-chat', { projectId: 'p_1' }));
+      expect(deps.openProjectChat).toHaveBeenCalledWith('p_1');
+    });
+
+    it('tip-skip clears modalRoot', () => {
+      document.getElementById('modalRoot').innerHTML = '<div>tip</div>';
+      click(makeActionEl('tip-skip'));
+      expect(document.getElementById('modalRoot').innerHTML).toBe('');
+    });
+
+    it('tip-next calls window._nextTip', () => {
+      window._nextTip = vi.fn();
+      click(makeActionEl('tip-next'));
+      expect(window._nextTip).toHaveBeenCalled();
+      delete window._nextTip;
+    });
+
+    it('onb-next calls window.onbNext', () => {
+      window.onbNext = vi.fn();
+      click(makeActionEl('onb-next'));
+      expect(window.onbNext).toHaveBeenCalled();
+      delete window.onbNext;
+    });
+
+    it('load-dump-history sets view to dump', () => {
+      vi.useFakeTimers();
+      click(makeActionEl('load-dump-history', { dumpIndex: '0' }));
+      expect(deps.setView).toHaveBeenCalledWith('dump');
+      vi.advanceTimersByTime(200);
+      vi.useRealTimers();
+    });
+
+    it('go-dump-weekly sets view to dump and prefills weekly text', () => {
+      vi.useFakeTimers();
+      const dumpText = document.createElement('textarea');
+      dumpText.id = 'dumpText';
+      document.body.appendChild(dumpText);
+      click(makeActionEl('go-dump-weekly'));
+      expect(deps.setView).toHaveBeenCalledWith('dump');
+      vi.advanceTimersByTime(200);
+      expect(dumpText.value).toContain('plans for the week');
+      dumpText.remove();
+      vi.useRealTimers();
+    });
+
+    it('clear-plan removes plan from localStorage and renders', () => {
+      localStorage.setItem('test_plan_key', 'plan data');
+      click(makeActionEl('clear-plan', { planKey: 'test_plan_key' }));
+      expect(localStorage.getItem('test_plan_key')).toBeNull();
+      expect(deps.render).toHaveBeenCalled();
+    });
+
+    it('skip-eod dismisses EOD card', () => {
+      const eodCard = document.createElement('div');
+      eodCard.id = 'eodCard';
+      document.body.appendChild(eodCard);
+      click(makeActionEl('skip-eod'));
+      expect(localStorage.getItem('u1_whiteboard_eod_dismissed_2026-03-15')).toBe('1');
+      expect(document.getElementById('eodCard')).toBeNull();
+    });
+
+    it('toggle-what-changed toggles sibling open class', () => {
+      const container = document.createElement('div');
+      const btn = document.createElement('button');
+      btn.dataset.action = 'toggle-what-changed';
+      btn.textContent = 'What changed';
+      const sibling = document.createElement('div');
+      container.appendChild(btn);
+      container.appendChild(sibling);
+      document.body.appendChild(container);
+      click(btn);
+      expect(sibling.classList.contains('open')).toBe(true);
+      expect(btn.textContent).toBe('Hide details');
+      click(btn);
+      expect(sibling.classList.contains('open')).toBe(false);
+      expect(btn.textContent).toBe('What changed');
+      container.remove();
+    });
+
+    it('delete-task-confirm calls confirmAction and deletes on yes', async () => {
+      deps.confirmAction.mockResolvedValue(true);
+      click(makeActionEl('delete-task-confirm', { taskId: 't_1' }));
+      await vi.waitFor(() => {
+        expect(deps.confirmAction).toHaveBeenCalledWith('Delete this task?');
+      });
+      await vi.waitFor(() => {
+        expect(deps.deleteTask).toHaveBeenCalledWith('t_1');
+        expect(deps.closeModal).toHaveBeenCalled();
+        expect(deps.setExpandedTask).toHaveBeenCalledWith(null);
+        expect(deps.render).toHaveBeenCalled();
+      });
+    });
+
+    it('close-edit-modal calls guardedCloseEditModal when available', () => {
+      click(makeActionEl('close-edit-modal'));
+      expect(deps.guardedCloseEditModal).toHaveBeenCalled();
+    });
+
+    it('escalation-action calls handleEscalationAction', () => {
+      click(makeActionEl('escalation-action', { escAction: 'defer', escTask: 't_1', escKey: 'k1' }));
+      expect(deps.handleEscalationAction).toHaveBeenCalledWith('defer', 't_1', 'k1');
+    });
+
+    it('rebalance-week calls autoRebalanceWeek', () => {
+      click(makeActionEl('rebalance-week'));
+      expect(deps.autoRebalanceWeek).toHaveBeenCalled();
+    });
+
+    it('reschedule-accept calls acceptReschedule with index', () => {
+      click(makeActionEl('reschedule-accept', { idx: '3' }));
+      expect(deps.acceptReschedule).toHaveBeenCalledWith(3);
+    });
+
+    it('reschedule-skip calls skipReschedule with index', () => {
+      click(makeActionEl('reschedule-skip', { idx: '2' }));
+      expect(deps.skipReschedule).toHaveBeenCalledWith(2);
+    });
+
+    it('reschedule-accept-all calls acceptAllReschedules', () => {
+      click(makeActionEl('reschedule-accept-all'));
+      expect(deps.acceptAllReschedules).toHaveBeenCalled();
+    });
+
+    it('save-as-template calls saveAsTemplate', () => {
+      click(makeActionEl('save-as-template', { taskId: 't_1' }));
+      expect(deps.saveAsTemplate).toHaveBeenCalledWith('t_1');
+    });
+
+    it('delete-template calls deleteTemplate and openSettings', () => {
+      click(makeActionEl('delete-template', { templateId: 'tmpl_1' }));
+      expect(deps.deleteTemplate).toHaveBeenCalledWith('tmpl_1');
+      expect(deps.openSettings).toHaveBeenCalled();
+    });
+
+    it('edit-template calls openEditTemplate', () => {
+      click(makeActionEl('edit-template', { templateId: 'tmpl_1' }));
+      expect(deps.openEditTemplate).toHaveBeenCalledWith('tmpl_1');
+    });
+
+    it('save-edit-template calls saveEditTemplate', () => {
+      click(makeActionEl('save-edit-template', { templateId: 'tmpl_1' }));
+      expect(deps.saveEditTemplate).toHaveBeenCalledWith('tmpl_1');
+    });
+
+    it('apply-template-quick calls applyTemplateToQuickAdd', () => {
+      click(makeActionEl('apply-template-quick', { templateId: 'tmpl_1' }));
+      expect(deps.applyTemplateToQuickAdd).toHaveBeenCalledWith('tmpl_1');
+    });
+
+    it('restore-backup calls restoreFromBackup', () => {
+      click(makeActionEl('restore-backup'));
+      expect(deps.restoreFromBackup).toHaveBeenCalled();
+    });
+
+    it('start-fresh calls dismissCorruption', () => {
+      click(makeActionEl('start-fresh'));
+      expect(deps.dismissCorruption).toHaveBeenCalled();
+    });
+
+    it('breakdown-task calls breakdownTask', () => {
+      click(makeActionEl('breakdown-task', { taskId: 't_1' }));
+      expect(deps.breakdownTask).toHaveBeenCalledWith('t_1');
+    });
+
+    it('breakdown-dismiss calls dismissVagueTask and renders', () => {
+      click(makeActionEl('breakdown-dismiss', { taskId: 't_1' }));
+      expect(deps.dismissVagueTask).toHaveBeenCalledWith('t_1');
+      expect(deps.render).toHaveBeenCalled();
+    });
+
+    it('stuck-help calls offerStuckHelp', () => {
+      click(makeActionEl('stuck-help', { taskId: 't_1' }));
+      expect(deps.offerStuckHelp).toHaveBeenCalledWith('t_1');
+    });
+
+    it('stuck-breakdown calls breakdownTask', () => {
+      click(makeActionEl('stuck-breakdown', { taskId: 't_1' }));
+      expect(deps.breakdownTask).toHaveBeenCalledWith('t_1');
+    });
+
+    it('stuck-reschedule reschedules task to tomorrow', () => {
+      click(makeActionEl('stuck-reschedule', { taskId: 't_1' }));
+      expect(deps.updateTask).toHaveBeenCalledWith('t_1', expect.objectContaining({ dueDate: expect.any(String) }));
+      expect(deps.showToast).toHaveBeenCalledWith('Rescheduled to tomorrow');
+      expect(deps.render).toHaveBeenCalled();
+    });
+
+    it('checkin-dismiss calls dismissCheckIn and renders', () => {
+      click(makeActionEl('checkin-dismiss'));
+      expect(deps.dismissCheckIn).toHaveBeenCalled();
+      expect(deps.render).toHaveBeenCalled();
+    });
+
+    it('checkin-do-now updates task to in-progress', () => {
+      click(makeActionEl('checkin-do-now', { taskId: 't_1' }));
+      expect(deps.updateTask).toHaveBeenCalledWith('t_1', { status: 'in-progress' });
+      expect(deps.render).toHaveBeenCalled();
+    });
+
+    it('checkin-push-tomorrow pushes task to tomorrow', () => {
+      click(makeActionEl('checkin-push-tomorrow', { taskId: 't_1' }));
+      expect(deps.updateTask).toHaveBeenCalledWith('t_1', expect.objectContaining({ dueDate: expect.any(String) }));
+      expect(deps.showToast).toHaveBeenCalledWith('Pushed to tomorrow');
+      expect(deps.render).toHaveBeenCalled();
+    });
+
+    it('checkin-drop marks task as done', () => {
+      click(makeActionEl('checkin-drop', { taskId: 't_1' }));
+      expect(deps.updateTask).toHaveBeenCalledWith('t_1', { status: 'done' });
+      expect(deps.showToast).toHaveBeenCalledWith('Task dropped');
+      expect(deps.render).toHaveBeenCalled();
+    });
+
+    it('import-click triggers importFile click', () => {
+      const importFile = document.createElement('input');
+      importFile.id = 'importFile';
+      importFile.type = 'file';
+      document.body.appendChild(importFile);
+      const clickSpy = vi.spyOn(importFile, 'click');
+      click(makeActionEl('import-click'));
+      expect(clickSpy).toHaveBeenCalled();
+      importFile.remove();
+    });
+
+    it('confirm-yes dismisses toast with true', () => {
+      const toast = document.createElement('div');
+      toast.className = 'toast';
+      toast._dismiss = vi.fn();
+      const btn = document.createElement('button');
+      btn.dataset.action = 'confirm-yes';
+      toast.appendChild(btn);
+      document.body.appendChild(toast);
+      click(btn);
+      expect(toast._dismiss).toHaveBeenCalledWith(true);
+      toast.remove();
+    });
+
+    it('confirm-no dismisses toast with false', () => {
+      const toast = document.createElement('div');
+      toast.className = 'toast';
+      toast._dismiss = vi.fn();
+      const btn = document.createElement('button');
+      btn.dataset.action = 'confirm-no';
+      toast.appendChild(btn);
+      document.body.appendChild(toast);
+      click(btn);
+      expect(toast._dismiss).toHaveBeenCalledWith(false);
+      toast.remove();
+    });
+
+    it('cmd-go-project closes modal and navigates to project', () => {
+      click(makeActionEl('cmd-go-project', { projectId: 'p_1' }));
+      expect(deps.closeModal).toHaveBeenCalled();
+      expect(deps.setView).toHaveBeenCalledWith('project', 'p_1');
+    });
+
+    it('cmd-go-task navigates to task with project', () => {
+      vi.useFakeTimers();
+      click(makeActionEl('cmd-go-task', { taskId: 't_1', projectId: 'p_1' }));
+      expect(deps.closeModal).toHaveBeenCalled();
+      expect(deps.setView).toHaveBeenCalledWith('project', 'p_1');
+      vi.advanceTimersByTime(100);
+      expect(deps.setExpandedTask).toHaveBeenCalledWith('t_1');
+      vi.useRealTimers();
+    });
+
+    it('cmd-create-task creates task and shows toast', () => {
+      window._cmdCreateTitle = 'New Task';
+      click(makeActionEl('cmd-create-task'));
+      expect(deps.closeModal).toHaveBeenCalled();
+      expect(deps.addTask).toHaveBeenCalled();
+      expect(deps.showToast).toHaveBeenCalledWith('Task created');
+      delete window._cmdCreateTitle;
+    });
+
+    it('view-organized navigates to dashboard', () => {
+      click(makeActionEl('view-organized'));
+      expect(deps.setView).toHaveBeenCalledWith('dashboard');
+    });
+
+    it('new-brainstorm clears last dump result and renders', () => {
+      click(makeActionEl('new-brainstorm'));
+      expect(deps.render).toHaveBeenCalled();
+    });
+
+    it('remove-dump-attachment removes attachment by index', () => {
+      click(makeActionEl('remove-dump-attachment', { idx: '2' }));
+      expect(deps.render).toHaveBeenCalled();
+    });
+
+    it('cal-expand sets expanded day and renders', () => {
+      click(makeActionEl('cal-expand', { date: '2026-03-20' }));
+      expect(deps.render).toHaveBeenCalled();
+    });
+
+    it('cal-collapse clears expanded day and renders', () => {
+      click(makeActionEl('cal-collapse'));
+      expect(deps.render).toHaveBeenCalled();
+    });
+
+    it('open-edit-project inside dropdown closes dropdown', () => {
+      const dd = document.createElement('div');
+      dd.className = 'dropdown open';
+      const btn = document.createElement('button');
+      btn.dataset.action = 'open-edit-project';
+      btn.dataset.projectId = 'p_1';
+      dd.appendChild(btn);
+      document.body.appendChild(dd);
+      click(btn);
+      expect(deps.openEditProject).toHaveBeenCalledWith('p_1');
+      expect(dd.classList.contains('open')).toBe(false);
+      dd.remove();
+    });
+
+    it('dump-files change event calls handleDumpFiles', () => {
+      const el = document.createElement('input');
+      el.type = 'file';
+      el.dataset.onchangeAction = 'dump-files';
+      document.body.appendChild(el);
+      el.dispatchEvent(new Event('change', { bubbles: true }));
+      expect(deps.handleDumpFiles).toHaveBeenCalled();
+      el.remove();
+    });
+
+    it('toggle-notif-sub saves notification sub-preferences', () => {
+      const el = makeActionEl('toggle-notif-sub', { notifKey: 'briefing' });
+      el.checked = true;
+      click(el);
+      expect(deps.getNotifications).toHaveBeenCalled();
     });
   });
 });
