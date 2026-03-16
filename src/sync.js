@@ -54,7 +54,8 @@ export function createSync(deps) {
           '<div style="padding:32px"><div style="display:flex;align-items:center;color:var(--text3);font-size:13px;margin-bottom:28px"><div class="spinner" style="margin-right:10px"></div>Loading your data...</div><div class="loading-skeleton"><div class="loading-skeleton-bar"></div><div class="loading-skeleton-bar"></div><div class="loading-skeleton-bar"></div></div></div>';
       try {
         const { data: row, error } = await sb.from('user_data').select('*').eq('user_id', currentUser.id).single();
-        if (error) {
+        if (error && error.code !== 'PGRST116') {
+          // PGRST116 = "no rows found" — normal for first-time users
           console.error('Cloud load error:', error);
           syncStatus = 'offline';
           updateSyncDot();
