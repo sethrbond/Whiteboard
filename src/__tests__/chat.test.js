@@ -377,15 +377,17 @@ describe('chat.js — createChat()', () => {
   // ── sendChatChip ───────────────────────────────────────────────────
   it('sendChatChip sets the input value and calls sendChat', async () => {
     const input = document.getElementById('chatInput');
-    // sendChat will return early because hasAI is false, but input should be set
+    // sendChat shows no-AI message when hasAI is false, clearing input
     chat.sendChatChip('Plan my day');
-    expect(input.value).toBe('Plan my day');
+    const msgs = document.getElementById('chatMessages');
+    expect(msgs.innerHTML).toContain('Claude API key');
   });
 
   it('sendChatChip works when chatInput exists', () => {
     const input = document.getElementById('chatInput');
     chat.sendChatChip('What is overdue?');
-    expect(input.value).toBe('What is overdue?');
+    const msgs = document.getElementById('chatMessages');
+    expect(msgs.innerHTML).toContain('Claude API key');
   });
 
   // ── updateChatChips ────────────────────────────────────────────────
@@ -940,5 +942,86 @@ describe('chat.js — createChat()', () => {
     expect(chatMsgs.innerHTML).toContain('No internet');
 
     globalThis.fetch = origFetch;
+  });
+
+  // ── Chat history backup/restore ─────────────────────────────────────
+  it('resetChatState saves backup to localStorage before clearing', () => {
+    const msgs = [
+      { role: 'user', content: 'hello', ts: 1000 },
+      { role: 'assistant', content: 'hi', ts: 2000 },
+    ];
+    chat.setChatHistory(msgs);
+    chat.saveChatHistory();
+
+    chat.resetChatState();
+
+    const backup = JSON.parse(localStorage.getItem('user1_chat_hist_backup'));
+    expect(backup).toHaveLength(2);
+    expect(backup[0].content).toBe('hello');
+    expect(chat.getChatHistory()).toHaveLength(0);
+  });
+
+  it('resetChatState does not save backup if history is empty', () => {
+    chat.setChatHistory([]);
+    chat.resetChatState();
+
+    expect(localStorage.getItem('user1_chat_hist_backup')).toBeNull();
+  });
+
+  it('reloadChatHistory restores from backup when main history is empty', () => {
+    const msgs = [{ role: 'user', content: 'saved', ts: 1000 }];
+    localStorage.setItem('user1_chat_hist_backup', JSON.stringify(msgs));
+    localStorage.removeItem('user1_chat_hist');
+
+    chat.reloadChatHistory();
+
+    expect(chat.getChatHistory()).toHaveLength(1);
+    expect(chat.getChatHistory()[0].content).toBe('saved');
+    // Should also persist to main key
+    expect(JSON.parse(localStorage.getItem('user1_chat_hist'))).toHaveLength(1);
+  });
+
+  it('reloadChatHistory cleans up backup key after restoring', () => {
+    localStorage.setItem('user1_chat_hist_backup', JSON.stringify([{ role: 'user', content: 'x', ts: 1 }]));
+    localStorage.removeItem('user1_chat_hist');
+
+    chat.reloadChatHistory();
+
+    expect(localStorage.getItem('user1_chat_hist_backup')).toBeNull();
+  });
+
+  it('reloadChatHistory does NOT use backup when main history exists', () => {
+    const main = [{ role: 'user', content: 'main', ts: 1000 }];
+    const backup = [{ role: 'user', content: 'backup', ts: 500 }];
+    localStorage.setItem('user1_chat_hist', JSON.stringify(main));
+    localStorage.setItem('user1_chat_hist_backup', JSON.stringify(backup));
+
+    chat.reloadChatHistory();
+
+    expect(chat.getChatHistory()).toHaveLength(1);
+    expect(chat.getChatHistory()[0].content).toBe('main');
+    // Backup should remain untouched
+    expect(localStorage.getItem('user1_chat_hist_backup')).not.toBeNull();
+  });
+
+  it('offerStuckHelp appends to history instead of replacing', async () => {
+    const existing = [
+      { role: 'user', content: 'old msg', ts: 1000 },
+      { role: 'assistant', content: 'old reply', ts: 2000 },
+    ];
+    chat.setChatHistory(existing);
+    deps.findTask.mockReturnValue({ id: 't1', title: 'Fix bug', project: 'proj1' });
+    deps.getData.mockReturnValue({ tasks: [], projects: [{ id: 'proj1', name: 'Work' }] });
+    deps.hasAI.mockReturnValue(true);
+    deps.callAI.mockResolvedValue('Try breaking it down.');
+
+    await chat.offerStuckHelp('t1');
+
+    const history = chat.getChatHistory();
+    expect(history.length).toBeGreaterThanOrEqual(4);
+    expect(history[0].content).toBe('old msg');
+    expect(history[1].content).toBe('old reply');
+    expect(history[2].content).toContain('Fix bug');
+    expect(history[3].content).toBe('Try breaking it down.');
   });
 });

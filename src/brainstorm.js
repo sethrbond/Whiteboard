@@ -174,12 +174,10 @@ export function createBrainstorm(deps) {
 
     const hasKey = hasAI();
     const draft = esc(loadDumpDraft());
-    const _dumpHints = [
-      'Meeting notes, ideas, docs, plans — throw it all in. AI organizes everything...',
-      'Paste notes, attach files, write freely — AI extracts tasks and sets priorities...',
-      'Write freely and drop files — AI reads everything, creates tasks, and sorts by project...',
-    ];
-    const placeholder = _dumpHints[Math.floor(Date.now() / 60000) % _dumpHints.length];
+    const _isFirstTime = getData().tasks.length === 0;
+    const placeholder = _isFirstTime
+      ? "Try pasting this:\n\nMeeting with Sarah - need to finalize Q2 budget by Friday, follow up with design team about the rebrand, book travel for NYC conference next month, review Jake's PR before standup tomorrow"
+      : 'Meeting notes, ideas, docs, plans \u2014 throw it all in. AI organizes everything...';
     const attachCount = _dumpAttachments.length;
     const processingHtml = _processingFiles
       .map(
@@ -227,13 +225,30 @@ export function createBrainstorm(deps) {
       }
       <p style="font-size:13px;color:var(--text3);margin-bottom:16px;line-height:1.6">
         Write your thoughts, attach files, paste notes \u2014 throw everything in. AI reads it all, extracts tasks, and organizes by project and priority.
-        ${!hasKey ? '<br><span style="color:var(--orange)">Add a Claude API key in Settings for AI parsing.</span>' : ''}
+        ${!hasKey ? '<br><span style="color:var(--orange)">To unlock AI analysis, <a data-action="open-settings" style="color:var(--accent);cursor:pointer;text-decoration:underline">add your Claude API key in Settings</a> (30 seconds).</span>' : ''}
       </p>
       ${attachHtml}
       <div style="position:relative">
         <textarea class="dump-textarea" id="dumpText" aria-label="Brainstorm input" placeholder="${_showOnbHint ? _onbPlaceholder : placeholder}">${draft}</textarea>
         <div id="dumpDropOverlay" style="display:none;position:absolute;inset:0;background:rgba(var(--accent-rgb,99,102,241),.12);border:2px dashed var(--accent);border-radius:var(--radius);pointer-events:none;z-index:2;align-items:center;justify-content:center;font-size:14px;font-weight:600;color:var(--accent)">Drop file to attach</div>
       </div>
+      ${
+        _isFirstTime && !draft
+          ? `<div class="dump-empty-preview" id="dumpEmptyPreview">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+          <span style="font-size:16px;color:var(--accent)">\u2193</span>
+          <span style="font-size:12px;color:var(--text3);font-weight:500">Paste something above, then hit Analyze. Here\u2019s what happens:</span>
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:8px">
+          <div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 12px;font-size:11px;color:var(--text2);opacity:0.6"><span style="color:var(--green)">\u2713</span> Finalize Q2 budget <span style="color:var(--text3)">\u00b7 Fri</span></div>
+          <div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 12px;font-size:11px;color:var(--text2);opacity:0.6"><span style="color:var(--orange)">\u25CB</span> Follow up with design team</div>
+          <div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 12px;font-size:11px;color:var(--text2);opacity:0.6"><span style="color:var(--orange)">\u25CB</span> Book NYC travel</div>
+          <div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 12px;font-size:11px;color:var(--text2);opacity:0.6"><span style="color:var(--red)">\u25CB</span> Review Jake\u2019s PR <span style="color:var(--text3)">\u00b7 Tomorrow</span></div>
+        </div>
+        <div style="font-size:11px;color:var(--accent);margin-top:8px;opacity:0.7">\u2726 4 tasks extracted \u00b7 2 boards created \u00b7 priorities set automatically</div>
+      </div>`
+          : ''
+      }
       <div style="display:flex;align-items:center;gap:8px;margin-top:8px">
         <div style="font-size:11px;color:var(--text3);flex:1">${attachCount ? attachCount + ' file' + (attachCount > 1 ? 's' : '') + ' attached. Add notes above for context.' : 'Drop files here or attach below. Supports PDF, Word, Excel, text, and more.'}</div>
         <label style="cursor:pointer;display:flex;align-items:center;gap:4px;font-size:11px;color:var(--text3);padding:4px 8px;border:1px solid var(--border);border-radius:6px;white-space:nowrap" title="Attach a file">
@@ -969,7 +984,7 @@ ${text}${getDumpAttachmentText()}`;
     };
 
     $('#modalRoot').innerHTML =
-      `<div class="modal-overlay" data-action="dump-review-cancel" data-click-self="true" style="z-index:var(--z-modal)">
+      `<div class="modal-overlay" data-action="dump-review-cancel" data-click-self="true" style="z-index:var(--z-modal)" role="dialog" aria-modal="true" aria-label="Review brainstorm tasks">
       <div class="modal" style="max-width:560px;max-height:85vh;display:flex;flex-direction:column;padding:0" aria-labelledby="modal-title-review-tasks">
         <div style="padding:20px 24px 0;flex-shrink:0">
           <h2 class="modal-title" id="modal-title-review-tasks" style="margin-bottom:4px">Review extracted tasks</h2>

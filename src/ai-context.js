@@ -585,6 +585,45 @@ export function createAIContext(deps) {
     return findSimilarProject(query);
   }
 
+  // --- Payload Validation ---
+  function sanitizeActionPayload(a) {
+    if (a.action === 'create_task' || a.action === 'update_task') {
+      const fields = a.action === 'update_task' ? a.fields : a;
+      if (fields) {
+        if (typeof fields.title === 'string' && fields.title.length > 500) {
+          fields.title = fields.title.slice(0, 500);
+        }
+        if (typeof fields.notes === 'string' && fields.notes.length > 5000) {
+          fields.notes = fields.notes.slice(0, 5000);
+        }
+        if (Array.isArray(fields.subtasks) && fields.subtasks.length > 20) {
+          fields.subtasks = fields.subtasks.slice(0, 20);
+        }
+        if (Array.isArray(fields.subtasks)) {
+          fields.subtasks = fields.subtasks.map((s) => {
+            if (typeof s === 'string' && s.length > 200) return s.slice(0, 200);
+            if (s && typeof s.title === 'string' && s.title.length > 200) {
+              s.title = s.title.slice(0, 200);
+              return s;
+            }
+            return s;
+          });
+        }
+      }
+    }
+    if (a.action === 'create_project' || a.action === 'update_project') {
+      if (typeof a.name === 'string' && a.name.length > 200) {
+        a.name = a.name.slice(0, 200);
+      }
+    }
+    if (a.action === 'save_memory') {
+      if (typeof a.text === 'string' && a.text.length > 2000) {
+        a.text = a.text.slice(0, 2000);
+      }
+    }
+    return a;
+  }
+
   // --- Centralized Action Executor ---
   async function executeAIActions(reply) {
     const actionsMatch = reply.match(/```(?:actions|json)\s*([\s\S]*?)```/);
@@ -596,6 +635,7 @@ export function createAIContext(deps) {
       const actions = JSON.parse(actionsMatch[1]);
       const data = getData();
       for (const a of actions) {
+        sanitizeActionPayload(a);
         try {
           switch (a.action) {
             case 'create_task': {

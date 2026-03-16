@@ -34,6 +34,7 @@ describe('ai-context.js', () => {
   describe('createAIContext()', () => {
     let ctx;
     let store;
+    let mockDeps;
     const mockUserKey = (k) => 'test_' + k;
 
     beforeEach(() => {
@@ -76,7 +77,7 @@ describe('ai-context.js', () => {
         ],
       };
 
-      ctx = createAIContext({
+      mockDeps = {
         userKey: mockUserKey,
         scheduleSyncToCloud: vi.fn(),
         getData: () => store,
@@ -101,7 +102,9 @@ describe('ai-context.js', () => {
         pushUndo: vi.fn(),
         confirmAIAction: vi.fn().mockResolvedValue(true),
         enforceShortDesc: (d) => d.slice(0, 200),
-      });
+      };
+
+      ctx = createAIContext(mockDeps);
     });
 
     it('returns all expected functions', () => {
@@ -499,6 +502,371 @@ describe('ai-context.js', () => {
           '```actions\n[{"action":"create_task","title":"Full task","priority":"urgent","dueDate":"2026-04-01","project":"Life","description":"Notes here"}]\n```';
         const result = await ctx.executeAIActions(reply);
         expect(result.applied).toBe(1);
+      });
+    });
+
+    describe('executeAIActions() — move_task', () => {
+      it('moves a task to a different project', async () => {
+        const reply = '```actions\n[{"action":"move_task","taskTitle":"Buy groceries","toProject":"Work"}]\n```';
+        const result = await ctx.executeAIActions(reply);
+        expect(result.applied).toBe(1);
+        expect(mockDeps.updateTask).toHaveBeenCalledWith('t1', { project: 'p2' });
+      });
+
+      it('does nothing when task not found', async () => {
+        const reply = '```actions\n[{"action":"move_task","taskTitle":"nonexistent task xyz","toProject":"Work"}]\n```';
+        const result = await ctx.executeAIActions(reply);
+        expect(result.applied).toBe(0);
+        expect(mockDeps.updateTask).not.toHaveBeenCalled();
+      });
+
+      it('does nothing when target project not found', async () => {
+        const reply =
+          '```actions\n[{"action":"move_task","taskTitle":"Buy groceries","toProject":"Nonexistent Board"}]\n```';
+        const result = await ctx.executeAIActions(reply);
+        expect(result.applied).toBe(0);
+        expect(mockDeps.updateTask).not.toHaveBeenCalled();
+      });
+
+      it('does nothing when missing taskTitle', async () => {
+        const reply = '```actions\n[{"action":"move_task","toProject":"Work"}]\n```';
+        const result = await ctx.executeAIActions(reply);
+        expect(result.applied).toBe(0);
+      });
+
+      it('does nothing when missing toProject', async () => {
+        const reply = '```actions\n[{"action":"move_task","taskTitle":"Buy groceries"}]\n```';
+        const result = await ctx.executeAIActions(reply);
+        expect(result.applied).toBe(0);
+      });
+    });
+
+    describe('executeAIActions() — add_subtasks', () => {
+      it('adds subtasks to a task without existing subtasks', async () => {
+        const reply =
+          '```actions\n[{"action":"add_subtasks","taskTitle":"Buy groceries","subtasks":["Buy milk","Buy eggs"]}]\n```';
+        const result = await ctx.executeAIActions(reply);
+        expect(result.applied).toBe(1);
+        const task = store.tasks.find((t) => t.id === 't1');
+        expect(task.subtasks).toHaveLength(2);
+        expect(task.subtasks[0].title).toBe('Buy milk');
+        expect(task.subtasks[0].done).toBe(false);
+        expect(task.subtasks[1].title).toBe('Buy eggs');
+        expect(task.subtasks[1].done).toBe(false);
+        expect(mockDeps.saveData).toHaveBeenCalled();
+      });
+
+      it('appends to existing subtasks', async () => {
+        store.tasks[0].subtasks = [{ id: 'existing', title: 'Existing step', done: true }];
+        const reply =
+          '```actions\n[{"action":"add_subtasks","taskTitle":"Buy groceries","subtasks":["New step"]}]\n```';
+        const result = await ctx.executeAIActions(reply);
+        expect(result.applied).toBe(1);
+        expect(store.tasks[0].subtasks).toHaveLength(2);
+        expect(store.tasks[0].subtasks[0].title).toBe('Existing step');
+        expect(store.tasks[0].subtasks[1].title).toBe('New step');
+      });
+
+      it('does nothing when task not found', async () => {
+        const reply =
+          '```actions\n[{"action":"add_subtasks","taskTitle":"nonexistent xyz","subtasks":["Step 1"]}]\n```';
+        const result = await ctx.executeAIActions(reply);
+        expect(result.applied).toBe(0);
+      });
+
+      it('does nothing when missing taskTitle', async () => {
+        const reply = '```actions\n[{"action":"add_subtasks","subtasks":["Step 1"]}]\n```';
+        const result = await ctx.executeAIActions(reply);
+        expect(result.applied).toBe(0);
+      });
+
+      it('does nothing when missing subtasks', async () => {
+        const reply = '```actions\n[{"action":"add_subtasks","taskTitle":"Buy groceries"}]\n```';
+        const result = await ctx.executeAIActions(reply);
+        expect(result.applied).toBe(0);
+      });
+    });
+
+    describe('executeAIActions() — split_task', () => {
+      it('splits a task into multiple tasks with confirmation', async () => {
+        const reply =
+          '```actions\n[{"action":"split_task","taskTitle":"Buy groceries","into":[{"title":"Buy produce","priority":"normal"},{"title":"Buy dairy","notes":"milk and cheese"}]}]\n```';
+        const result = await ctx.executeAIActions(reply);
+        expect(result.applied).toBe(1);
+        expect(mockDeps.confirmAIAction).toHaveBeenCalledWith(expect.stringContaining('split'));
+        // addTask called for each split part
+        expect(mockDeps.addTask).toHaveBeenCalledTimes(2);
+        // Original task removed from data
+        expect(store.tasks.find((t) => t.id === 't1')).toBeUndefined();
+        expect(mockDeps.saveData).toHaveBeenCalled();
+      });
+
+      it('inherits project from original task', async () => {
+        const reply =
+          '```actions\n[{"action":"split_task","taskTitle":"Buy groceries","into":[{"title":"Part A"}]}]\n```';
+        await ctx.executeAIActions(reply);
+        // createTask should be called with the original task's project
+        const createTaskCall = mockDeps.addTask.mock.calls[0][0];
+        expect(createTaskCall.project).toBe('p1');
+      });
+
+      it('does nothing when user declines confirmation', async () => {
+        mockDeps.confirmAIAction.mockResolvedValue(false);
+        const ctxDecline = createAIContext(mockDeps);
+        const reply =
+          '```actions\n[{"action":"split_task","taskTitle":"Buy groceries","into":[{"title":"Part A"},{"title":"Part B"}]}]\n```';
+        const result = await ctxDecline.executeAIActions(reply);
+        expect(result.applied).toBe(0);
+        // Original task should still exist
+        expect(store.tasks.find((t) => t.id === 't1')).toBeTruthy();
+      });
+
+      it('does nothing when task not found', async () => {
+        const reply =
+          '```actions\n[{"action":"split_task","taskTitle":"nonexistent xyz","into":[{"title":"Part A"}]}]\n```';
+        const result = await ctx.executeAIActions(reply);
+        expect(result.applied).toBe(0);
+      });
+
+      it('does nothing when missing taskTitle', async () => {
+        const reply = '```actions\n[{"action":"split_task","into":[{"title":"Part A"}]}]\n```';
+        const result = await ctx.executeAIActions(reply);
+        expect(result.applied).toBe(0);
+      });
+
+      it('does nothing when missing into', async () => {
+        const reply = '```actions\n[{"action":"split_task","taskTitle":"Buy groceries"}]\n```';
+        const result = await ctx.executeAIActions(reply);
+        expect(result.applied).toBe(0);
+      });
+    });
+
+    describe('executeAIActions() — batch_reschedule', () => {
+      it('reschedules tasks by daysToAdd', async () => {
+        const reply = '```actions\n[{"action":"batch_reschedule","filter":{"project":"Work"},"daysToAdd":3}]\n```';
+        const result = await ctx.executeAIActions(reply);
+        expect(result.applied).toBe(1);
+        // t2 has dueDate and is in project Work
+        expect(mockDeps.updateTask).toHaveBeenCalledWith(
+          't2',
+          expect.objectContaining({ dueDate: expect.any(String) }),
+        );
+      });
+
+      it('reschedules tasks to a specific newDate', async () => {
+        const reply =
+          '```actions\n[{"action":"batch_reschedule","filter":{"priority":"urgent"},"newDate":"2026-04-01"}]\n```';
+        const result = await ctx.executeAIActions(reply);
+        expect(result.applied).toBe(1);
+        expect(mockDeps.updateTask).toHaveBeenCalledWith('t2', { dueDate: '2026-04-01' });
+      });
+
+      it('does nothing when no filter provided', async () => {
+        const reply = '```actions\n[{"action":"batch_reschedule","daysToAdd":3}]\n```';
+        const result = await ctx.executeAIActions(reply);
+        expect(result.applied).toBe(0);
+      });
+
+      it('filters by dueBefore', async () => {
+        const reply =
+          '```actions\n[{"action":"batch_reschedule","filter":{"dueBefore":"2026-03-20"},"daysToAdd":5}]\n```';
+        const result = await ctx.executeAIActions(reply);
+        expect(result.applied).toBe(1);
+        expect(mockDeps.updateTask).toHaveBeenCalled();
+      });
+
+      it('skips when too many targets (>30)', async () => {
+        for (let i = 0; i < 35; i++) {
+          store.tasks.push({
+            id: 'sched_' + i,
+            title: 'Scheduled task ' + i,
+            status: 'todo',
+            priority: 'low',
+            dueDate: '2026-03-20',
+            project: 'p1',
+          });
+        }
+        const reply = '```actions\n[{"action":"batch_reschedule","filter":{"priority":"low"},"daysToAdd":2}]\n```';
+        const result = await ctx.executeAIActions(reply);
+        expect(result.applied).toBe(0);
+      });
+
+      it('asks confirmation when more than 3 targets', async () => {
+        for (let i = 0; i < 5; i++) {
+          store.tasks.push({
+            id: 'br_' + i,
+            title: 'Reschedule me ' + i,
+            status: 'todo',
+            priority: 'low',
+            dueDate: '2026-03-18',
+            project: 'p1',
+          });
+        }
+        const reply = '```actions\n[{"action":"batch_reschedule","filter":{"priority":"low"},"daysToAdd":2}]\n```';
+        const result = await ctx.executeAIActions(reply);
+        expect(result.applied).toBe(1);
+        expect(mockDeps.confirmAIAction).toHaveBeenCalledWith(expect.stringContaining('reschedule'));
+      });
+
+      it('does nothing when confirmation declined for >3 targets', async () => {
+        for (let i = 0; i < 5; i++) {
+          store.tasks.push({
+            id: 'brd_' + i,
+            title: 'Decline me ' + i,
+            status: 'todo',
+            priority: 'low',
+            dueDate: '2026-03-18',
+            project: 'p1',
+          });
+        }
+        mockDeps.confirmAIAction.mockResolvedValue(false);
+        const ctxDecline = createAIContext(mockDeps);
+        const reply = '```actions\n[{"action":"batch_reschedule","filter":{"priority":"low"},"daysToAdd":2}]\n```';
+        const result = await ctxDecline.executeAIActions(reply);
+        expect(result.applied).toBe(0);
+      });
+
+      it('only targets tasks with due dates', async () => {
+        // t1 has no dueDate, t2 has dueDate — only t2 should be targeted
+        const reply = '```actions\n[{"action":"batch_reschedule","filter":{},"newDate":"2026-05-01"}]\n```';
+        const result = await ctx.executeAIActions(reply);
+        expect(result.applied).toBe(1);
+        expect(mockDeps.updateTask).toHaveBeenCalledTimes(1);
+        expect(mockDeps.updateTask).toHaveBeenCalledWith('t2', { dueDate: '2026-05-01' });
+      });
+    });
+
+    describe('executeAIActions() — query', () => {
+      it('is a no-op that returns 0 applied and no insights', async () => {
+        const reply = '```actions\n[{"action":"query","question":"what did I accomplish this week?"}]\n```';
+        const result = await ctx.executeAIActions(reply);
+        expect(result.applied).toBe(0);
+        expect(result.insights).toEqual([]);
+      });
+
+      it('does not call any mutation functions', async () => {
+        const reply = '```actions\n[{"action":"query","question":"how many tasks are overdue?"}]\n```';
+        await ctx.executeAIActions(reply);
+        expect(mockDeps.updateTask).not.toHaveBeenCalled();
+        expect(mockDeps.deleteTask).not.toHaveBeenCalled();
+        expect(mockDeps.addTask).not.toHaveBeenCalled();
+        expect(mockDeps.saveData).not.toHaveBeenCalled();
+      });
+    });
+
+    describe('executeAIActions() — update_project', () => {
+      it('updates project description', async () => {
+        const reply =
+          '```actions\n[{"action":"update_project","name":"Work","fields":{"description":"Updated work description"}}]\n```';
+        const result = await ctx.executeAIActions(reply);
+        expect(result.applied).toBe(1);
+        expect(mockDeps.updateProject).toHaveBeenCalledWith('p2', { description: 'Updated work description' });
+      });
+
+      it('updates project color', async () => {
+        const reply = '```actions\n[{"action":"update_project","name":"Life","fields":{"color":"#ff0000"}}]\n```';
+        const result = await ctx.executeAIActions(reply);
+        expect(result.applied).toBe(1);
+        expect(mockDeps.updateProject).toHaveBeenCalledWith('p1', { color: '#ff0000' });
+      });
+
+      it('does nothing when project not found', async () => {
+        const reply =
+          '```actions\n[{"action":"update_project","name":"Nonexistent Board","fields":{"description":"test"}}]\n```';
+        const result = await ctx.executeAIActions(reply);
+        expect(result.applied).toBe(0);
+        expect(mockDeps.updateProject).not.toHaveBeenCalled();
+      });
+
+      it('does nothing when missing name', async () => {
+        const reply = '```actions\n[{"action":"update_project","fields":{"description":"test"}}]\n```';
+        const result = await ctx.executeAIActions(reply);
+        expect(result.applied).toBe(0);
+      });
+
+      it('does nothing when no allowed fields provided', async () => {
+        const reply = '```actions\n[{"action":"update_project","name":"Work","fields":{"sneakyField":"hacked"}}]\n```';
+        const result = await ctx.executeAIActions(reply);
+        expect(result.applied).toBe(0);
+        expect(mockDeps.updateProject).not.toHaveBeenCalled();
+      });
+
+      it('filters out disallowed fields', async () => {
+        const reply =
+          '```actions\n[{"action":"update_project","name":"Work","fields":{"description":"ok","sneaky":"bad"}}]\n```';
+        const result = await ctx.executeAIActions(reply);
+        expect(result.applied).toBe(1);
+        expect(mockDeps.updateProject).toHaveBeenCalledWith('p2', { description: 'ok' });
+      });
+    });
+
+    describe('executeAIActions() — update_background', () => {
+      it('updates a background section on a project', async () => {
+        const reply =
+          '```actions\n[{"action":"update_background","project":"Work","section":"origin","content":"Started as a side project"}]\n```';
+        const result = await ctx.executeAIActions(reply);
+        expect(result.applied).toBe(1);
+        expect(mockDeps.updateProject).toHaveBeenCalledWith('p2', {
+          background: expect.stringContaining('Started as a side project'),
+        });
+      });
+
+      it('replaces existing section content', async () => {
+        store.projects[1].background =
+          "## Origin\nOld origin text\n## Where It's Going\nOld direction\n## Roadblocks\n\n## Next Steps\n\n## Notes\n";
+        const reply =
+          '```actions\n[{"action":"update_background","project":"Work","section":"origin","content":"New origin text"}]\n```';
+        const result = await ctx.executeAIActions(reply);
+        expect(result.applied).toBe(1);
+        const call = mockDeps.updateProject.mock.calls[0];
+        expect(call[1].background).toContain('New origin text');
+        expect(call[1].background).not.toContain('Old origin text');
+      });
+
+      it('maps section keys to proper headers', async () => {
+        const reply =
+          '```actions\n[{"action":"update_background","project":"Work","section":"direction","content":"Going places"}]\n```';
+        const result = await ctx.executeAIActions(reply);
+        expect(result.applied).toBe(1);
+        const call = mockDeps.updateProject.mock.calls[0];
+        expect(call[1].background).toContain("Where It's Going");
+      });
+
+      it('creates default background when project has none', async () => {
+        store.projects[1].background = undefined;
+        const reply =
+          '```actions\n[{"action":"update_background","project":"Work","section":"notes","content":"Some notes here"}]\n```';
+        const result = await ctx.executeAIActions(reply);
+        expect(result.applied).toBe(1);
+        const call = mockDeps.updateProject.mock.calls[0];
+        expect(call[1].background).toContain('## Origin');
+        expect(call[1].background).toContain('Some notes here');
+      });
+
+      it('does nothing when project not found', async () => {
+        const reply =
+          '```actions\n[{"action":"update_background","project":"Nonexistent","section":"origin","content":"text"}]\n```';
+        const result = await ctx.executeAIActions(reply);
+        expect(result.applied).toBe(0);
+        expect(mockDeps.updateProject).not.toHaveBeenCalled();
+      });
+
+      it('does nothing when missing section', async () => {
+        const reply = '```actions\n[{"action":"update_background","project":"Work","content":"text"}]\n```';
+        const result = await ctx.executeAIActions(reply);
+        expect(result.applied).toBe(0);
+      });
+
+      it('does nothing when missing content', async () => {
+        const reply = '```actions\n[{"action":"update_background","project":"Work","section":"origin"}]\n```';
+        const result = await ctx.executeAIActions(reply);
+        expect(result.applied).toBe(0);
+      });
+
+      it('does nothing when missing project', async () => {
+        const reply = '```actions\n[{"action":"update_background","section":"origin","content":"text"}]\n```';
+        const result = await ctx.executeAIActions(reply);
+        expect(result.applied).toBe(0);
       });
     });
 

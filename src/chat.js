@@ -107,17 +107,30 @@ export function createChat(deps) {
         updateChatChips();
       } else if (messagesEl && messagesEl.children.length === 0) {
         const greeting = getChatGreeting();
+        const firstTime = _isFirstTimeUser();
+        const hint = firstTime
+          ? '&quot;I have a bunch of stuff to organize&quot;, &quot;Plan my day&quot;, &quot;What can you do?&quot;'
+          : "&quot;Plan my day&quot;, &quot;What's overdue?&quot;, &quot;Help me with [task]&quot;";
         messagesEl.innerHTML =
           '<div class="chat-msg ai stagger chat-welcome-msg">' +
           esc(greeting) +
-          '<div class="chat-welcome-hint">&quot;Plan my day&quot;, &quot;What\'s overdue?&quot;, &quot;Help me with [task]&quot;</div><span class="chat-ts">' +
+          '<div class="chat-welcome-hint">' +
+          hint +
+          '</div><span class="chat-ts">' +
           chatTimeStr() +
           '</span></div>';
       }
     }
   }
 
+  function _isFirstTimeUser() {
+    return getData().tasks.length === 0 && chatHistory.length === 0;
+  }
+
   function getChatGreeting() {
+    if (_isFirstTimeUser()) {
+      return 'Hey! I\u2019m your AI assistant. Paste meeting notes, brain dumps, or rough ideas in the box above and I\u2019ll extract tasks and organize everything. Or just tell me what\u2019s on your mind \u2014 I\u2019m here to think with you, not just take orders.';
+    }
     const data = getData();
     const today = todayStr();
     const active = data.tasks.filter((t) => t.status !== 'done');
@@ -207,7 +220,14 @@ export function createChat(deps) {
     const input = document.getElementById('chatInput');
     const msg = input.value.trim();
     if (!msg) return;
-    if (!hasAI()) return;
+    if (!hasAI()) {
+      const chatMsgs = document.getElementById('chatMessages');
+      chatMsgs.innerHTML += `<div class="chat-msg user">${esc(msg)}<span class="chat-ts">${chatTimeStr()}</span></div>`;
+      input.value = '';
+      chatMsgs.innerHTML += `<div class="chat-msg ai">I need a Claude API key to chat. Set one up in <strong>Settings</strong> (30 seconds) and I'll be ready to help.<span class="chat-ts">${chatTimeStr()}</span></div>`;
+      chatMsgs.scrollTop = chatMsgs.scrollHeight;
+      return;
+    }
     _chatSending = true;
     const sendBtn = document.querySelector('.chat-send');
     if (sendBtn) sendBtn.disabled = true;
@@ -420,9 +440,9 @@ ${context}`;
     const data = getData();
     const proj = data.projects.find((p) => p.id === t.project);
 
-    // Open chat with this context
+    // Open chat with this context (append rather than replace history)
     chatContext = t.project || null;
-    chatHistory = [{ role: 'user', content: `I'm stuck on "${t.title}". Help me think through it.`, ts: Date.now() }];
+    chatHistory.push({ role: 'user', content: `I'm stuck on "${t.title}". Help me think through it.`, ts: Date.now() });
     saveChatHistory();
 
     const prompt = `${AI_PERSONA}
@@ -511,6 +531,17 @@ Be curious, not prescriptive. 2-3 sentences. Ask a real question.`;
 
   // Reset state (used on sign-out)
   function resetChatState() {
+    // Back up current chat history before clearing so it can be restored
+    if (chatHistory.length > 0) {
+      try {
+        localStorage.setItem(
+          userKey(CHAT_HISTORY_KEY) + '_backup',
+          JSON.stringify(chatHistory.slice(-MAX_CHAT_HISTORY)),
+        );
+      } catch (e) {
+        console.warn('chat backup failed:', e);
+      }
+    }
     chatHistory = [];
     _chatSessionStarted = false;
     _proactiveChatTriggered = false;
@@ -521,8 +552,27 @@ Be curious, not prescriptive. 2-3 sentences. Ask a real question.`;
   function reloadChatHistory() {
     try {
       chatHistory = JSON.parse(localStorage.getItem(userKey(CHAT_HISTORY_KEY)) || '[]');
+      // If main history is empty, try restoring from backup
+      if (chatHistory.length === 0) {
+        const backupKey = userKey(CHAT_HISTORY_KEY) + '_backup';
+        const backup = localStorage.getItem(backupKey);
+        if (backup) {
+          chatHistory = JSON.parse(backup);
+          saveChatHistory(); // persist restored history to main key
+          localStorage.removeItem(backupKey); // clean up backup
+        }
+      }
     } catch {
       chatHistory = [];
+    }
+  }
+
+  function autoOpenForFirstTimeUser() {
+    if (!_isFirstTimeUser()) return;
+    const panel = document.getElementById('chatPanel');
+    if (panel && !panel.classList.contains('open')) {
+      // Small delay so the app renders first
+      setTimeout(() => toggleChat(), 800);
     }
   }
 
@@ -544,5 +594,6 @@ Be curious, not prescriptive. 2-3 sentences. Ask a real question.`;
     resetChatState,
     reloadChatHistory,
     maybeProactiveChat,
+    autoOpenForFirstTimeUser,
   };
 }

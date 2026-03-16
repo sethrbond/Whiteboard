@@ -77,7 +77,9 @@ describe('Smart Auto-Reschedule', () => {
     });
 
     it('identifies overloaded days (>5 tasks)', () => {
-      const today = '2026-03-16';
+      const d = new Date();
+      const today =
+        d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
       const tasks = [];
       for (let i = 0; i < 6; i++) {
         tasks.push({ id: 't' + i, title: 'Task ' + i, status: 'todo', dueDate: today, archived: false });

@@ -39,10 +39,10 @@ export function createSync(deps) {
         // Another tab synced — reload from localStorage
         try {
           const freshData = JSON.parse(localStorage.getItem(userKey(STORE_KEY)) || '{}');
-          if (freshData.tasks) {
+          if (freshData.tasks && freshData.projects) {
             const data = getData();
             data.tasks = freshData.tasks;
-            data.projects = freshData.projects || data.projects;
+            data.projects = freshData.projects;
             try {
               setSuppressCloudSync(true);
               saveData(data);
@@ -66,6 +66,8 @@ export function createSync(deps) {
   function withSyncLock(fn) {
     _syncQueue = _syncQueue.then(fn).catch((e) => {
       console.error('Sync error:', e);
+      // Return resolved so subsequent queued operations can proceed
+      return undefined;
     });
     return _syncQueue;
   }
@@ -186,7 +188,7 @@ export function createSync(deps) {
           }
         }
       }
-      const data = getData();
+      const data = JSON.parse(localStorage.getItem(userKey(STORE_KEY)) || '{}');
       const settings = getSettings();
       // Safety: never overwrite cloud data with empty state if cloud previously had data
       if (data.tasks.length === 0 && data.projects.length === 0 && _lastCloudUpdatedAt) {

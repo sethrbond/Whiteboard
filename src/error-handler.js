@@ -1,6 +1,18 @@
 // Global error handling and recovery UI
 // Factory function pattern — instantiate early in app.js to catch init errors.
 
+import * as Sentry from '@sentry/browser';
+
+const sentryDSN = import.meta.env.VITE_SENTRY_DSN;
+if (sentryDSN) {
+  Sentry.init({
+    dsn: sentryDSN,
+    environment: location.hostname === 'localhost' ? 'development' : 'production',
+    sampleRate: 1.0,
+    maxBreadcrumbs: 50,
+  });
+}
+
 export function createErrorHandler(deps = {}) {
   const { onError } = deps;
 
@@ -16,6 +28,7 @@ export function createErrorHandler(deps = {}) {
   function handleError(event) {
     errorCount++;
     console.error('[ErrorHandler] Global error:', event.message, event.filename, event.lineno);
+    if (sentryDSN) Sentry.captureException(event.error || event.message);
     if (onError) onError(event);
     if (errorCount >= MAX_ERRORS && !recoveryShowing) {
       showRecoveryUI();
@@ -26,6 +39,7 @@ export function createErrorHandler(deps = {}) {
     errorCount++;
     event.preventDefault();
     console.error('[ErrorHandler] Unhandled rejection:', event.reason);
+    if (sentryDSN) Sentry.captureException(event.reason);
     if (onError) onError(event);
     if (errorCount >= MAX_ERRORS && !recoveryShowing) {
       showRecoveryUI();

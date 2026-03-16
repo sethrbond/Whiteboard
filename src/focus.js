@@ -188,7 +188,8 @@ export function createFocusMode(deps) {
   }
 
   function _renderBreakOverlay() {
-    $('#modalRoot').innerHTML = `<div class="modal-overlay focus-break-overlay">
+    $('#modalRoot').innerHTML =
+      `<div class="modal-overlay focus-break-overlay" role="dialog" aria-modal="true" aria-label="Focus mode break">
     <div class="focus-break-container">
       <div class="focus-mode-label">Break Time</div>
       <div class="focus-break-message">Take a breather. Stretch, hydrate, look away from the screen.</div>
@@ -231,7 +232,8 @@ export function createFocusMode(deps) {
 
   function _renderSessionGoalPrompt(projectId) {
     _lastProjectId = projectId || null;
-    $('#modalRoot').innerHTML = `<div class="modal-overlay focus-break-overlay">
+    $('#modalRoot').innerHTML =
+      `<div class="modal-overlay focus-break-overlay" role="dialog" aria-modal="true" aria-label="Focus session goal">
     <div class="focus-break-container">
       <div class="focus-mode-label">Focus Session</div>
       <div class="focus-break-message">How many tasks do you want to focus on?</div>
@@ -414,7 +416,8 @@ Return JSON: { "title": "exact task title", "reason": "one sentence why this one
     const elapsed = focusStartTime ? Date.now() - focusStartTime : 0;
     const pomodoroReached = elapsed >= POMODORO_MS;
 
-    $('#modalRoot').innerHTML = `<div class="modal-overlay focus-overlay">
+    $('#modalRoot').innerHTML =
+      `<div class="modal-overlay focus-overlay" role="dialog" aria-modal="true" aria-label="Focus mode">
     <div class="focus-container">
       <div class="focus-mode-label">Focus Mode</div>
       ${progressHtml}
@@ -480,6 +483,7 @@ Return JSON: { "title": "exact task title", "reason": "one sentence why this one
         clearInterval(window._focusInterval);
         return;
       }
+      if (!focusStartTime) return;
       const elapsedSec = Math.floor((Date.now() - focusStartTime) / 1000);
       const m = Math.floor(elapsedSec / 60);
       const s = elapsedSec % 60;

@@ -174,7 +174,7 @@ export function createSettings(deps) {
       `<div class="modal-overlay" data-action="close-modal" data-click-self="true"><div class="modal" style="max-width:540px" aria-labelledby="modal-title-settings">
     <h2 class="modal-title" id="modal-title-settings">Settings</h2>
     <div class="form-group"><label class="form-label">Claude API Key <span style="color:var(--text3);font-weight:400">(optional)</span></label><div style="position:relative"><input class="form-input" id="fApiKey" type="password" value="${esc(settings.apiKey)}" placeholder="Leave blank to use shared AI" aria-label="Claude API Key" style="font-family:monospace;padding-right:40px"><button type="button" data-action="toggle-api-key-vis" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--text3);font-size:10px;cursor:pointer;padding:4px">show</button></div></div>
-    <p style="font-size:11px;color:var(--text3);margin-bottom:16px">Free AI included (shared quota). Add your own API key from <a href="https://console.anthropic.com" target="_blank" rel="noopener" style="color:var(--accent)">console.anthropic.com</a> for unlimited personal use. Your key is stored locally and sent securely through our proxy to Anthropic.</p>
+    <p style="font-size:11px;color:var(--text3);margin-bottom:16px">Free AI included (shared quota). Add your own key from <a href="https://console.anthropic.com" target="_blank" rel="noopener" style="color:var(--accent)">console.anthropic.com</a> \u2192 API Keys \u2192 Create Key for unlimited personal use. Your key stays on your device and is sent securely through our proxy.</p>
 
     <div style="margin-bottom:16px">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
@@ -254,7 +254,18 @@ export function createSettings(deps) {
           return;
         }
         // Sanitize: strip any HTML tags from imported strings (data is escaped at render time)
-        const stripTags = (s) => (typeof s === 'string' ? s.replace(/<[^>]*>/g, '') : s);
+        const stripTags = (v) => {
+          if (typeof v === 'string') return v.replace(/<[^>]*>/g, '');
+          if (Array.isArray(v)) return v.map(stripTags);
+          if (v && typeof v === 'object') {
+            const clean = {};
+            for (const [key, val] of Object.entries(v)) {
+              clean[key] = stripTags(val);
+            }
+            return clean;
+          }
+          return v;
+        };
         d.tasks = d.tasks.map((t) => {
           const clean = {};
           for (const [k, v] of Object.entries(t)) {
@@ -350,7 +361,7 @@ export function createSettings(deps) {
     <h2 class="modal-title" id="modal-title-edit-board">Edit Board</h2>
     <div class="form-group"><label class="form-label" for="fName">Name</label><input class="form-input" id="fName" value="${esc(p.name)}"></div>
     <div class="form-group"><label class="form-label" for="fDesc">Description</label><textarea class="form-textarea" id="fDesc">${esc(p.description)}</textarea></div>
-    <div class="form-group"><label class="form-label" for="fColors">Color</label><div style="display:flex;gap:6px" id="fColors">${PROJECT_COLORS.map((c) => `<div style="width:24px;height:24px;border-radius:6px;background:${c};cursor:pointer;border:2px solid ${c === p.color ? '#fff' : 'transparent'}" data-action="pick-color" data-color="${c}" ${c === p.color ? 'data-picked="1"' : ''}></div>`).join('')}</div></div>
+    <div class="form-group"><label class="form-label" for="fColors">Color</label><div style="display:flex;gap:6px" id="fColors">${PROJECT_COLORS.map((c) => `<div style="width:24px;height:24px;border-radius:6px;background:${c};cursor:pointer;border:2px solid ${c === p.color ? '#fff' : 'transparent'}" data-action="pick-color" data-color="${c}" ${c === p.color ? 'data-picked="1"' : ''} role="button" tabindex="0" aria-label="Select color ${c}"></div>`).join('')}</div></div>
     <div class="modal-actions">
       <button class="btn btn-danger btn-sm" data-action="confirm-delete-project" data-project-id="${esc(p.id)}">Delete Project</button>
       <div style="flex:1"></div>

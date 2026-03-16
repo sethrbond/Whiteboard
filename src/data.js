@@ -227,7 +227,11 @@ export function createDataLayer(deps) {
   }
 
   function saveSettings(s) {
-    localStorage.setItem(userKey(SETTINGS_KEY), JSON.stringify(s));
+    try {
+      localStorage.setItem(userKey(SETTINGS_KEY), JSON.stringify(s));
+    } catch (e) {
+      console.error('saveSettings: localStorage quota exceeded', e);
+    }
     const scheduleSyncToCloud = getScheduleSyncToCloud();
     if (scheduleSyncToCloud) scheduleSyncToCloud();
   }
@@ -471,14 +475,19 @@ export function createDataLayer(deps) {
   function undo() {
     if (!undoStack.length) return;
     const entry = undoStack.pop();
+    let parsed;
     try {
-      data = JSON.parse(entry.snapshot);
+      parsed = JSON.parse(entry.snapshot);
     } catch (e) {
       console.error('Undo failed — snapshot corrupted:', e);
       getShowToast()('Undo failed — snapshot corrupted', true);
       _persistUndoStack();
       return;
     }
+    if (!Array.isArray(parsed.tasks)) parsed.tasks = [];
+    if (!Array.isArray(parsed.projects)) parsed.projects = [];
+    parsed = migrateData(parsed);
+    data = parsed;
     saveData(data);
     _persistUndoStack();
     getRender()();

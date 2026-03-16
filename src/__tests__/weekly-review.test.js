@@ -68,6 +68,14 @@ function makeDeps(overrides = {}) {
         String(s || '')
           .replace(/</g, '&lt;')
           .replace(/>/g, '&gt;'),
+      sanitizeAIHTML: (s) => {
+        if (s == null) return '';
+        let out = String(s).replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        out = out.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+        out = out.replace(/\*(.*?)\*/g, '<em>$1</em>');
+        out = out.replace(/\n/g, '<br>');
+        return out;
+      },
       localISO: (d) =>
         d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'),
       todayStr: vi.fn(() => todayISO),

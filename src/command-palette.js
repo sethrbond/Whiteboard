@@ -140,7 +140,7 @@ export function createCommandPalette(deps) {
   function openSearch() {
     cmdIdx = 0;
     $('#modalRoot').innerHTML =
-      `<div class="modal-overlay" style="align-items:flex-start;padding-top:min(20vh,140px)" data-action="close-modal" data-click-self="true"><div class="cmd-palette">
+      `<div class="modal-overlay" style="align-items:flex-start;padding-top:min(20vh,140px)" data-action="close-modal" data-click-self="true" role="dialog" aria-modal="true" aria-label="Command palette"><div class="cmd-palette">
       <div class="cmd-input-row">
         <span class="cmd-icon">\u2318</span>
         <input class="cmd-input" id="searchInput" placeholder="Search tasks, projects, or type a command..." aria-label="Search tasks, projects, or commands" autofocus data-oninput-action="cmd-search" data-keydown-action="cmd-nav">
@@ -188,6 +188,7 @@ export function createCommandPalette(deps) {
   }
 
   function renderSearchResults(query) {
+    cmdIdx = 0;
     const el = $('#searchResults');
     const data = getData();
     const currentProject = deps.getCurrentProject();
@@ -319,6 +320,31 @@ export function createCommandPalette(deps) {
         html += cmdItemHtml(c, globalIdx === 0);
         globalIdx++;
       });
+      // "What can TaskBoard do?" discovery chip — always shown in empty palette
+      const _helpKey = 'c_help';
+      _cmdActions[_helpKey] = () => {
+        closeModal();
+        const _helpHtml =
+          '<div class="modal-overlay" data-action="close-modal" data-click-self="true"><div class="modal" style="max-width:440px;padding:28px">' +
+          '<div style="font-size:15px;font-weight:600;margin-bottom:14px">What can TaskBoard do?</div>' +
+          '<ul style="font-size:13px;color:var(--text2);line-height:2;padding-left:18px;margin:0">' +
+          '<li><strong>Brainstorm</strong> \u2014 Paste notes, meeting minutes, or ideas and AI extracts tasks</li>' +
+          '<li><strong>AI Chat</strong> \u2014 Ask your assistant to plan, prioritize, or break down work</li>' +
+          '<li><strong>Focus Mode</strong> \u2014 AI picks your next deep-work session with a timer</li>' +
+          '<li><strong>Daily Briefing</strong> \u2014 Get a morning summary of what needs attention</li>' +
+          '<li><strong>Weekly Review</strong> \u2014 AI-generated reflection on your productivity</li>' +
+          '<li><strong>Smart Scheduling</strong> \u2014 Natural language dates, recurring tasks, dependencies</li>' +
+          '<li><strong>Command Palette</strong> \u2014 Press <kbd style="font-size:11px;background:var(--hover);border:1px solid var(--border);border-radius:4px;padding:1px 5px">Cmd+K</kbd> to do anything fast</li>' +
+          '</ul>' +
+          '<div style="margin-top:16px;text-align:right"><button class="btn btn-primary" data-action="close-modal" style="font-size:12px">Got it</button></div>' +
+          '</div></div>';
+        const mr = document.getElementById('modalRoot');
+        if (mr) mr.innerHTML = _helpHtml;
+      };
+      html +=
+        '<div class="cmd-item" data-action="cmd-exec" data-cmd-key="' +
+        _helpKey +
+        '" data-cmd-label="What can TaskBoard do?"><span class="cmd-item-icon" style="color:var(--accent)">?</span><span class="cmd-item-label" style="color:var(--text2);font-style:italic">What can TaskBoard do?</span></div>';
       const recent = [...data.tasks]
         .filter((t) => t.status !== 'done')
         .sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''))

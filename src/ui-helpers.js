@@ -88,7 +88,7 @@ export function createUIHelpers(deps) {
       .map((tag) => {
         const c = getTagColor(tag);
         const sel = selected.has(tag) ? ' selected' : '';
-        return `<span class="tag-chip${sel}" data-tag="${esc(tag)}" style="background:${c.bg};color:${c.color}" data-action="toggle-tag-chip">${esc(tag)}</span>`;
+        return `<span class="tag-chip${sel}" data-tag="${esc(tag)}" style="background:${c.bg};color:${c.color}" data-action="toggle-tag-chip" role="button" tabindex="0">${esc(tag)}</span>`;
       })
       .join('');
     html += `<input class="tag-add-input" placeholder="+ new tag" aria-label="Add tag" data-keydown-action="add-tag">`;
@@ -250,7 +250,7 @@ export function createUIHelpers(deps) {
           `<div style="display:flex;align-items:center;gap:6px;padding:2px 0;font-size:12px">
       <span style="color:${b.status === 'done' ? 'var(--green)' : 'var(--red)'}">${b.status === 'done' ? '\u2713' : '\u25CB'}</span>
       <span style="color:${b.status === 'done' ? 'var(--text3)' : 'var(--text)'};${b.status === 'done' ? 'text-decoration:line-through' : ''}">${esc(b.title)}</span>
-      <span style="font-size:10px;color:var(--text3);cursor:pointer" data-action="remove-dep" data-task-id="${t.id}" data-blocker-id="${b.id}">\u2715</span>
+      <span style="font-size:10px;color:var(--text3);cursor:pointer" data-action="remove-dep" data-task-id="${t.id}" data-blocker-id="${b.id}" role="button" tabindex="0" aria-label="Remove dependency">\u2715</span>
     </div>`,
       )
       .join('')}</div>`;

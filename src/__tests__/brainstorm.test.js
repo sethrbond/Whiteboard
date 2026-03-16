@@ -320,7 +320,7 @@ describe('brainstorm.js — createBrainstorm()', () => {
   it('renderDump shows API key warning when hasAI returns false', () => {
     deps.hasAI.mockReturnValue(false);
     const html = bs.renderDump();
-    expect(html).toContain('Add a Claude API key');
+    expect(html).toContain('add your Claude API key');
     expect(html).toContain('Add Tasks');
   });
 
@@ -328,7 +328,7 @@ describe('brainstorm.js — createBrainstorm()', () => {
     deps.hasAI.mockReturnValue(true);
     const html = bs.renderDump();
     expect(html).toContain('Analyze');
-    expect(html).not.toContain('Add a Claude API key');
+    expect(html).not.toContain('add your Claude API key');
   });
 
   it('renderDump includes saved draft in textarea', () => {

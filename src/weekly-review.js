@@ -15,6 +15,7 @@ export function createWeeklyReview(deps) {
     hasAI,
     callAI,
     getAIMemory,
+    sanitizeAIHTML,
     esc,
     localISO,
     todayStr,
@@ -355,10 +356,7 @@ Keep it under 250 words. Be direct and honest.`;
 
     try {
       let text = await callAI(prompt, { maxTokens: 1024, temperature: 0.3 });
-      text = esc(text)
-        .replace(/^[-•*]\s*/gm, '')
-        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-        .replace(/\n/g, '<br>');
+      text = sanitizeAIHTML(text);
       const reviewKey = userKey('whiteboard_review_' + weekStart);
       localStorage.setItem(reviewKey, text);
       if (body) {

@@ -117,6 +117,7 @@ const _sectionShowCount = {};
 let _archiveShowCount = 50;
 let _smartFeedExpanded = false;
 let _todayBriefingExpanded = false;
+let _renderNow;
 let kbIdx = -1;
 window._welcomeTypingInterval = null;
 
@@ -156,7 +157,21 @@ const saveSettings = (s) => _dataLayer.saveSettings(s);
 const validateTaskFields = _dataLayer.validateTaskFields;
 const createTask = (o) => _dataLayer.createTask(o);
 const createProject = (o) => _dataLayer.createProject(o);
-const addTask = (t) => _dataLayer.addTask(t);
+const addTask = (t) => {
+  _dataLayer.addTask(t);
+  // Show inline tip after first task creation (once ever)
+  const _d = _dataLayer.getData ? _dataLayer.getData() : null;
+  if (_d && _d.tasks.length === 1 && !localStorage.getItem(userKey('wb_first_task_tip_shown'))) {
+    localStorage.setItem(userKey('wb_first_task_tip_shown'), '1');
+    setTimeout(() => {
+      if (typeof showToast === 'function') {
+        const _isMac = typeof navigator !== 'undefined' && navigator.platform && navigator.platform.includes('Mac');
+        const _mod = _isMac ? 'Cmd' : 'Ctrl';
+        showToast('Nice! Press ' + _mod + '+J anytime to chat with your AI assistant');
+      }
+    }, 600);
+  }
+};
 const updateTask = (id, u) => _dataLayer.updateTask(id, u);
 const deleteTask = (id, silent) => _dataLayer.deleteTask(id, silent);
 const addProject = (p) => _dataLayer.addProject(p);
@@ -291,7 +306,7 @@ function render() {
   if (_renderRAF) return;
   _renderRAF = requestAnimationFrame(() => {
     _renderRAF = null;
-    _renderNow();
+    if (typeof _renderNow === 'function') _renderNow();
     if (typeof _maybeEscalationOnRender === 'function') _maybeEscalationOnRender();
     // Trigger feature tips after first brainstorm (deferred from onboarding)
     if (localStorage.getItem(userKey('wb_show_tips_after_brainstorm')) === '1') {
@@ -299,6 +314,12 @@ function render() {
       setTimeout(() => {
         if (_auth && _auth.showFeatureTips) _auth.showFeatureTips();
       }, 800);
+    }
+    // Also show feature tips on first dashboard view if user has tasks but hasn't seen tips
+    if (currentView === 'dashboard' && data.tasks.length > 0 && !localStorage.getItem(userKey('wb_tips_seen'))) {
+      setTimeout(() => {
+        if (_auth && _auth.showFeatureTips) _auth.showFeatureTips();
+      }, 1200);
     }
   });
 }
@@ -543,36 +564,42 @@ const maybeProactiveChat = _chat.maybeProactiveChat;
 // ============================================================
 let _brainstormMod = null;
 async function _loadBrainstorm() {
-  if (!_brainstormMod) {
-    const { createBrainstorm } = await import('./brainstorm.js');
-    _brainstormMod = createBrainstorm({
-      userKey,
-      render,
-      showToast,
-      hasAI,
-      callAI,
-      getAIEndpoint,
-      getData: () => data,
-      getSettings: () => settings,
-      findTask,
-      findSimilarTask,
-      findSimilarProject,
-      createTask,
-      addTask,
-      updateTask,
-      createProject,
-      addProject,
-      updateProject,
-      getLifeProjectId,
-      pushUndo,
-      undo,
-      closeModal,
-      genId,
-      normalizeTitle,
-      $,
-    });
+  try {
+    if (!_brainstormMod) {
+      const { createBrainstorm } = await import('./brainstorm.js');
+      _brainstormMod = createBrainstorm({
+        userKey,
+        render,
+        showToast,
+        hasAI,
+        callAI,
+        getAIEndpoint,
+        getData: () => data,
+        getSettings: () => settings,
+        findTask,
+        findSimilarTask,
+        findSimilarProject,
+        createTask,
+        addTask,
+        updateTask,
+        createProject,
+        addProject,
+        updateProject,
+        getLifeProjectId,
+        pushUndo,
+        undo,
+        closeModal,
+        genId,
+        normalizeTitle,
+        $,
+      });
+    }
+    return _brainstormMod;
+  } catch (err) {
+    console.error('Failed to load Brainstorm module:', err);
+    showToast('Failed to load Brainstorm. Please reload the page.', 'error');
+    throw err;
   }
-  return _brainstormMod;
 }
 async function renderDump() {
   return (await _loadBrainstorm()).renderDump();
@@ -714,30 +741,37 @@ const clearNotifications = () => _notifications.clearScheduled();
 // ============================================================
 let _weeklyReviewMod = null;
 async function _loadWeeklyReview() {
-  if (!_weeklyReviewMod) {
-    const { createWeeklyReview } = await import('./weekly-review.js');
-    _weeklyReviewMod = createWeeklyReview({
-      data,
-      userKey,
-      activeTasks,
-      projectTasks,
-      hasAI,
-      callAI,
-      getAIMemory,
-      esc,
-      localISO,
-      todayStr,
-      showToast,
-      getChatHistory: () => _chat.getChatHistory(),
-      saveChatHistory,
-      chatTimeStr,
-      getChatSessionStarted: () => _chat.getChatSessionStarted(),
-      setChatSessionStarted: (v) => {
-        _chat.setChatSessionStarted(v);
-      },
-    });
+  try {
+    if (!_weeklyReviewMod) {
+      const { createWeeklyReview } = await import('./weekly-review.js');
+      _weeklyReviewMod = createWeeklyReview({
+        data,
+        userKey,
+        activeTasks,
+        projectTasks,
+        hasAI,
+        callAI,
+        getAIMemory,
+        sanitizeAIHTML,
+        esc,
+        localISO,
+        todayStr,
+        showToast,
+        getChatHistory: () => _chat.getChatHistory(),
+        saveChatHistory,
+        chatTimeStr,
+        getChatSessionStarted: () => _chat.getChatSessionStarted(),
+        setChatSessionStarted: (v) => {
+          _chat.setChatSessionStarted(v);
+        },
+      });
+    }
+    return _weeklyReviewMod;
+  } catch (err) {
+    console.error('Failed to load Weekly Review module:', err);
+    showToast('Failed to load Weekly Review. Please reload the page.', 'error');
+    throw err;
   }
-  return _weeklyReviewMod;
 }
 async function renderWeeklyReview() {
   return (await _loadWeeklyReview()).renderWeeklyReview();
@@ -752,31 +786,38 @@ let generateWeeklyReview = async (...args) => (await _loadWeeklyReview()).genera
 // ============================================================
 let _focusMod = null;
 async function _loadFocus() {
-  if (!_focusMod) {
-    const { createFocusMode } = await import('./focus.js');
-    _focusMod = createFocusMode({
-      $,
-      esc,
-      findTask,
-      updateTask,
-      activeTasks,
-      matchTask,
-      showToast: (...args) => showToast(...args),
-      render: () => render(),
-      hasAI,
-      callAI,
-      buildAIContext,
-      getAIMemory,
-      PRIORITY_ORDER,
-      AI_PERSONA_SHORT,
-      getData: () => data,
-      setModalTriggerEl: (el) => {
-        _events.setModalTriggerEl(el);
-      },
-      userKey,
-    });
+  try {
+    if (!_focusMod) {
+      const { createFocusMode } = await import('./focus.js');
+      _focusMod = createFocusMode({
+        $,
+        esc,
+        findTask,
+        updateTask,
+        activeTasks,
+        matchTask,
+        showToast: (...args) => showToast(...args),
+        render: () => render(),
+        hasAI,
+        callAI,
+        buildAIContext,
+        getAIMemory,
+        sanitizeAIHTML,
+        PRIORITY_ORDER,
+        AI_PERSONA_SHORT,
+        getData: () => data,
+        setModalTriggerEl: (el) => {
+          _events.setModalTriggerEl(el);
+        },
+        userKey,
+      });
+    }
+    return _focusMod;
+  } catch (err) {
+    console.error('Failed to load Focus Mode module:', err);
+    showToast('Failed to load Focus Mode. Please reload the page.', 'error');
+    throw err;
   }
-  return _focusMod;
 }
 async function startFocus(...args) {
   return (await _loadFocus()).startFocus(...args);
@@ -877,40 +918,46 @@ const applyTemplateToQuickAdd = _quickAdd.applyTemplateToQuickAdd;
 // ============================================================
 let _cmdPaletteMod = null;
 async function _loadCommandPalette() {
-  if (!_cmdPaletteMod) {
-    const { createCommandPalette } = await import('./command-palette.js');
-    _cmdPaletteMod = createCommandPalette({
-      $,
-      $$,
-      esc,
-      highlightMatch,
-      fmtDate,
-      getData: () => data,
-      userKey,
-      closeModal,
-      setModalTriggerEl: (el) => {
-        _events.setModalTriggerEl(el);
-      },
-      activeTasks,
-      hasAI,
-      showToast: (...args) => showToast(...args),
-      setView,
-      sendChat,
-      toggleChat,
-      openNewTask,
-      openQuickAdd,
-      openNewProject: () => openNewProject(),
-      openSettings: () => openSettings(),
-      startFocus: (...args) => startFocus(...args),
-      aiReorganize,
-      filterAIPrepared: (...args) => filterAIPrepared(...args),
-      setNudgeFilter: (v) => {
-        _nudgeFilter = v;
-      },
-      getCurrentProject: () => currentProject,
-    });
+  try {
+    if (!_cmdPaletteMod) {
+      const { createCommandPalette } = await import('./command-palette.js');
+      _cmdPaletteMod = createCommandPalette({
+        $,
+        $$,
+        esc,
+        highlightMatch,
+        fmtDate,
+        getData: () => data,
+        userKey,
+        closeModal,
+        setModalTriggerEl: (el) => {
+          _events.setModalTriggerEl(el);
+        },
+        activeTasks,
+        hasAI,
+        showToast: (...args) => showToast(...args),
+        setView,
+        sendChat,
+        toggleChat,
+        openNewTask,
+        openQuickAdd,
+        openNewProject: () => openNewProject(),
+        openSettings: () => openSettings(),
+        startFocus: (...args) => startFocus(...args),
+        aiReorganize,
+        filterAIPrepared: (...args) => filterAIPrepared(...args),
+        setNudgeFilter: (v) => {
+          _nudgeFilter = v;
+        },
+        getCurrentProject: () => currentProject,
+      });
+    }
+    return _cmdPaletteMod;
+  } catch (err) {
+    console.error('Failed to load Command Palette module:', err);
+    showToast('Failed to load Command Palette. Please reload the page.', 'error');
+    throw err;
   }
-  return _cmdPaletteMod;
 }
 async function openSearch() {
   return (await _loadCommandPalette()).openSearch();
@@ -1260,7 +1307,7 @@ const _dashboard = createDashboard({
         },
 });
 const sortTasks = _dashboard.sortTasks;
-const _renderNow = _dashboard._renderNow;
+_renderNow = _dashboard._renderNow;
 const heroInputHandler = _dashboard.heroInputHandler;
 _dashboard.hookDashboardPostRender();
 
@@ -1627,6 +1674,34 @@ function _scheduleProactiveChat() {
   ); // 10 minutes
 }
 _scheduleProactiveChat();
+
+// Idle nudge for first-time users — after 60s of inactivity, suggest brainstorm
+(function _initIdleNudge() {
+  if (localStorage.getItem('wb_idle_nudge_shown')) return;
+  const _idleNudgeTimer = setTimeout(() => {
+    // Only fire if still no tasks and nudge not yet shown
+    if (localStorage.getItem('wb_idle_nudge_shown')) return;
+    try {
+      const _d = _dataLayer.getData ? _dataLayer.getData() : null;
+      if (_d && _d.tasks.length === 0) {
+        localStorage.setItem('wb_idle_nudge_shown', '1');
+        if (typeof showToast === 'function') {
+          showToast('Try pasting meeting notes or a to-do list above \u2014 AI will organize everything for you');
+        }
+      }
+    } catch (_e) {
+      /* ignore */
+    }
+  }, 60000);
+  // Cancel if user interacts (creates a task, etc.)
+  const _cancelIdleNudge = () => {
+    clearTimeout(_idleNudgeTimer);
+    document.removeEventListener('click', _cancelIdleNudge);
+    document.removeEventListener('keydown', _cancelIdleNudge);
+  };
+  document.addEventListener('click', _cancelIdleNudge);
+  document.addEventListener('keydown', _cancelIdleNudge);
+})();
 
 // ============================================================
 // EXPORTS — For testing

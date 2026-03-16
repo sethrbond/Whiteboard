@@ -171,6 +171,7 @@ export function createEvents(deps) {
       document.body.appendChild(overlay);
       document.addEventListener('keydown', escHandler);
       pushModalState('confirm');
+      if (_trapFocusCleanup) _trapFocusCleanup();
       _trapFocusCleanup = trapFocus(overlay);
       overlay.querySelector('#_confirmCancel').onclick = () => dismiss(false);
       overlay.querySelector('#_confirmOk').onclick = () => dismiss(true);

@@ -288,7 +288,7 @@ export function createDashboard(deps) {
         <div style="flex:1">
           <h2 class="project-info-name">${esc(p.name)}</h2>
           ${p.description ? `<div class="project-info-desc">${esc(p.description.length > TRUNCATE_DESC ? p.description.slice(0, TRUNCATE_DESC) + '...' : p.description)}</div>` : `<div class="project-info-desc" style="color:var(--text3);font-style:italic">No description \u2014 <span style="cursor:pointer;color:var(--accent)" data-action="open-edit-project" data-project-id="${esc(p.id)}">add one</span></div>`}
-          <div class="project-bg-toggle" data-action="toggle-project-bg" data-project-id="${esc(p.id)}">
+          <div class="project-bg-toggle" data-action="toggle-project-bg" data-project-id="${esc(p.id)}" role="button" tabindex="0" aria-label="Toggle project background">
             <span class="chevron ${bgOpen ? 'open' : ''}">\u25b8</span> Board Background
           </div>
         </div>
@@ -1102,7 +1102,7 @@ export function createDashboard(deps) {
       html += `<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
         <span style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;color:var(--accent)">Day Plan</span>
         <span style="font-size:10px;color:${doneCount === totalCount && totalCount > 0 ? 'var(--green)' : 'var(--text3)'}">${doneCount}/${totalCount} done${planTimeStr}</span>
-        <span style="margin-left:auto;font-size:10px;color:var(--text3);cursor:pointer" data-action="clear-plan" data-plan-key="${planKey}">clear</span>
+        <span style="margin-left:auto;font-size:10px;color:var(--text3);cursor:pointer" data-action="clear-plan" data-plan-key="${planKey}" role="button" tabindex="0" aria-label="Clear plan">clear</span>
       </div>`;
 
       plan.forEach((p, i) => {
@@ -1478,7 +1478,7 @@ export function createDashboard(deps) {
         html += `<div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:12px;align-items:center">
           <span style="font-size:10px;color:var(--text3);margin-right:4px">Tag:</span>
           <span class="tag-chip tag-filter-btn selected" style="background:${getTagColor(activeTagFilter).bg};color:${getTagColor(activeTagFilter).color};font-size:10px" data-tag="${esc(activeTagFilter)}">${esc(activeTagFilter)}</span>
-          <span style="font-size:10px;color:var(--accent);cursor:pointer;margin-left:4px" data-action="clear-tag-filter">\u2715 clear</span>
+          <span style="font-size:10px;color:var(--accent);cursor:pointer;margin-left:4px" data-action="clear-tag-filter" role="button" tabindex="0" aria-label="Clear tag filter">\u2715 clear</span>
         </div>`;
       } else {
         const _showTagFilterVal = getShowTagFilter();

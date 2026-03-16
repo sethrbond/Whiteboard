@@ -7,6 +7,11 @@ import { parseNaturalDate } from './dates.js';
  * Tries: direct parse → extract {...} → bracket-balance → extract [...] → individual objects.
  */
 export function parseDumpResponse(content) {
+  if (content == null) return [];
+  // Strip markdown code fences without damaging JSON string values
+  const fenceMatch = content.match(/```json?\s*([\s\S]*?)```/);
+  if (fenceMatch) content = fenceMatch[1].trim();
+
   let parsed;
   try {
     parsed = JSON.parse(content);

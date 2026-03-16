@@ -716,6 +716,12 @@ ONLY return JSON.`;
     </div>
   </div></div>`;
     pushModalState('edit-task');
+    // Capture snapshot of initial form state for unsaved-changes detection
+    _editSnapshot = {};
+    for (const id of ['fTitle', 'fNotes', 'fStatus', 'fPriority', 'fProject', 'fRecurrence', 'fPhase']) {
+      const el = document.getElementById(id);
+      _editSnapshot[id] = el ? el.value : '';
+    }
     setTimeout(() => {
       const m = $('#modalRoot').querySelector('.modal-overlay');
       if (m) {

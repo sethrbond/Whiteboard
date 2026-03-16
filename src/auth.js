@@ -326,6 +326,8 @@ export function createAuth(deps) {
     if (!localStorage.getItem(userKey('wb_onboarding_done')) && data.tasks.length === 0 && data.projects.length <= 1) {
       showOnboarding();
     }
+    // Auto-open chat for first-time users so AI greets them immediately
+    getChatModule().autoOpenForFirstTimeUser();
   }
 
   function showOnboarding() {

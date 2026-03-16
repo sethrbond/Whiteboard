@@ -26,7 +26,25 @@ export function createAICaller(config) {
     return true;
   }
 
+  let _lastCallTime = 0;
+  let _activeCalls = 0;
+
   async function callAI(prompt, opts = {}) {
+    if (_activeCalls >= 3) {
+      const err = new Error('AI is busy, please wait');
+      err.status = 429;
+      throw err;
+    }
+
+    const now = Date.now();
+    const elapsed = now - _lastCallTime;
+    if (_lastCallTime > 0 && elapsed < 500) {
+      await new Promise((r) => setTimeout(r, 500 - elapsed));
+    }
+
+    _activeCalls++;
+    _lastCallTime = Date.now();
+
     const { system, maxTokens = 2048, messages, temperature, signal: externalSignal } = opts;
     const s = getSettings();
     const ep = getAIEndpoint();
@@ -95,6 +113,7 @@ export function createAICaller(config) {
       }
       throw err;
     } finally {
+      _activeCalls--;
       clearTimeout(timeout);
     }
   }

@@ -482,6 +482,7 @@ describe('sync.js — createSync()', () => {
     deps.sb = sb;
     deps.getData.mockReturnValue({ tasks: [], projects: [] });
     deps.getSettings.mockReturnValue({ aiModel: 'claude' });
+    localStorage.setItem('user1_wb_data', JSON.stringify({ tasks: [], projects: [] }));
     sync = createSync(deps);
 
     // Call multiple times rapidly
@@ -535,6 +536,7 @@ describe('sync.js — createSync()', () => {
     deps.sb = sb;
     deps.getData.mockReturnValue({ tasks: [{ id: 't1', title: 'T' }], projects: [] });
     deps.getSettings.mockReturnValue({ aiModel: 'claude' });
+    localStorage.setItem('user1_wb_data', JSON.stringify({ tasks: [{ id: 't1', title: 'T' }], projects: [] }));
     sync = createSync(deps);
 
     const promise = sync.syncToCloud();
@@ -591,6 +593,7 @@ describe('sync.js — createSync()', () => {
     deps.sb = sb;
     deps.getData.mockReturnValue({ tasks: [], projects: [] }); // empty local data
     deps.getSettings.mockReturnValue({ aiModel: 'claude' });
+    localStorage.setItem('user1_wb_data', JSON.stringify({ tasks: [], projects: [] }));
     sync = createSync(deps);
     sync.setLastCloudUpdatedAt('2026-03-15T10:00:00Z');
 
@@ -904,6 +907,7 @@ describe('sync.js — additional coverage', () => {
       deps.sb = sb;
       deps.getData.mockReturnValue({ tasks: [{ id: 't1', title: 'T' }], projects: [] });
       deps.getSettings.mockReturnValue({ aiModel: 'claude' });
+      localStorage.setItem('user1_wb_data', JSON.stringify({ tasks: [{ id: 't1', title: 'T' }], projects: [] }));
       sync = createSync(deps);
 
       sync.showSyncFailBanner();

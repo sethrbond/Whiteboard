@@ -313,7 +313,7 @@ Keep notes concise and actionable. Today is ${todayStr()}.`,
     const data = getData();
     const projOpts = data.projects.map((p) => `<option value="${p.id}">${esc(p.name)}</option>`).join('');
     $('#modalRoot').innerHTML =
-      `<div class="modal-overlay" style="align-items:flex-start;padding-top:min(18vh,120px)" data-action="close-modal" data-click-self="true"><div class="cmd-palette" style="max-width:520px">
+      `<div class="modal-overlay" style="align-items:flex-start;padding-top:min(18vh,120px)" data-action="close-modal" data-click-self="true" role="dialog" aria-modal="true" aria-label="Quick add task"><div class="cmd-palette" style="max-width:520px">
       <div class="cmd-input-row">
         <span class="cmd-icon" style="color:var(--accent)">+</span>
         <input class="cmd-input" id="quickAddInput" placeholder="Add task..." aria-label="Quick add task" autofocus data-keydown-action="quick-add-submit">
@@ -600,24 +600,24 @@ Rules:
       data.tasks.forEach((t) => {
         if (t.blockedBy) t.blockedBy = t.blockedBy.filter((bid) => !idSet.has(bid));
       });
-      setBatchMode(false);
       saveData(data);
+      setBatchMode(false);
       showUndoToast(`Deleted ${ids.length} tasks`);
     } else if (action === 'done' || action === 'todo') {
       ids.forEach((id) => updateTask(id, { status: action }));
-      setBatchMode(false);
       saveData(data);
+      setBatchMode(false);
       showToast(`${ids.length} tasks → ${action}`);
     } else if (action === 'move') {
       ids.forEach((id) => updateTask(id, { project: value }));
-      setBatchMode(false);
       saveData(data);
+      setBatchMode(false);
       const proj = data.projects.find((p) => p.id === value);
       showToast(`Moved ${ids.length} to ${proj ? proj.name : 'board'}`);
     } else if (action === 'priority') {
       ids.forEach((id) => updateTask(id, { priority: value }));
-      setBatchMode(false);
       saveData(data);
+      setBatchMode(false);
       showToast(`${ids.length} tasks → ${value}`);
     } else {
       setBatchMode(false);
