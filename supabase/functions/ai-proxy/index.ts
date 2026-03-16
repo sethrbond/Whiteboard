@@ -14,6 +14,8 @@ const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY')
 const ALLOWED_MODELS = new Set([
   'claude-haiku-4-5-20251001',
   'claude-sonnet-4-5-20241022',
+  'claude-sonnet-4-5-20250514',
+  'claude-sonnet-4-6-20250627',
 ])
 
 const RATE_LIMIT_HOUR = 60     // max requests per IP per rolling hour
@@ -30,15 +32,14 @@ const DAY_MS = 24 * HOUR_MS
 const ALLOWED_ORIGINS = new Set([
   'https://www.whiteboards.dev',
   'https://whiteboards.dev',
-  'http://localhost:5173',
-  'http://localhost:3000',
+  ...(Deno.env.get('ALLOW_DEV_ORIGINS') === 'true' ? ['http://localhost:5173', 'http://localhost:3000'] : []),
 ])
 
 function getCorsHeaders(req: Request) {
   const origin = req.headers.get('origin') || ''
   return {
     'Access-Control-Allow-Origin': ALLOWED_ORIGINS.has(origin) ? origin : 'https://www.whiteboards.dev',
-    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, anthropic-version',
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, content-type, anthropic-version',
     'Access-Control-Allow-Methods': 'POST, OPTIONS',
   }
 }
@@ -303,6 +304,9 @@ serve(async (req) => {
       ...(typeof temperature === 'number' ? { temperature: Math.min(Math.max(temperature, 0), 1) } : {}),
     }
 
+    // Audit log
+    console.log(`[REQ] ${clientIP} model=${model} stream=${!!stream} msgs=${messages?.length} max_tokens=${finalMaxTokens}`)
+
     const anthropicResp = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -331,6 +335,6 @@ serve(async (req) => {
     })
   } catch (err) {
     console.error('[PROXY ERROR]', err)
-    return jsonError((err as Error).message || 'Proxy error', 500, req)
+    return jsonError('An error occurred processing your request. Please try again.', 500, req)
   }
 })

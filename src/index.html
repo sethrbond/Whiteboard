@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<!--v3 — modular-->
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#09090b" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; connect-src 'self' https://api.anthropic.com https://*.supabase.co wss://*.supabase.co; img-src 'self' data: blob:; frame-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'">
+<title>Whiteboards — AI-powered productivity</title>
+<meta name="description" content="Brainstorm freely, AI organizes your thoughts into tasks. The productivity tool that thinks with you.">
+<meta property="og:title" content="Whiteboards — AI-powered productivity">
+<meta property="og:description" content="Brainstorm freely, AI organizes your thoughts into tasks. The productivity tool that thinks with you.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://www.whiteboards.dev">
+<meta property="og:image" content="https://www.whiteboards.dev/og-image.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Whiteboards — AI-powered productivity">
+<meta name="twitter:description" content="Brainstorm freely, AI organizes your thoughts into tasks.">
+<meta name="twitter:image" content="https://www.whiteboards.dev/og-image.png">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%23818cf8'/><text x='50' y='68' text-anchor='middle' font-size='52' font-weight='bold' fill='white'>W</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" media="print" onload="this.media='all'">
+<noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"></noscript>
+<link rel="manifest" href="./manifest.json">
+<link rel="stylesheet" href="./styles/main.css">
+</head>
+<body>
+<a href="#content" class="skip-link">Skip to main content</a>
+<div id="ariaLive" aria-live="polite" aria-atomic="true" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap"></div>
+
+<!-- Splash Screen (first load only) -->
+<div id="splashScreen">
+  <div class="splash-logo" aria-hidden="true">W</div>
+  <div id="splashStatus"></div>
+</div>
+
+<!-- Landing Page -->
+<div class="landing-page" id="landingPage" data-testid="landing-page">
+  <div class="landing-bg-glow"></div>
+  <div class="landing-bg-glow-2"></div>
+  <div class="landing-content">
+    <div class="landing-badge">
+      <span class="landing-badge-dot"></span>
+      Free forever &mdash; no credit card
+    </div>
+    <h1 class="landing-h1">
+      Brainstorm freely.<br>
+      <span class="landing-h1-accent">AI turns it into action.</span>
+    </h1>
+    <p class="landing-sub">
+      Pour out your thoughts, meeting notes, or project docs. AI reads everything, asks the right questions, and organizes it all into tasks and projects — instantly.
+    </p>
+    <div class="landing-cta-row">
+      <button class="landing-cta" data-action="auth-landing">
+        Get Started Free &rarr;
+      </button>
+      <button class="landing-cta-secondary" data-action="auth-landing-login">
+        Sign In
+      </button>
+    </div>
+    <div class="landing-features">
+      <div class="landing-feature">
+        <div class="landing-feature-icon" aria-hidden="true">&#x21af;</div>
+        <h2>Drop your chaos</h2>
+        <p>Paste meeting notes, project docs, voice memos, anything. AI reads it all and pulls out every task, deadline, and priority.</p>
+      </div>
+      <div class="landing-feature">
+        <div class="landing-feature-icon" aria-hidden="true">&#x2726;</div>
+        <h2>AI that actually helps</h2>
+        <p>Not a chatbot. A thinking partner that detects what's done, what's stuck, and what to do next. Asks smart questions before organizing.</p>
+      </div>
+      <div class="landing-feature">
+        <div class="landing-feature-icon" aria-hidden="true">&#x25A1;</div>
+        <h2>From brainstorm to done</h2>
+        <p>Tasks auto-organize into boards. Get a daily briefing. Track progress. Share with your team. All from one brainstorm.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Auth Screen -->
+<div class="auth-screen" id="authScreen" data-testid="auth-screen" role="dialog" aria-modal="true" aria-label="Sign in to Whiteboards">
+  <div class="auth-card">
+    <div class="auth-logo">
+      <div class="auth-logo-mark">W</div>
+      <div class="auth-logo-text">Whiteboards</div>
+      <div class="auth-logo-sub">Brainstorm freely. AI turns it into action.</div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:20px;padding:0 4px">
+      <div style="font-size:12px;color:var(--text3);display:flex;align-items:center;gap:8px"><span style="color:var(--accent)" aria-hidden="true">&#x2726;</span> Paste anything — AI extracts tasks, deadlines, and priorities instantly</div>
+      <div style="font-size:12px;color:var(--text3);display:flex;align-items:center;gap:8px"><span style="color:var(--accent)" aria-hidden="true">&#x2726;</span> Attach PDFs, docs, spreadsheets — AI reads and organizes them</div>
+      <div style="font-size:12px;color:var(--text3);display:flex;align-items:center;gap:8px"><span style="color:var(--accent)" aria-hidden="true">&#x2726;</span> AI asks smart questions before organizing vague input</div>
+      <div style="font-size:12px;color:var(--text3);display:flex;align-items:center;gap:8px"><span style="color:var(--accent)" aria-hidden="true">&#x2726;</span> Free forever — your chaos, beautifully organized</div>
+    </div>
+    <div id="authError" role="alert" aria-live="assertive"></div>
+    <div id="authMsg" aria-live="polite"></div>
+    <form id="authForm">
+      <label for="authEmail" class="sr-only">Email</label>
+      <input class="auth-input" id="authEmail" data-testid="auth-email" type="email" placeholder="Email" required autocomplete="email" aria-describedby="authError">
+      <label for="authPassword" class="sr-only">Password</label>
+      <input class="auth-input" id="authPassword" data-testid="auth-password" type="password" placeholder="Password" required minlength="6" autocomplete="current-password" aria-describedby="authError">
+      <button class="auth-btn" type="submit" id="authBtn" data-testid="auth-submit">Sign In</button>
+    </form>
+    <div class="auth-switch">
+      <span id="authSwitchText">Don't have an account?</span>
+      <a id="authSwitchLink" data-action="toggle-auth" role="button" tabindex="0" style="cursor:pointer">Sign Up</a>
+      <span style="margin-left:8px">·</span>
+      <a role="button" tabindex="0" style="margin-left:8px;cursor:pointer" data-action="forgot-password">Forgot password?</a>
+    </div>
+    <div style="margin-top:16px;font-size:10px;color:var(--text3);text-align:center">
+      <a data-action="show-privacy" role="button" tabindex="0" style="color:var(--text3);cursor:pointer;text-decoration:underline">Privacy</a>
+      <span style="margin:0 6px">·</span>
+      <a data-action="show-terms" role="button" tabindex="0" style="color:var(--text3);cursor:pointer;text-decoration:underline">Terms</a>
+    </div>
+  </div>
+</div>
+
+<aside class="sidebar" id="sidebar" data-testid="sidebar" aria-label="Application sidebar">
+  <div class="sidebar-logo">
+    <div class="logo-mark">W</div>
+    <span>Whiteboards</span>
+  </div>
+
+  <nav class="nav-section" aria-label="Main navigation">
+    <div class="nav-item" data-view="dump" data-testid="nav-brainstorm" role="button" tabindex="0">
+      <span class="nav-icon" aria-hidden="true">↯</span> Brainstorm
+    </div>
+    <div class="nav-item" data-view="dashboard" data-testid="nav-dashboard" role="button" tabindex="0">
+      <span class="nav-icon" aria-hidden="true">◉</span> Dashboard
+    </div>
+    <div class="nav-item" data-view="review" data-testid="nav-review" role="button" tabindex="0">
+      <span class="nav-icon" aria-hidden="true">★</span> Weekly Review
+    </div>
+  </nav>
+
+  <nav class="nav-section" aria-label="Boards">
+    <div class="nav-label">Boards</div>
+  </nav>
+  <div class="project-list" id="projectList" data-testid="project-list" role="list" aria-label="Board list"></div>
+
+  <div class="nav-section" style="padding-top:8px">
+    <div class="nav-item" data-view="archive" role="button" tabindex="0">
+      <span class="nav-icon" aria-hidden="true">&#128451;</span> <span>Archive</span> <span class="nav-badge" id="archiveBadge" style="display:none;background:var(--surface3);color:var(--text3)"></span>
+    </div>
+  </div>
+
+  <div class="sidebar-footer">
+    <div class="nav-item" data-action="new-project" style="color:var(--accent)" role="button" tabindex="0">
+      <span class="nav-icon" aria-hidden="true">+</span> New Board
+    </div>
+    <div class="nav-item" data-action="settings" data-testid="nav-settings" role="button" tabindex="0">
+      <span class="nav-icon" aria-hidden="true">⚙</span> Settings
+    </div>
+    <div style="padding:8px 12px;margin-top:6px;display:flex;align-items:center;gap:6px;font-size:10px;color:var(--text3);cursor:pointer;border-radius:var(--radius-sm);transition:background 0.1s" data-action="open-search" role="button" tabindex="0" aria-label="Search and commands (Command+K)">
+      <span aria-hidden="true">⌘K</span><span style="opacity:0.5">Search & commands</span>
+    </div>
+    <div id="syncBar" style="padding:8px 12px;display:flex;align-items:center;justify-content:space-between;font-size:10px;color:var(--text3)">
+      <span><span class="sync-dot synced" id="syncDot"></span><span id="syncLabel">Synced</span></span>
+      <a role="button" tabindex="0" style="color:var(--text3);cursor:pointer;font-size:10px" data-action="sign-out">Sign Out</a>
+    </div>
+  </div>
+  <button class="sidebar-collapse-btn" data-action="toggle-sidebar" data-testid="sidebar-collapse" title="Collapse sidebar" aria-label="Collapse sidebar"><span aria-hidden="true">«</span></button>
+</aside>
+<div class="mobile-overlay" id="mobileOverlay" style="display:none" data-action="close-mobile-sidebar"></div>
+
+<main class="main" aria-label="Main application">
+  <header class="header" aria-label="View header">
+    <div class="header-left">
+      <button class="mobile-hamburger" style="display:none" data-action="open-mobile-sidebar" aria-label="Open navigation menu">☰</button>
+      <h1 class="header-title" id="viewTitle" data-testid="view-title" style="font-size:inherit;font-weight:inherit">Dashboard</h1>
+      <div class="header-sub" id="viewSub"></div>
+    </div>
+    <div class="header-actions" id="headerActions" role="toolbar" aria-label="View actions"></div>
+  </header>
+  <div class="content" id="content" data-testid="main-content" role="region" aria-label="Main content" aria-live="polite"></div>
+</main>
+
+<div id="modalRoot" data-testid="modal-root" role="dialog" aria-modal="true" aria-label="Dialog" tabindex="-1"></div>
+
+<!-- AI Chat Panel -->
+<div class="chat-panel" id="chatPanel" data-testid="chat-panel" role="complementary" aria-label="AI Assistant">
+  <div class="chat-header">
+    <span style="font-size:16px" aria-hidden="true">✦</span>
+    <div class="chat-header-title" id="chatTitle">AI Assistant</div>
+    <button class="chat-close" data-action="toggle-chat" aria-label="Close chat">&times;</button>
+  </div>
+  <div class="chat-messages" id="chatMessages" aria-live="polite" aria-label="Chat messages">
+  </div>
+  <div class="chat-chips" id="chatChips">
+    <button class="chat-chip" data-action="chat-chip" data-text="Plan my day">Plan my day</button>
+    <button class="chat-chip" data-action="chat-chip" data-text="What should I focus on?">What should I focus on?</button>
+    <button class="chat-chip" data-action="chat-chip" data-text="Summarize my week">Summarize my week</button>
+  </div>
+  <div class="chat-input-row">
+    <textarea class="chat-input" id="chatInput" rows="1" placeholder="Ask about a project, task, or anything..." aria-label="Chat message"></textarea>
+    <button class="chat-send" data-action="send-chat">Send</button>
+  </div>
+</div>
+<button class="chat-toggle" id="chatToggle" data-testid="chat-toggle" data-action="toggle-chat" title="AI Assistant" aria-label="Open AI Assistant" style="display:none">✦</button>
+<button class="mobile-chat-fab" id="mobileChatFab" data-action="toggle-chat" aria-label="Open AI Assistant"><span aria-hidden="true">✦</span><span class="fab-badge"></span></button>
+<div class="pull-indicator" id="pullIndicator" aria-hidden="true"><div class="pull-spinner"></div></div>
+
+<script type="module" src="./app.js"></script>
+</body>
+</html>
