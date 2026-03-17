@@ -320,13 +320,13 @@ export function createCommandPalette(deps) {
         html += cmdItemHtml(c, globalIdx === 0);
         globalIdx++;
       });
-      // "What can TaskBoard do?" discovery chip — always shown in empty palette
+      // "What can Whiteboards do?" discovery chip — always shown in empty palette
       const _helpKey = 'c_help';
       _cmdActions[_helpKey] = () => {
         closeModal();
         const _helpHtml =
           '<div class="modal-overlay" data-action="close-modal" data-click-self="true"><div class="modal" style="max-width:440px;padding:28px">' +
-          '<div style="font-size:15px;font-weight:600;margin-bottom:14px">What can TaskBoard do?</div>' +
+          '<div style="font-size:15px;font-weight:600;margin-bottom:14px">What can Whiteboards do?</div>' +
           '<ul style="font-size:13px;color:var(--text2);line-height:2;padding-left:18px;margin:0">' +
           '<li><strong>Brainstorm</strong> \u2014 Paste notes, meeting minutes, or ideas and AI extracts tasks</li>' +
           '<li><strong>AI Chat</strong> \u2014 Ask your assistant to plan, prioritize, or break down work</li>' +
@@ -344,7 +344,7 @@ export function createCommandPalette(deps) {
       html +=
         '<div class="cmd-item" data-action="cmd-exec" data-cmd-key="' +
         _helpKey +
-        '" data-cmd-label="What can TaskBoard do?"><span class="cmd-item-icon" style="color:var(--accent)">?</span><span class="cmd-item-label" style="color:var(--text2);font-style:italic">What can TaskBoard do?</span></div>';
+        '" data-cmd-label="What can Whiteboards do?"><span class="cmd-item-icon" style="color:var(--accent)">?</span><span class="cmd-item-label" style="color:var(--text2);font-style:italic">What can Whiteboards do?</span></div>';
       const recent = [...data.tasks]
         .filter((t) => t.status !== 'done')
         .sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''))

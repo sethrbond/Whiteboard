@@ -217,18 +217,22 @@ export function createChat(deps) {
 
   async function sendChat() {
     if (_chatSending) return;
+    _chatSending = true;
     const input = document.getElementById('chatInput');
     const msg = input.value.trim();
-    if (!msg) return;
+    if (!msg) {
+      _chatSending = false;
+      return;
+    }
     if (!hasAI()) {
       const chatMsgs = document.getElementById('chatMessages');
       chatMsgs.innerHTML += `<div class="chat-msg user">${esc(msg)}<span class="chat-ts">${chatTimeStr()}</span></div>`;
       input.value = '';
       chatMsgs.innerHTML += `<div class="chat-msg ai">I need a Claude API key to chat. Set one up in <strong>Settings</strong> (30 seconds) and I'll be ready to help.<span class="chat-ts">${chatTimeStr()}</span></div>`;
       chatMsgs.scrollTop = chatMsgs.scrollHeight;
+      _chatSending = false;
       return;
     }
-    _chatSending = true;
     const sendBtn = document.querySelector('.chat-send');
     if (sendBtn) sendBtn.disabled = true;
 

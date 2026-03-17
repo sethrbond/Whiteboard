@@ -376,7 +376,6 @@ describe('chat.js — createChat()', () => {
 
   // ── sendChatChip ───────────────────────────────────────────────────
   it('sendChatChip sets the input value and calls sendChat', async () => {
-    const input = document.getElementById('chatInput');
     // sendChat shows no-AI message when hasAI is false, clearing input
     chat.sendChatChip('Plan my day');
     const msgs = document.getElementById('chatMessages');
@@ -384,7 +383,6 @@ describe('chat.js — createChat()', () => {
   });
 
   it('sendChatChip works when chatInput exists', () => {
-    const input = document.getElementById('chatInput');
     chat.sendChatChip('What is overdue?');
     const msgs = document.getElementById('chatMessages');
     expect(msgs.innerHTML).toContain('Claude API key');
