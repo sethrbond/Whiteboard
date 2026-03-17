@@ -1029,9 +1029,6 @@ h3.section-title {
   font-weight: 500;
   line-height: 1.4;
   color: var(--text);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .task-title.done-text {
