@@ -293,6 +293,13 @@ export function createAuth(deps) {
     document.querySelector('.main').style.display = '';
     document.getElementById('chatToggle').style.display = '';
     ensureLifeProject();
+    // Restore last view on login
+    const savedView = localStorage.getItem(userKey('wb_current_view'));
+    const savedProject = localStorage.getItem(userKey('wb_current_project'));
+    if (savedView) {
+      setCurrentView(savedView);
+      if (savedProject) setCurrentProject(savedProject);
+    }
     const data = getData();
     try {
       setProactiveLog(
