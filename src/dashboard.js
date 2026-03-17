@@ -280,7 +280,8 @@ export function createDashboard(deps) {
     const tasks = projectTasks(p.id);
     const active = tasks.filter((t) => t.status !== 'done');
     const done = tasks.filter((t) => t.status === 'done');
-    const urgent = active.filter((t) => t.priority === 'urgent' || (t.dueDate && t.dueDate <= todayStr()));
+    const soonStr = new Date(Date.now() + 3 * MS_PER_DAY).toISOString().slice(0, 10);
+    const urgent = active.filter((t) => t.priority === 'urgent' || (t.dueDate && t.dueDate <= soonStr));
 
     let html = `<div class="project-info">
       <div class="project-info-header">
@@ -487,7 +488,8 @@ export function createDashboard(deps) {
     const tasks = projectTasks(p.id);
     const active = tasks.filter((t) => t.status !== 'done');
     const done = tasks.filter((t) => t.status === 'done');
-    const urgent = active.filter((t) => t.priority === 'urgent' || (t.dueDate && t.dueDate <= todayStr()));
+    const soonStr = new Date(Date.now() + 3 * MS_PER_DAY).toISOString().slice(0, 10);
+    const urgent = active.filter((t) => t.priority === 'urgent' || (t.dueDate && t.dueDate <= soonStr));
     const upcoming = active.filter((t) => t.status === 'todo');
 
     let html = _renderProjectHeader(p);

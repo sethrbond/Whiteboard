@@ -285,9 +285,12 @@ export function createEvents(deps) {
       if (
         taskEl &&
         !e.target.closest('[data-toggle]') &&
+        !e.target.closest('[data-action]') &&
         !e.target.closest('.task-cmd') &&
         !e.target.closest('.btn') &&
-        !e.target.closest('[contenteditable]')
+        !e.target.closest('[contenteditable]') &&
+        !e.target.closest('input') &&
+        !e.target.closest('button')
       ) {
         const id = taskEl.dataset.task;
         const expandedTask = deps.getExpandedTask();
