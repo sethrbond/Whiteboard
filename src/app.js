@@ -136,6 +136,7 @@ document.addEventListener(
     if (!row) return;
     const id = row.closest('[data-task]')?.dataset?.task || row.dataset?.task;
     if (!id) return;
+    e.stopPropagation(); // prevent bubble-phase handlers from double-toggling
     expandedTask = expandedTask === id ? null : id;
     if (typeof _renderNow === 'function') _renderNow();
   },

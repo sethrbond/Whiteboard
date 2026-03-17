@@ -149,9 +149,9 @@ export function createTaskEditor(deps) {
     const data = getData();
     const proj = showProject && t.project ? data.projects.find((x) => x.id === t.project) : null;
 
-    const html = `<div class="task-expanded" data-task="${t.id}" role="listitem" aria-expanded="true">
+    const html = `<div class="task-expanded" data-task="${t.id}" data-expandable="true" role="listitem" aria-expanded="true">
     <div class="task-top">
-      <div class="task-expand-dot" data-action="toggle-expand" data-task="${t.id}" role="button" tabindex="0" aria-label="Collapse ${esc(t.title)}" title="Hide details">▾</div>
+      <div class="task-expand-dot" data-expandable="true" data-task="${t.id}" role="button" tabindex="0" aria-label="Collapse ${esc(t.title)}" title="Hide details">▾</div>
       <div class="task-body">
         <div class="task-title ${isDone ? 'done-text' : ''}">${esc(t.title)}</div>
         ${t.notes ? `<div class="task-note" style="white-space:normal;margin-top:4px">${esc(t.notes)}</div>` : ''}
