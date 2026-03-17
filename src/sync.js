@@ -391,7 +391,7 @@ export function createSync(deps) {
             const cloudTime = new Date(checkRow.updated_at).getTime();
             const lastKnown = new Date(_lastCloudUpdatedAt).getTime();
             // Only show conflict if cloud is meaningfully newer (>5s) to avoid false positives from own sync
-            if (cloudTime - lastKnown > 5000) {
+            if (cloudTime - lastKnown > 30000) {
               showToast('Another session made changes. Reload to sync.', true);
               showConflictBanner();
               syncStatus = 'offline';

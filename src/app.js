@@ -1538,6 +1538,10 @@ exposeWindowAPI(
     resendVerification,
     setView,
     render,
+    toggleExpandTask: (id) => {
+      expandedTask = expandedTask === id ? null : id;
+      render();
+    },
     showToast,
     closeModal,
     openSearch: (...args) => openSearch(...args),
