@@ -1066,7 +1066,7 @@ const _auth = createAuth({
   },
   getSyncModule: () => _sync,
   getChatModule: () => _chat,
-  getFocusModule: () => _loadFocus(),
+  getFocusModule: () => _focusMod,
   clearNotifications: () => clearNotifications(),
   scheduleNotifications: () => scheduleNotifications(),
 });
@@ -1513,7 +1513,7 @@ createActions({
   setShowProjectBg: (pid, v) => {
     showProjectBg[pid] = v;
   },
-  getFocusModule: () => _loadFocus(),
+  getFocusModule: () => _focusMod,
   highlightKbRow,
   saveSettings,
   getSettings: () => settings,
