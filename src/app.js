@@ -121,6 +121,27 @@ let _renderNow;
 let kbIdx = -1;
 window._welcomeTypingInterval = null;
 
+// Task expand click handler — registered early, top-level, no delegation conflicts
+document.addEventListener(
+  'click',
+  (e) => {
+    if (
+      e.target.closest('button') ||
+      e.target.closest('input') ||
+      e.target.closest('[data-bulk]') ||
+      e.target.closest('[data-toggle]')
+    )
+      return;
+    const row = e.target.closest('[data-expandable]');
+    if (!row) return;
+    const id = row.closest('[data-task]')?.dataset?.task || row.dataset?.task;
+    if (!id) return;
+    expandedTask = expandedTask === id ? null : id;
+    if (typeof _renderNow === 'function') _renderNow();
+  },
+  true,
+); // capture phase — fires BEFORE other handlers
+
 // ============================================================
 // DATA LAYER
 // ============================================================

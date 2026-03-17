@@ -1,5 +1,5 @@
 // Service Worker — cache-first for static assets, network-first for API calls
-const CACHE_NAME = 'whiteboards-v2';
+const CACHE_NAME = 'whiteboards-v3';
 
 // App shell files to pre-cache on install
 const APP_SHELL = [
@@ -41,6 +41,9 @@ self.addEventListener('fetch', (e) => {
 
   // Never cache the Anthropic API
   if (url.hostname === 'api.anthropic.com') return;
+
+  // Never cache external resources (fonts, CDNs)
+  if (url.origin !== self.location.origin) return;
 
   // Static assets: cache-first (JS, CSS, fonts, images)
   const isStatic = /\.(js|css|woff2?|ttf|eot|png|jpg|jpeg|svg|gif|ico|webp)(\?.*)?$/.test(url.pathname);
