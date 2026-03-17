@@ -333,7 +333,7 @@ ${context}`;
           model: settings.aiModel || 'claude-haiku-4-5-20251001',
           max_tokens: 2048,
           system: systemPrompt,
-          messages: chatHistory.slice(-MAX_CHAT_HISTORY),
+          messages: chatHistory.slice(-MAX_CHAT_HISTORY).map((m) => ({ role: m.role, content: m.content })),
           stream: true,
         }),
         signal: chatAbort.signal,
