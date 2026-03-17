@@ -859,13 +859,14 @@ h3.section-title {
 }
 
 .task-row .task-actions {
-  display: none;
+  display: flex;
   align-items: center;
   gap: 2px;
   flex-shrink: 0;
+  opacity: 0;
 }
 .task-row:hover .task-actions {
-  display: flex;
+  opacity: 1;
 }
 .task-action-btn {
   width: 36px;
