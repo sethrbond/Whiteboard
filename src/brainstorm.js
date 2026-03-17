@@ -174,10 +174,7 @@ export function createBrainstorm(deps) {
 
     const hasKey = hasAI();
     const draft = esc(loadDumpDraft());
-    const _isFirstTime = getData().tasks.length === 0;
-    const placeholder = _isFirstTime
-      ? "Try pasting this:\n\nMeeting with Sarah - need to finalize Q2 budget by Friday, follow up with design team about the rebrand, book travel for NYC conference next month, review Jake's PR before standup tomorrow"
-      : 'Meeting notes, ideas, docs, plans \u2014 throw it all in. AI organizes everything...';
+    const placeholder = 'Meeting notes, ideas, docs, plans \u2014 throw it all in. AI organizes everything...';
     const attachCount = _dumpAttachments.length;
     const processingHtml = _processingFiles
       .map(
