@@ -119,10 +119,10 @@ export function createTaskEditor(deps) {
     const blocked = !isDone && isBlocked(t);
     return `<div class="task-row${priClass}" data-task="${t.id}" role="listitem" aria-expanded="false"${blocked ? ' style="opacity:0.55"' : ''}>
     ${bulkMode ? `<div class="bulk-check${bulkSelected.has(t.id) ? ' on' : ''}" data-bulk="${t.id}" role="checkbox" aria-checked="${bulkSelected.has(t.id)}" tabindex="0" aria-label="Select ${esc(t.title)}">${bulkSelected.has(t.id) ? '✓' : ''}</div>` : ''}
-    <div class="task-expand-dot${isDone ? ' done' : ''}" data-expand="${t.id}" role="button" tabindex="0" aria-label="Expand ${esc(t.title)}" title="Show details">▸</div>
+    <div class="task-expand-dot${isDone ? ' done' : ''}" data-action="toggle-expand" data-task="${t.id}" role="button" tabindex="0" aria-label="Expand ${esc(t.title)}" title="Show details">▸</div>
     ${!isDone && (t.priority === 'urgent' || t.priority === 'important' || t.priority === 'normal') ? `<span style="font-size:9px;font-weight:600;color:${priorityColor(t.priority)};margin-right:4px;opacity:0.7;flex-shrink:0" aria-label="${t.priority === 'urgent' ? 'Priority: Critical' : t.priority === 'important' ? 'Priority: High' : 'Priority: Normal'}">${t.priority === 'urgent' ? 'P1' : t.priority === 'important' ? 'P2' : 'P3'}</span>` : ''}
-    <div class="task-body">
-      <div class="task-title ${isDone ? 'done-text' : ''}" data-inline-edit="${t.id}">${blocked ? '<span style="color:var(--red);font-size:10px;margin-right:4px" title="Blocked" aria-label="Blocked">◆</span>' : ''}${esc(t.title)}${proactiveLog.some((l) => l.taskId === t.id) ? ' <span style="font-size:10px;color:var(--accent);opacity:0.7;font-weight:500" title="AI pre-filled drafts for this task">✦ AI prepared</span>' : ''}</div>
+    <div class="task-body" data-action="toggle-expand" data-task="${t.id}" style="cursor:pointer">
+      <div class="task-title ${isDone ? 'done-text' : ''}">${blocked ? '<span style="color:var(--red);font-size:10px;margin-right:4px" title="Blocked" aria-label="Blocked">◆</span>' : ''}${esc(t.title)}${proactiveLog.some((l) => l.taskId === t.id) ? ' <span style="font-size:10px;color:var(--accent);opacity:0.7;font-weight:500" title="AI pre-filled drafts for this task">✦ AI prepared</span>' : ''}</div>
       ${t.notes ? `<div class="task-note">${esc(t.notes)}</div>` : ''}
       ${t.subtasks && t.subtasks.length ? renderSubtaskProgress(t.subtasks) : ''}
       ${taskNudge(t)}
@@ -151,7 +151,7 @@ export function createTaskEditor(deps) {
 
     const html = `<div class="task-expanded" data-task="${t.id}" role="listitem" aria-expanded="true">
     <div class="task-top">
-      <div class="task-expand-dot" data-expand="${t.id}" role="button" tabindex="0" aria-label="Collapse ${esc(t.title)}" title="Hide details">▾</div>
+      <div class="task-expand-dot" data-action="toggle-expand" data-task="${t.id}" role="button" tabindex="0" aria-label="Collapse ${esc(t.title)}" title="Hide details">▾</div>
       <div class="task-body">
         <div class="task-title ${isDone ? 'done-text' : ''}">${esc(t.title)}</div>
         ${t.notes ? `<div class="task-note" style="white-space:normal;margin-top:4px">${esc(t.notes)}</div>` : ''}
