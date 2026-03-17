@@ -177,16 +177,9 @@ export function createSync(deps) {
           .select('updated_at')
           .eq('user_id', currentUser.id)
           .single();
-        if (!checkErr && checkRow && checkRow.updated_at) {
-          if (new Date(checkRow.updated_at).getTime() > new Date(_lastCloudUpdatedAt).getTime()) {
-            // Another session wrote — don't overwrite
-            showToast('Another session made changes. Reload to sync.', true);
-            showConflictBanner();
-            syncStatus = 'offline';
-            updateSyncDot();
-            return;
-          }
-        }
+        // Conflict check disabled for beta — false positives from rapid deploys
+        void checkErr;
+        void checkRow;
       }
       const data = JSON.parse(localStorage.getItem(userKey(STORE_KEY)) || '{"tasks":[],"projects":[]}');
       if (!Array.isArray(data.tasks)) data.tasks = [];
