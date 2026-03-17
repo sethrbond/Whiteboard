@@ -31,9 +31,32 @@ export function setupTooltips({ getData }) {
     true,
   );
   document.addEventListener(
-    'mouseleave',
+    'mouseout',
     function (e) {
       if (!e.target.closest('.task-row')) return;
+      const related = e.relatedTarget;
+      if (related && related.closest && related.closest('.task-row')) return;
+      if (tooltipEl) {
+        tooltipEl.remove();
+        tooltipEl = null;
+      }
+    },
+    true,
+  );
+  // Also hide tooltip on scroll or click anywhere
+  document.addEventListener(
+    'scroll',
+    function () {
+      if (tooltipEl) {
+        tooltipEl.remove();
+        tooltipEl = null;
+      }
+    },
+    true,
+  );
+  document.addEventListener(
+    'click',
+    function () {
       if (tooltipEl) {
         tooltipEl.remove();
         tooltipEl = null;

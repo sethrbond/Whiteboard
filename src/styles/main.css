@@ -934,6 +934,72 @@ h3.section-title {
   transition: all 0.15s;
   border-radius: 4px;
 }
+/* Focus bar (floating bottom bar) */
+.focus-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 200;
+  height: 56px;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 20px;
+  box-shadow: 0 -2px 12px rgba(0, 0, 0, 0.3);
+}
+.focus-bar-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  flex: 1;
+}
+.focus-bar-label {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  color: var(--accent);
+  background: var(--accent-dim);
+  padding: 3px 8px;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+.focus-bar-progress {
+  font-size: 11px;
+  color: var(--text3);
+  flex-shrink: 0;
+}
+.focus-bar-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.focus-bar-meta {
+  font-size: 11px;
+  color: var(--text3);
+  flex-shrink: 0;
+}
+.focus-bar-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+.focus-bar-timer {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+  min-width: 50px;
+  text-align: center;
+}
+
 .task-expand-dot:hover {
   color: var(--accent);
   background: var(--surface3);

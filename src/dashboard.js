@@ -501,9 +501,6 @@ export function createDashboard(deps) {
       return html;
     }
 
-    // Phase Roadmap
-    html += _renderProjectRoadmap(tasks);
-
     // Task sections
     html += _renderProjectTaskSections(p, active, done, urgent, upcoming);
 

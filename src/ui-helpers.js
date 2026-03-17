@@ -186,7 +186,11 @@ export function createUIHelpers(deps) {
   function smartDateInput(id, value) {
     if (isMobileDevice) return `<input class="form-input" id="${id}" type="date" value="${value || ''}">`;
     return `<div style="position:relative">
-    <input class="form-input" id="${id}" type="text" value="${value || ''}" placeholder="tomorrow, next friday, mar 20, or YYYY-MM-DD" autocomplete="off" data-oninput-action="smart-date-preview" data-date-id="${id}">
+    <div style="display:flex;align-items:center;gap:0">
+      <input class="form-input" id="${id}" type="text" value="${value || ''}" placeholder="tomorrow, next friday, mar 20..." autocomplete="off" data-oninput-action="smart-date-preview" data-date-id="${id}" style="flex:1;border-top-right-radius:0;border-bottom-right-radius:0">
+      <input type="date" id="${id}_native" style="position:absolute;opacity:0;width:0;height:0;pointer-events:none" data-onchange-action="native-date-pick" data-target="${id}">
+      <button type="button" data-action="open-native-date-picker" data-target="${id}_native" style="height:38px;width:38px;border:1px solid var(--border2);border-left:none;border-radius:0 var(--radius-xs) var(--radius-xs) 0;background:var(--surface2);color:var(--text3);cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center" title="Pick from calendar" aria-label="Open date picker">&#128197;</button>
+    </div>
     <div id="${id}_preview" class="smart-date-preview" aria-live="polite"></div>
   </div>`;
   }

@@ -284,6 +284,8 @@ Default to THINKING MODE when the intent is ambiguous. It's better to help someo
 
 RULES:
 - TODAY IS ${new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })} (${todayStr()}). Use this for ALL date calculations.
+- TRUST THE ACTUAL TASK DATA (due dates, priorities) over AI memory. Memory may be stale. If memory says something is urgent but the due date is 7+ days out, trust the date.
+- Before claiming any task is urgent or overdue, VERIFY the due date against today's date. Do the math explicitly.
 - Match tasks by partial title — "dentist" matches "Dentist appointment Friday".
 - You have the FULL conversation history — don't repeat what the user already knows.
 - When you learn something worth remembering (user preference, work pattern, project context), use save_memory.

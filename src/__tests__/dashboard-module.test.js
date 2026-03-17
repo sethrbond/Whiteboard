@@ -1037,21 +1037,8 @@ describe('dashboard.js — createDashboard()', () => {
       expect(html).toContain('Urgent');
     });
 
-    it('renders roadmap when tasks have multiple phases', () => {
-      const tasks = [
-        { id: 't1', title: 'Design', status: 'done', priority: 'normal', phase: 'Phase 1' },
-        { id: 't2', title: 'Build', status: 'in-progress', priority: 'normal', phase: 'Phase 2' },
-        { id: 't3', title: 'Launch', status: 'todo', priority: 'normal', phase: 'Phase 3' },
-      ];
-      deps.projectTasks.mockReturnValue(tasks);
-      dashboard = createDashboard(deps);
-
-      const html = dashboard.renderProject(project);
-      expect(html).toContain('Roadmap');
-      expect(html).toContain('Phase 1');
-      expect(html).toContain('Phase 2');
-      expect(html).toContain('Phase 3');
-      expect(html).toContain('roadmap-phase');
+    it.skip('renders roadmap when tasks have multiple phases — roadmap removed from view', () => {
+      // Roadmap rendering disabled; function kept but not called
     });
 
     it('does not render roadmap with only 1 phase', () => {
@@ -2806,46 +2793,13 @@ describe('dashboard.js — additional coverage', () => {
     });
   });
 
-  // ── _renderProjectRoadmap (via renderProject) ────────────────────
-  describe('_renderProjectRoadmap (via renderProject)', () => {
+  // ── _renderProjectRoadmap — disabled (function kept but not called) ──
+  describe.skip('_renderProjectRoadmap (via renderProject)', () => {
     const project = { id: 'p1', name: 'Work', color: '#818cf8' };
 
-    it('marks completed phase as done', () => {
-      const tasks = [
-        { id: 't1', title: 'Done phase', status: 'done', priority: 'normal', phase: 'Phase 1' },
-        { id: 't2', title: 'Active phase', status: 'in-progress', priority: 'normal', phase: 'Phase 2' },
-      ];
-      deps.projectTasks.mockReturnValue(tasks);
-      dashboard = createDashboard(deps);
-
-      const html = dashboard.renderProject(project);
-      expect(html).toContain('roadmap-dot done');
-      expect(html).toContain('roadmap-dot active');
-      expect(html).toContain('1/1 complete');
-    });
-
-    it('shows phase progress counts', () => {
-      const tasks = [
-        { id: 't1', title: 'Done', status: 'done', priority: 'normal', phase: 'Alpha' },
-        { id: 't2', title: 'Todo', status: 'todo', priority: 'normal', phase: 'Alpha' },
-        { id: 't3', title: 'Other', status: 'todo', priority: 'normal', phase: 'Beta' },
-      ];
-      deps.projectTasks.mockReturnValue(tasks);
-      dashboard = createDashboard(deps);
-
-      const html = dashboard.renderProject(project);
-      expect(html).toContain('1/2 complete');
-      expect(html).toContain('0/1 complete');
-    });
-
-    it('does not render roadmap when no phases', () => {
-      const tasks = [{ id: 't1', title: 'No phase', status: 'todo', priority: 'normal' }];
-      deps.projectTasks.mockReturnValue(tasks);
-      dashboard = createDashboard(deps);
-
-      const html = dashboard.renderProject(project);
-      expect(html).not.toContain('Roadmap');
-    });
+    it('marks completed phase as done', () => {});
+    it('shows phase progress counts', () => {});
+    it('does not render roadmap when no phases', () => {});
   });
 
   // ── _renderProjectTaskSections (via renderProject) ───────────────

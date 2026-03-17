@@ -23,6 +23,7 @@ export function createAuth(deps) {
     ensureLifeProject,
     processRecurringTasks,
     cleanupArchive,
+    autoEscalatePriority,
     requestNotificationPermission,
     hasAI: _hasAI,
     processDump: _processDump,
@@ -315,6 +316,7 @@ export function createAuth(deps) {
     });
     _idleCb(() => {
       cleanupArchive();
+      autoEscalatePriority();
     });
     cleanupStaleLocalStorage();
     // Defer notification permission — only ask after user has tasks (not on first visit)
@@ -327,8 +329,10 @@ export function createAuth(deps) {
       _idleCb(() => {
         scheduleNotifications();
       });
-    // Default to brainstorm unless user already has a daily plan for today
-    setCurrentView(localStorage.getItem(userKey('whiteboard_plan_' + todayStr())) ? 'dashboard' : 'dump');
+    // Restore saved view, or default to brainstorm unless user has a daily plan
+    if (!savedView) {
+      setCurrentView(localStorage.getItem(userKey('whiteboard_plan_' + todayStr())) ? 'dashboard' : 'dump');
+    }
     render();
     if (!localStorage.getItem(userKey('wb_onboarding_done')) && data.tasks.length === 0 && data.projects.length <= 1) {
       showOnboarding();

@@ -391,89 +391,34 @@ Return JSON: { "title": "exact task title", "reason": "one sentence why this one
     const data = getData();
     const proj = data.projects.find((p) => p.id === t.project);
 
-    // Determine next incomplete subtask for step-by-step guidance
-    let nextSubtaskId = null;
-    if (t.subtasks && t.subtasks.length) {
-      const next = t.subtasks.find((s) => !s.done);
-      if (next) nextSubtaskId = next.id;
-    }
-
-    // AI extras display
-    const extras = _currentAIExtras || {};
-    const estimateHtml = extras.estimatedMinutes
-      ? `<div class="focus-estimate">\u23F1 Est. ${extras.estimatedMinutes} min</div>`
-      : '';
-    const skippedHtml = extras.skippedNote ? `<div class="focus-skipped-note">${esc(extras.skippedNote)}</div>` : '';
-    const tipHtml = extras.tip ? `<div class="focus-micro-tip">\u2728 ${esc(extras.tip)}</div>` : '';
-
     // Session progress
-    const progressHtml =
-      _sessionGoal > 0
-        ? `<div class="focus-session-progress">Task ${_sessionCompleted + 1} of ${_sessionGoal}</div>`
+    const progressHtml = _sessionGoal > 0;
+
+    // Remove any existing focus bar
+    let bar = document.getElementById('focusBar');
+    if (bar) bar.remove();
+    bar = document.createElement('div');
+    bar.id = 'focusBar';
+    bar.className = 'focus-bar';
+    bar.setAttribute('role', 'region');
+    bar.setAttribute('aria-label', 'Focus mode');
+    const subtaskInfo =
+      t.subtasks && t.subtasks.length
+        ? ` · ${t.subtasks.filter((s) => s.done).length}/${t.subtasks.length} subtasks`
         : '';
-
-    // Check if we've passed 25 min mark
-    const elapsed = focusStartTime ? Date.now() - focusStartTime : 0;
-    const pomodoroReached = elapsed >= POMODORO_MS;
-
-    $('#modalRoot').innerHTML =
-      `<div class="modal-overlay focus-overlay" role="dialog" aria-modal="true" aria-label="Focus mode">
-    <div class="focus-container">
-      <div class="focus-mode-label">Focus Mode</div>
-      ${progressHtml}
-      <div class="focus-task-title">${esc(t.title)}</div>
-      ${focusReason ? `<div class="focus-reason">\u2726 ${esc(focusReason)}</div>` : ''}
-      ${proj ? `<div class="focus-project" style="color:${proj.color}">${esc(proj.name)}</div>` : ''}
-      ${skippedHtml}
-      ${estimateHtml}
-      <div id="focusCoachTip" class="focus-coach-tip"></div>
-      ${tipHtml}
-      ${t.notes ? `<div class="focus-notes">${esc(t.notes)}</div>` : ''}
-      ${
-        t.subtasks && t.subtasks.length
-          ? `<div class="focus-subtasks">${t.subtasks
-              .map((s) => {
-                const isNext = s.id === nextSubtaskId;
-                return `<div class="focus-subtask-row${isNext ? ' focus-subtask-next' : ''}" role="checkbox" aria-checked="${s.done}" aria-label="Mark subtask: ${esc(s.title)} complete" tabindex="0" data-action="toggle-subtask-focus" data-task-id="${t.id}" data-subtask-id="${s.id}">
-          <div class="focus-subtask-check${s.done ? ' done' : ''}">${s.done ? '\u2713' : ''}</div>
-          <span class="focus-subtask-title${s.done ? ' done' : ''}">${isNext && !s.done ? '\u25B6 ' : ''}${esc(s.title)}</span>
-        </div>`;
-              })
-              .join('')}</div>`
-          : ''
-      }
-      <div class="focus-timer-display${pomodoroReached ? ' focus-timer-complete' : ''}" id="focusTimer">0:00</div>
-      ${pomodoroReached ? '<div class="focus-pomodoro-hint">25 min reached! Consider taking a break.</div>' : ''}
-      <div class="focus-distraction-row">
-        <button class="btn btn-ghost focus-distraction-btn" data-action="log-distraction" title="Log a distraction">
-          Got distracted? <span id="focusDistractionCount">${_distractionCount}</span>
-        </button>
-      </div>
-      <div class="focus-actions">
-        <button class="btn btn-primary" data-action="complete-focus" style="padding:10px 24px">\u2713 Done</button>
-        <button class="btn" data-action="skip-focus">Skip \u2192 Next</button>
-        ${pomodoroReached ? '<button class="btn" data-action="start-break" style="color:var(--green)">Take Break</button>' : ''}
-        <button class="btn" data-action="close-focus">Exit</button>
-      </div>
+    bar.innerHTML = `<div class="focus-bar-left">
+      <span class="focus-bar-label">FOCUS</span>
+      ${progressHtml ? `<span class="focus-bar-progress">${_sessionCompleted + 1}/${_sessionGoal}</span>` : ''}
+      <span class="focus-bar-title">${esc(t.title)}</span>
+      <span class="focus-bar-meta">${proj ? esc(proj.name) : ''}${subtaskInfo}</span>
     </div>
-  </div>`;
-
-    // AI coaching tip for focus mode
-    if (hasAI() && !focusReason) {
-      const focusTipEl = document.getElementById('focusCoachTip');
-      if (focusTipEl) {
-        focusTipEl.textContent = '\u2726 Thinking...';
-        const focusPrompt = `${AI_PERSONA_SHORT}\n\nThe user just entered Focus Mode on: "${t.title}"${t.notes ? '\nNotes: ' + t.notes : ''}${t.subtasks?.length ? '\nSubtasks: ' + t.subtasks.map((s) => (s.done ? '\u2713' : '\u25CB') + ' ' + s.title).join(', ') : ''}\n\nGive ONE sentence of tactical advice to help them START right now. What's the very first action? Be specific and concrete. No preamble.`;
-        callAI(focusPrompt, { maxTokens: 100 })
-          .then((tip) => {
-            if (focusTipEl) focusTipEl.textContent = '\u2726 ' + tip.replace(/\n/g, ' ').trim();
-          })
-          .catch((e) => {
-            console.warn('AI call failed:', e.message);
-            if (focusTipEl) focusTipEl.textContent = '';
-          });
-      }
-    }
+    <div class="focus-bar-right">
+      <span class="focus-bar-timer" id="focusTimer">0:00</span>
+      <button class="btn btn-primary btn-sm" data-action="complete-focus">\u2713 Done</button>
+      <button class="btn btn-sm" data-action="skip-focus">Skip</button>
+      <button class="btn btn-sm btn-ghost" data-action="close-focus">Exit</button>
+    </div>`;
+    document.body.appendChild(bar);
 
     // Start timer
     if (window._focusInterval) clearInterval(window._focusInterval);
@@ -488,28 +433,6 @@ Return JSON: { "title": "exact task title", "reason": "one sentence why this one
       const m = Math.floor(elapsedSec / 60);
       const s = elapsedSec % 60;
       el.textContent = `${m}:${s.toString().padStart(2, '0')}`;
-      if (elapsedSec >= POMODORO_MS / 1000 && !el.classList.contains('focus-timer-complete')) {
-        el.classList.add('focus-timer-complete');
-        const breakBtn = document.querySelector('[data-action="start-break"]');
-        if (!breakBtn) {
-          const actionsDiv = el.closest('.focus-container')?.querySelector('.focus-actions');
-          if (actionsDiv) {
-            const btn = document.createElement('button');
-            btn.className = 'btn';
-            btn.style.color = 'var(--green)';
-            btn.setAttribute('data-action', 'start-break');
-            btn.textContent = 'Take Break';
-            actionsDiv.insertBefore(btn, actionsDiv.lastElementChild);
-          }
-        }
-        const hint = document.querySelector('.focus-pomodoro-hint');
-        if (!hint) {
-          const hintEl = document.createElement('div');
-          hintEl.className = 'focus-pomodoro-hint';
-          hintEl.textContent = '25 min reached! Consider taking a break.';
-          el.after(hintEl);
-        }
-      }
     }, 1000);
   }
 
@@ -583,6 +506,8 @@ Return JSON: { "title": "exact task title", "reason": "one sentence why this one
     _breakActive = false;
     _currentAIExtras = null;
     if (window._focusInterval) clearInterval(window._focusInterval);
+    const _bar = document.getElementById('focusBar');
+    if (_bar) _bar.remove();
     $('#modalRoot').innerHTML = '';
   }
 

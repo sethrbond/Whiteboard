@@ -193,6 +193,7 @@ const urgentTasks = () => _dataLayer.urgentTasks();
 const archivedTasks = () => _dataLayer.archivedTasks();
 const projectTasks = (pid) => _dataLayer.projectTasks(pid);
 const cleanupArchive = () => _dataLayer.cleanupArchive();
+const autoEscalatePriority = () => _dataLayer.autoEscalatePriority();
 const unarchiveTask = (id) => _dataLayer.unarchiveTask(id);
 const deleteArchivedPermanently = () => _dataLayer.deleteArchivedPermanently();
 const restoreFromBackup = () => _dataLayer.restoreFromBackup();
@@ -1000,6 +1001,7 @@ const _auth = createAuth({
   ensureLifeProject,
   processRecurringTasks: () => processRecurringTasks(),
   cleanupArchive,
+  autoEscalatePriority,
   requestNotificationPermission,
   hasAI,
   processDump: (...args) => processDump(...args),

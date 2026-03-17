@@ -636,6 +636,18 @@ export function createDataLayer(deps) {
     return data.tasks.filter((t) => t.archived);
   }
 
+  function autoEscalatePriority() {
+    const tomorrow = new Date(Date.now() + MS_PER_DAY).toISOString().slice(0, 10);
+    let changed = false;
+    data.tasks.forEach((t) => {
+      if (t.status !== 'done' && !t.archived && t.dueDate && t.dueDate <= tomorrow && t.priority !== 'urgent') {
+        t.priority = 'urgent';
+        changed = true;
+      }
+    });
+    if (changed && !getBatchMode()) saveData(data);
+  }
+
   function cleanupArchive() {
     const cutoff = Date.now() - ARCHIVE_CLEANUP_DAYS * MS_PER_DAY; // 30 days
     let count = 0;
@@ -834,6 +846,7 @@ export function createDataLayer(deps) {
     projectTasks,
     applyTagFilter,
     cleanupArchive,
+    autoEscalatePriority,
     unarchiveTask,
     deleteArchivedPermanently,
     // Render cache

@@ -185,10 +185,20 @@ export function createTaskEditor(deps) {
                 : pred.likelihood === 'medium'
                   ? 'var(--orange)'
                   : 'var(--red)';
+            const estDate = new Date(pred.estimatedDate + 'T12:00:00');
+            const estStr = estDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
             let predHtml =
-              '<div class="task-detail-row" style="margin-top:6px;padding:8px;background:var(--surface2);border-radius:var(--radius-xs)"><span class="task-detail-label" style="color:var(--accent)">\u2726 AI Prediction</span>';
-            predHtml += '<span style="color:' + color + '">' + pred.likelihood + ' likelihood</span>';
-            predHtml += ' — est. ' + pred.estimatedDate;
+              '<div class="task-detail-row" style="margin-top:6px;padding:8px;background:var(--surface2);border-radius:var(--radius-xs)">';
+            predHtml +=
+              '<span style="color:' +
+              color +
+              ';font-size:11px">' +
+              (pred.likelihood === 'high'
+                ? 'Likely done by ' + estStr
+                : pred.likelihood === 'medium'
+                  ? 'Might finish by ' + estStr
+                  : 'At risk — est. ' + estStr) +
+              '</span>';
             if (pred.likelihood === 'low' && pred.blockers.length)
               predHtml +=
                 '<div style="font-size:11px;color:var(--text3);margin-top:4px">This might slip — ' +

@@ -515,6 +515,11 @@ export function createActions(deps) {
       case 'open-settings':
         openSettings();
         break;
+      case 'open-native-date-picker': {
+        const picker = document.getElementById(actionEl.dataset.target);
+        if (picker && picker.showPicker) picker.showPicker();
+        break;
+      }
       case 'submit-clarify':
         submitClarify();
         break;
@@ -968,6 +973,14 @@ export function createActions(deps) {
       case 'dump-files':
         deps.handleDumpFiles(el.files);
         break;
+      case 'native-date-pick': {
+        const target = document.getElementById(el.dataset.target);
+        if (target && el.value) {
+          target.value = el.value;
+          previewSmartDate(el.dataset.target);
+        }
+        break;
+      }
       case 'import-data':
         importData(el);
         break;
@@ -1030,32 +1043,32 @@ export function createActions(deps) {
       openSearch();
       return;
     }
+    const _inFormField = e.target.matches('input, textarea, select, [contenteditable]') || e.target.isContentEditable;
     if ((e.metaKey || e.ctrlKey) && e.key === 'z') {
+      if (_inFormField) return;
       e.preventDefault();
       undo();
       return;
     }
     if ((e.metaKey || e.ctrlKey) && e.key === 'd') {
+      if (_inFormField) return;
       e.preventDefault();
       setView('dump');
       return;
     }
     if ((e.metaKey || e.ctrlKey) && e.key === 'j') {
+      if (_inFormField) return;
       e.preventDefault();
       toggleChat();
       return;
     }
     if ((e.metaKey || e.ctrlKey) && e.key === ',') {
+      if (_inFormField) return;
       e.preventDefault();
       openSettings();
       return;
     }
-    if (
-      e.target.tagName === 'INPUT' ||
-      e.target.tagName === 'TEXTAREA' ||
-      e.target.tagName === 'SELECT' ||
-      e.target.isContentEditable
-    ) {
+    if (_inFormField) {
       if (e.key === 'Escape') {
         e.target.blur();
         return;
