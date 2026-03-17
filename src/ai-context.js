@@ -55,7 +55,7 @@ ACTIONS — include a JSON block in your response to take action:
   { "action": "batch_reschedule", "filter": { "project": "Board Name" | "priority": "low|normal|important" | "dueBefore": "YYYY-MM-DD" | "dueThisWeek": true }, "daysToAdd": 3, "newDate": "YYYY-MM-DD" },
   { "action": "query", "question": "what did I accomplish this week?" },
   { "action": "create_project", "name": "...", "description": "..." },
-  { "action": "update_project", "name": "existing name", "fields": { "description": "..." } },
+  { "action": "update_project", "name": "existing name", "fields": { "name": "new name", "description": "...", "color": "#hex" } },
   { "action": "update_background", "project": "Board Name", "section": "origin|direction|roadblocks|nextSteps|notes", "content": "..." },
   { "action": "save_memory", "text": "observation or preference to remember", "type": "preference|pattern|context|correction|rhythm" },
   { "action": "suggest_insight", "text": "non-actionable observation for the user", "severity": "info|warning" },
@@ -800,7 +800,7 @@ export function createAIContext(deps) {
               if (!a.name) break;
               const match = matchProject(a.name);
               if (match && a.fields) {
-                const allowed = ['title', 'color', 'description'];
+                const allowed = ['name', 'title', 'color', 'description'];
                 const filtered = {};
                 for (const k of allowed) {
                   if (k in a.fields) filtered[k] = a.fields[k];

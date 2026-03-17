@@ -484,7 +484,10 @@ export function createActions(deps) {
       }
       // Color picker in edit project
       case 'pick-color': {
-        document.querySelectorAll('#fColors div').forEach((d) => (d.style.borderColor = 'transparent'));
+        document.querySelectorAll('#fColors div').forEach((d) => {
+          d.style.borderColor = 'transparent';
+          delete d.dataset.picked;
+        });
         actionEl.style.borderColor = '#fff';
         actionEl.dataset.picked = '1';
         break;
@@ -496,14 +499,12 @@ export function createActions(deps) {
       case 'cancel-dump':
         cancelDump();
         break;
-      case 'view-organized':
-        try {
-          getBrainstormModule().setLastDumpResult(null);
-          setView('dashboard');
-        } catch (err) {
-          console.error('view-organized error:', err);
-        }
+      case 'view-organized': {
+        const bm = getBrainstormModule();
+        if (bm && bm.setLastDumpResult) bm.setLastDumpResult(null);
+        setView('dashboard');
         break;
+      }
       case 'new-brainstorm':
         getBrainstormModule().setLastDumpResult(null);
         render();
