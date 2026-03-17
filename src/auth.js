@@ -58,6 +58,9 @@ export function createAuth(deps) {
     // Notifications
     clearNotifications,
     scheduleNotifications,
+    // Briefing
+    generateAIBriefing,
+    setTodayBriefingExpanded,
   } = deps;
 
   // Module-local state
@@ -329,6 +332,20 @@ export function createAuth(deps) {
       _idleCb(() => {
         scheduleNotifications();
       });
+    // Auto-generate daily briefing on first open of the day
+    if (generateAIBriefing) {
+      _idleCb(() => {
+        const briefingKey = userKey('whiteboard_briefing_' + todayStr());
+        if (!localStorage.getItem(briefingKey) && data.tasks.length > 0 && _hasAI()) {
+          generateAIBriefing()
+            .then(() => {
+              if (setTodayBriefingExpanded) setTodayBriefingExpanded(true);
+              render();
+            })
+            .catch((e) => console.warn('Auto-briefing failed:', e));
+        }
+      });
+    }
     // Restore saved view, or default to brainstorm unless user has a daily plan
     if (!savedView) {
       setCurrentView(localStorage.getItem(userKey('whiteboard_plan_' + todayStr())) ? 'dashboard' : 'dump');

@@ -837,6 +837,7 @@ async function _loadFocus() {
           _events.setModalTriggerEl(el);
         },
         userKey,
+        todayStr,
       });
     }
     return _focusMod;
@@ -1088,6 +1089,10 @@ const _auth = createAuth({
   getSyncModule: () => _sync,
   getChatModule: () => _chat,
   getFocusModule: () => _focusMod,
+  generateAIBriefing: () => generateAIBriefing(),
+  setTodayBriefingExpanded: (v) => {
+    _todayBriefingExpanded = v;
+  },
   clearNotifications: () => clearNotifications(),
   scheduleNotifications: () => scheduleNotifications(),
 });

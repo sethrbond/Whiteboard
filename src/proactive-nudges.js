@@ -107,6 +107,8 @@ export function createProactiveNudges(deps) {
         type: 'warning',
         icon: '\u26A1',
         text: `${active.length} active tasks. Consider archiving some to stay focused.`,
+        actionLabel: 'Review & archive',
+        actionFn: `setView('archive')`,
       });
 
     // Stale tasks

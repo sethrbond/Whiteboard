@@ -296,6 +296,28 @@ export function createFocusMode(deps) {
       return;
     }
 
+    // Check daily plan first — prioritize planned tasks
+    if (deps.todayStr && deps.userKey) {
+      const planKey = deps.userKey('whiteboard_plan_' + deps.todayStr());
+      const planJSON = localStorage.getItem(planKey);
+      if (planJSON) {
+        try {
+          const plan = JSON.parse(planJSON);
+          const planTasks = (Array.isArray(plan) ? plan : [])
+            .filter((p) => !p.completedInPlan)
+            .map((p) => findTask(p.id))
+            .filter((t) => t && t.status !== 'done' && !_focusSkipped.includes(t.id));
+          if (planTasks.length > 0) {
+            focusTask = planTasks[0];
+            renderFocusOverlay();
+            return;
+          }
+        } catch (_e) {
+          /* ignore parse errors */
+        }
+      }
+    }
+
     if (hasAI()) {
       showToast('\u2726 Picking your next focus...');
       const data = getData();
