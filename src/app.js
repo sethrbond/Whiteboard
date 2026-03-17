@@ -1269,6 +1269,7 @@ const _dashboard = createDashboard({
   renderCalendar,
   getCurrentView: () => currentView,
   getCurrentProject: () => currentProject,
+  getExpandedTask: () => expandedTask,
   getDashViewMode: () => dashViewMode,
   getShowCompleted: (key) => showCompleted[key],
   getProjectViewMode: (pid) => projectViewMode[pid],

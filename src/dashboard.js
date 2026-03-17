@@ -49,6 +49,7 @@ export function createDashboard(deps) {
     renderCalendar,
     getCurrentView,
     getCurrentProject,
+    getExpandedTask,
     getDashViewMode,
     getShowCompleted,
     getProjectViewMode,
@@ -614,7 +615,9 @@ export function createDashboard(deps) {
       '|' +
       getSectionShowCount('dash') +
       '|' +
-      getArchiveShowCount();
+      getArchiveShowCount() +
+      '|' +
+      (getExpandedTask() || '');
     if (contentState === _lastContentState) return;
     _lastContentState = contentState;
 
