@@ -325,9 +325,9 @@ export function createAuth(deps) {
     render();
     if (!localStorage.getItem(userKey('wb_onboarding_done')) && data.tasks.length === 0 && data.projects.length <= 1) {
       showOnboarding();
+      // Show tour for first-time users after a short delay
+      setTimeout(() => showFeatureTips(), 600);
     }
-    // Auto-open chat for first-time users so AI greets them immediately
-    getChatModule().autoOpenForFirstTimeUser();
   }
 
   function showOnboarding() {
@@ -342,21 +342,31 @@ export function createAuth(deps) {
   function showFeatureTips() {
     if (localStorage.getItem(userKey('wb_tips_seen'))) return;
     localStorage.setItem(userKey('wb_tips_seen'), '1');
+    const isMac = navigator.platform?.includes('Mac');
+    const cmdKey = isMac ? 'Cmd' : 'Ctrl';
     const tips = [
       {
         icon: '&#x2726;',
+        title: 'Dump your chaos, AI organizes it',
+        desc: 'Paste meeting notes, ideas, or anything in the box. Hit <strong>Analyze &amp; Organize</strong> and AI extracts tasks with priorities and deadlines.<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:12px"><div style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:6px 10px;font-size:11px;color:var(--text2)"><span style="color:var(--green)">&#x2713;</span> Finalize Q2 budget &middot; Fri</div><div style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:6px 10px;font-size:11px;color:var(--text2)"><span style="color:var(--orange)">&#x25CB;</span> Follow up with design</div><div style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:6px 10px;font-size:11px;color:var(--text2)"><span style="color:var(--orange)">&#x25CB;</span> Book NYC travel</div></div><div style="font-size:10px;color:var(--accent);margin-top:8px;opacity:0.7">&#x2726; 3 tasks extracted &middot; priorities set automatically</div>',
+      },
+      {
+        icon: '&#x2726;',
         title: 'AI Chat Assistant',
-        desc: 'Click the chat button (bottom-right) or press <kbd>Cmd+J</kbd> to talk to your AI assistant.',
+        desc:
+          'Press <kbd>' +
+          cmdKey +
+          '+J</kbd> to talk to your AI. Ask it to plan your day, triage tasks, or think through problems with you.',
       },
       {
         icon: '&#x2318;',
         title: 'Command Palette',
-        desc: 'Press <kbd>Cmd+K</kbd> to search, switch views, and run commands instantly.',
+        desc: 'Press <kbd>' + cmdKey + '+K</kbd> to search, switch views, and run commands instantly.',
       },
       {
         icon: '&#x25B6;',
         title: 'Focus Mode',
-        desc: 'Type <kbd>/focus</kbd> in the command palette to get AI-picked deep work sessions.',
+        desc: 'Type <kbd>/focus</kbd> in the command palette for AI-picked deep work sessions with a built-in timer.',
       },
       { icon: '?', title: 'Keyboard Shortcuts', desc: 'Press <kbd>?</kbd> anytime to see all available shortcuts.' },
     ];

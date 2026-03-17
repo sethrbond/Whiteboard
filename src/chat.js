@@ -567,15 +567,6 @@ Be curious, not prescriptive. 2-3 sentences. Ask a real question.`;
     }
   }
 
-  function autoOpenForFirstTimeUser() {
-    if (!_isFirstTimeUser()) return;
-    const panel = document.getElementById('chatPanel');
-    if (panel && !panel.classList.contains('open')) {
-      // Small delay so the app renders first
-      setTimeout(() => toggleChat(), 800);
-    }
-  }
-
   return {
     toggleChat,
     sendChat,
@@ -594,6 +585,5 @@ Be curious, not prescriptive. 2-3 sentences. Ask a real question.`;
     resetChatState,
     reloadChatHistory,
     maybeProactiveChat,
-    autoOpenForFirstTimeUser,
   };
 }

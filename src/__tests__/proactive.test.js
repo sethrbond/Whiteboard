@@ -688,7 +688,7 @@ describe('proactive.js — createProactive()', () => {
   });
 
   it('processRecurringTasks creates new task for weekly recurrence', () => {
-    const eightDaysAgo = new Date(Date.now() - 8 * MS_PER_DAY).toISOString();
+    vi.useFakeTimers({ now: new Date(2026, 2, 15, 12, 0, 0) });
     deps.getData.mockReturnValue({
       tasks: [
         {
@@ -696,7 +696,7 @@ describe('proactive.js — createProactive()', () => {
           title: 'Weekly review',
           status: 'done',
           recurrence: 'weekly',
-          completedAt: eightDaysAgo,
+          completedAt: '2026-03-07T10:00:00Z',
           priority: 'normal',
           project: 'p_1',
         },
@@ -705,6 +705,7 @@ describe('proactive.js — createProactive()', () => {
     });
     proactive.processRecurringTasks();
     expect(deps.addTask).toHaveBeenCalled();
+    vi.useRealTimers();
   });
 
   it('processRecurringTasks creates new task for monthly recurrence', () => {

@@ -48,7 +48,6 @@ function makeDeps(overrides = {}) {
     getChatModule: vi.fn(() => ({
       resetChatState: vi.fn(),
       reloadChatHistory: vi.fn(),
-      autoOpenForFirstTimeUser: vi.fn(),
     })),
     getFocusModule: vi.fn(() => ({
       resetFocusState: vi.fn(),
@@ -713,7 +712,7 @@ describe('auth.js — createAuth()', () => {
   it('showFeatureTips renders tip modal when tips not seen', () => {
     auth.showFeatureTips();
     const modal = document.getElementById('modalRoot');
-    expect(modal.innerHTML).toContain('AI Chat Assistant');
+    expect(modal.innerHTML).toContain('Dump your chaos');
   });
 
   it('showFeatureTips marks tips as seen in localStorage', () => {
@@ -723,6 +722,8 @@ describe('auth.js — createAuth()', () => {
 
   it('showFeatureTips _nextTip advances through tips', () => {
     auth.showFeatureTips();
+    expect(document.getElementById('modalRoot').innerHTML).toContain('Dump your chaos');
+    window._nextTip();
     expect(document.getElementById('modalRoot').innerHTML).toContain('AI Chat Assistant');
     window._nextTip();
     expect(document.getElementById('modalRoot').innerHTML).toContain('Command Palette');
@@ -734,6 +735,7 @@ describe('auth.js — createAuth()', () => {
 
   it('showFeatureTips _nextTip clears modal after last tip', () => {
     auth.showFeatureTips();
+    window._nextTip(); // -> AI Chat
     window._nextTip(); // -> Command Palette
     window._nextTip(); // -> Focus Mode
     window._nextTip(); // -> Keyboard Shortcuts
@@ -744,11 +746,12 @@ describe('auth.js — createAuth()', () => {
 
   it('showFeatureTips shows tip counter in button', () => {
     auth.showFeatureTips();
-    expect(document.getElementById('modalRoot').innerHTML).toContain('1/4');
+    expect(document.getElementById('modalRoot').innerHTML).toContain('1/5');
   });
 
   it('showFeatureTips last tip shows Got it! instead of Next', () => {
     auth.showFeatureTips();
+    window._nextTip();
     window._nextTip();
     window._nextTip();
     window._nextTip(); // on last tip

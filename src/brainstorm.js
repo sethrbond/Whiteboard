@@ -214,23 +214,6 @@ export function createBrainstorm(deps) {
         <textarea class="dump-textarea" id="dumpText" aria-label="Brainstorm input" placeholder="${placeholder}">${draft}</textarea>
         <div id="dumpDropOverlay" style="display:none;position:absolute;inset:0;background:rgba(var(--accent-rgb,99,102,241),.12);border:2px dashed var(--accent);border-radius:var(--radius);pointer-events:none;z-index:2;align-items:center;justify-content:center;font-size:14px;font-weight:600;color:var(--accent)">Drop file to attach</div>
       </div>
-      ${
-        _isFirstTime && !draft
-          ? `<div class="dump-empty-preview" id="dumpEmptyPreview">
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
-          <span style="font-size:16px;color:var(--accent)">\u2193</span>
-          <span style="font-size:12px;color:var(--text3);font-weight:500">Paste something above, then hit Analyze. Here\u2019s what happens:</span>
-        </div>
-        <div style="display:flex;flex-wrap:wrap;gap:8px">
-          <div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 12px;font-size:11px;color:var(--text2);opacity:0.6"><span style="color:var(--green)">\u2713</span> Finalize Q2 budget <span style="color:var(--text3)">\u00b7 Fri</span></div>
-          <div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 12px;font-size:11px;color:var(--text2);opacity:0.6"><span style="color:var(--orange)">\u25CB</span> Follow up with design team</div>
-          <div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 12px;font-size:11px;color:var(--text2);opacity:0.6"><span style="color:var(--orange)">\u25CB</span> Book NYC travel</div>
-          <div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 12px;font-size:11px;color:var(--text2);opacity:0.6"><span style="color:var(--red)">\u25CB</span> Review Jake\u2019s PR <span style="color:var(--text3)">\u00b7 Tomorrow</span></div>
-        </div>
-        <div style="font-size:11px;color:var(--accent);margin-top:8px;opacity:0.7">\u2726 4 tasks extracted \u00b7 2 boards created \u00b7 priorities set automatically</div>
-      </div>`
-          : ''
-      }
       <div style="display:flex;align-items:center;gap:8px;margin-top:8px">
         <div style="font-size:11px;color:var(--text3);flex:1">${attachCount ? attachCount + ' file' + (attachCount > 1 ? 's' : '') + ' attached. Add notes above for context.' : 'Drop files here or attach below. Supports PDF, Word, Excel, text, and more.'}</div>
         <label style="cursor:pointer;display:flex;align-items:center;gap:4px;font-size:11px;color:var(--text3);padding:4px 8px;border:1px solid var(--border);border-radius:6px;white-space:nowrap" title="Attach a file">
