@@ -862,8 +862,14 @@ h3.section-title {
   display: flex;
   align-items: center;
   gap: 2px;
-  flex-shrink: 0;
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
   opacity: 0;
+  background: var(--surface2);
+  border-radius: 6px;
+  padding: 0 2px;
 }
 .task-row:hover .task-actions {
   opacity: 1;
