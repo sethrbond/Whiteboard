@@ -1532,6 +1532,8 @@ h3.section-title {
 /* ==================== BRAINSTORM ==================== */
 .dump-area {
   max-width: 720px;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .dump-textarea {
