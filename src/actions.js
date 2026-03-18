@@ -1088,6 +1088,9 @@ export function createActions(deps) {
   // ---- Keyboard accessibility for data-action elements ----
   document.addEventListener('keydown', (e) => {
     if (e.key !== 'Enter' && e.key !== ' ') return;
+    // Never intercept keys when user is typing in form fields
+    const tag = e.target.tagName;
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || e.target.isContentEditable) return;
     const navView = e.target.closest('.nav-item[data-view]');
     if (navView) {
       e.preventDefault();
