@@ -221,7 +221,10 @@ export function createBrainstorm(deps) {
         s.crossOrigin = 'anonymous';
       }
       s.onload = resolve;
-      s.onerror = () => reject(new Error('Failed to load ' + url.split('/').pop()));
+      s.onerror = () => {
+        delete _libCache[url]; // allow retry on next attempt
+        reject(new Error('Failed to load ' + url.split('/').pop()));
+      };
       document.head.appendChild(s);
     });
     return _libCache[url];
