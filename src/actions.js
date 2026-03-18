@@ -456,6 +456,12 @@ export function createActions(deps) {
         e.stopPropagation();
         toggleSubtask(actionEl.dataset.taskId, actionEl.dataset.subtaskId);
         break;
+      case 'delete-subtask':
+        e.stopPropagation();
+        if (typeof deps.deleteSubtask === 'function') {
+          deps.deleteSubtask(actionEl.dataset.taskId, actionEl.dataset.subtaskId);
+        }
+        break;
       case 'toggle-subtask-focus':
         toggleSubtask(actionEl.dataset.taskId, actionEl.dataset.subtaskId);
         renderFocusOverlay();

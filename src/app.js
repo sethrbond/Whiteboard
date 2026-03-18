@@ -202,7 +202,8 @@ const deleteTask = (id, silent) => _dataLayer.deleteTask(id, silent);
 const addProject = (p) => _dataLayer.addProject(p);
 const updateProject = (id, u) => _dataLayer.updateProject(id, u);
 const deleteProject = (id) => _dataLayer.deleteProject(id);
-const addSubtask = (taskId, title) => _dataLayer.addSubtask(taskId, title);
+const addSubtask = (taskId, title, parentId) => _dataLayer.addSubtask(taskId, title, parentId);
+const deleteSubtask = (taskId, subtaskId) => _dataLayer.deleteSubtask(taskId, subtaskId);
 const toggleSubtask = (taskId, subtaskId) => _dataLayer.toggleSubtask(taskId, subtaskId);
 const pushUndo = (label) => _dataLayer.pushUndo(label);
 const undo = () => _dataLayer.undo();
@@ -1485,6 +1486,7 @@ createActions({
   confirmAction,
   quickAddToProject,
   addSubtask,
+  deleteSubtask,
   runTaskCmd,
   guardedCloseEditModal,
   heroInputHandler,

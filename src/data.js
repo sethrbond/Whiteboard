@@ -483,6 +483,27 @@ export function createDataLayer(deps) {
     getRender()();
   }
 
+  function _deleteSubtaskRecursive(subtasks, subtaskId) {
+    for (let i = 0; i < subtasks.length; i++) {
+      if (subtasks[i].id === subtaskId) {
+        subtasks.splice(i, 1);
+        return true;
+      }
+      if (subtasks[i].subtasks && _deleteSubtaskRecursive(subtasks[i].subtasks, subtaskId)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  function deleteSubtask(taskId, subtaskId) {
+    const t = findTask(taskId);
+    if (!t || !t.subtasks) return;
+    _deleteSubtaskRecursive(t.subtasks, subtaskId);
+    saveData(data);
+    getRender()();
+  }
+
   function toggleSubtask(taskId, subtaskId) {
     const t = findTask(taskId);
     if (!t || !t.subtasks) return;
@@ -888,6 +909,7 @@ export function createDataLayer(deps) {
     updateProject,
     deleteProject,
     addSubtask,
+    deleteSubtask,
     toggleSubtask,
     // Undo
     pushUndo,
