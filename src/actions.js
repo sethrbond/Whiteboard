@@ -465,6 +465,42 @@ export function createActions(deps) {
         e.stopPropagation();
         toggleSubtask(actionEl.dataset.taskId, actionEl.dataset.subtaskId);
         break;
+      case 'edit-subtask': {
+        e.stopPropagation();
+        const stId = actionEl.dataset.subtaskId;
+        const stTaskId = actionEl.dataset.taskId;
+        // Find the subtask title span in the same row
+        const row = actionEl.closest('div');
+        const titleSpan = row ? row.querySelector('span:not([style*="flex-shrink"])') : null;
+        if (titleSpan) {
+          const oldTitle = titleSpan.textContent;
+          const input = document.createElement('input');
+          input.type = 'text';
+          input.value = oldTitle;
+          input.style.cssText =
+            'font-size:inherit;color:var(--text);background:var(--surface2);border:1px solid var(--accent);border-radius:4px;padding:2px 6px;width:100%;outline:none;font-family:inherit';
+          titleSpan.replaceWith(input);
+          input.focus();
+          input.select();
+          const commit = () => {
+            const newTitle = input.value.trim();
+            if (newTitle && newTitle !== oldTitle && typeof deps.renameSubtask === 'function') {
+              deps.renameSubtask(stTaskId, stId, newTitle);
+            } else {
+              render();
+            }
+          };
+          input.addEventListener('keydown', (ke) => {
+            if (ke.key === 'Enter') {
+              ke.preventDefault();
+              commit();
+            }
+            if (ke.key === 'Escape') render();
+          });
+          input.addEventListener('blur', commit);
+        }
+        break;
+      }
       case 'delete-subtask':
         e.stopPropagation();
         if (typeof deps.deleteSubtask === 'function') {

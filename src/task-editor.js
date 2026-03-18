@@ -160,7 +160,8 @@ export function createTaskEditor(deps) {
       html += `<div style="width:14px;height:14px;border-radius:3px;border:1.5px solid ${s.done ? 'var(--accent)' : 'var(--border2)'};background:${s.done ? 'var(--accent)' : 'transparent'};display:flex;align-items:center;justify-content:center;font-size:9px;color:#fff;flex-shrink:0">${s.done ? '\u2713' : ''}</div>`;
       html += `<span style="font-size:${Math.max(11, 12 - depth)}px;color:${s.done ? 'var(--text3)' : 'var(--text)'};${s.done ? 'text-decoration:line-through' : ''}">${esc(s.title)}</span>`;
       html += `</div>`;
-      html += `<button style="font-size:11px;color:var(--text3);background:none;border:none;cursor:pointer;padding:2px 4px;opacity:0.4;flex-shrink:0" data-action="delete-subtask" data-task-id="${taskId}" data-subtask-id="${s.id}" title="Remove subtask" aria-label="Remove ${esc(s.title)}">\u00d7</button>`;
+      html += `<button style="font-size:10px;color:var(--text3);background:none;border:none;cursor:pointer;padding:2px 4px;opacity:0.3;flex-shrink:0" data-action="edit-subtask" data-task-id="${taskId}" data-subtask-id="${s.id}" title="Edit subtask" aria-label="Edit ${esc(s.title)}">\u270e</button>`;
+      html += `<button style="font-size:11px;color:var(--text3);background:none;border:none;cursor:pointer;padding:2px 4px;opacity:0.3;flex-shrink:0" data-action="delete-subtask" data-task-id="${taskId}" data-subtask-id="${s.id}" title="Remove subtask" aria-label="Remove ${esc(s.title)}">\u00d7</button>`;
       html += `</div>`;
       if (hasChildren) {
         html += _renderSubtasksRecursive(s.subtasks, taskId, depth + 1);

@@ -504,6 +504,17 @@ export function createDataLayer(deps) {
     getRender()();
   }
 
+  function renameSubtask(taskId, subtaskId, newTitle) {
+    const t = findTask(taskId);
+    if (!t || !t.subtasks || !newTitle) return;
+    const s = _findSubtaskRecursive(t.subtasks, subtaskId);
+    if (s) {
+      s.title = newTitle;
+      saveData(data);
+      getRender()();
+    }
+  }
+
   function toggleSubtask(taskId, subtaskId) {
     const t = findTask(taskId);
     if (!t || !t.subtasks) return;
@@ -910,6 +921,7 @@ export function createDataLayer(deps) {
     deleteProject,
     addSubtask,
     deleteSubtask,
+    renameSubtask,
     toggleSubtask,
     // Undo
     pushUndo,

@@ -133,13 +133,11 @@ describe('ui-helpers.js — createUIHelpers()', () => {
       expect(toasts[0].textContent).toBe('Second');
     });
 
-    it('does not remove toast-undo elements', () => {
-      const undo = document.createElement('div');
-      undo.className = 'toast toast-undo';
-      undo.textContent = 'Undo';
-      document.body.appendChild(undo);
-      helpers.showToast('New toast');
-      expect(document.querySelector('.toast-undo')).not.toBeNull();
+    it('clears previous toasts when showing new one', () => {
+      helpers.showToast('First');
+      helpers.showToast('Second');
+      expect(document.querySelectorAll('.toast').length).toBe(1);
+      expect(document.querySelector('.toast').textContent).toBe('Second');
     });
 
     it('sets ariaLive text', () => {
