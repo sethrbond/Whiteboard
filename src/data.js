@@ -401,7 +401,7 @@ export function createDataLayer(deps) {
       if (getFollowUp && showFollowUp) {
         const suggestions = getFollowUp(t);
         if (suggestions.length > 0) {
-          setTimeout(() => showFollowUp(suggestions), 1500);
+          setTimeout(() => showFollowUp(suggestions), 6000);
         }
       }
     }

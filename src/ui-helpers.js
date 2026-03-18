@@ -24,18 +24,26 @@ export function createUIHelpers(deps) {
   // TOAST
   // ============================================================
   function showToast(msg, isError = false, isSuccess = false) {
-    document.querySelectorAll('.toast:not(.toast-undo)').forEach((t) => t.remove());
+    document.querySelectorAll('.toast').forEach((t) => t.remove());
     const el = document.createElement('div');
+    const hasUndo = msg.includes('data-action="undo-btn"');
     el.className = 'toast' + (isError ? ' error' : '') + (isSuccess ? ' success' : '');
     el.setAttribute('role', 'status');
-    el.textContent = msg;
+    // Use innerHTML if message contains action markup (undo button), textContent otherwise
+    if (hasUndo) {
+      el.innerHTML = msg;
+    } else {
+      el.textContent = msg;
+    }
     document.body.appendChild(el);
     const live = document.getElementById('ariaLive');
-    if (live) live.textContent = msg;
+    if (live) live.textContent = typeof msg === 'string' ? msg.replace(/<[^>]*>/g, '') : msg;
+    // Undo toasts stay longer (5s), regular toasts 2.7s
+    const duration = hasUndo ? 5000 : 2700;
     setTimeout(() => {
       el.classList.add('leaving');
       setTimeout(() => el.remove(), 300);
-    }, 2700);
+    }, duration);
   }
 
   // ============================================================
