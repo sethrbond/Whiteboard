@@ -37,6 +37,7 @@ export function createDashboard(deps) {
     addTask,
     createTask,
     renderTaskRow,
+    renderTaskExpanded,
     renderPriorityTag,
     renderCalendar,
     getCurrentView,
@@ -1021,29 +1022,41 @@ export function createDashboard(deps) {
       </div>`;
 
       // Active tasks in plan order
+      const _expandedTask = getExpandedTask();
       activePlanItems.forEach((p) => {
         const t = p._task;
-        const priorityBadge =
-          t.priority === 'urgent' || t.priority === 'important' ? renderPriorityTag(t.priority) : '';
-        const dueDateStr = t.dueDate
-          ? ` <span class="tag tag-date" style="font-size:10px">${fmtDate(t.dueDate)}</span>`
-          : '';
-        const recurIcon = t.recurrence
-          ? ' <span title="Recurring: ' +
-            esc(t.recurrence) +
-            '" style="font-size:11px;color:var(--text3)">\u21bb</span>'
-          : '';
+        const isExpanded = _expandedTask === t.id;
 
-        html += `<div class="plan-task-row" style="display:flex;align-items:center;gap:10px;padding:8px 4px;border-radius:var(--radius-sm);margin-bottom:2px;transition:background 0.15s" onmouseenter="this.style.background='var(--surface2)'" onmouseleave="this.style.background='transparent'">
-          <div class="task-check" data-action="complete-task" data-task-id="${t.id}" role="checkbox" aria-checked="false" tabindex="0" aria-label="Mark ${esc(t.title)} done" style="flex-shrink:0"></div>
-          <div style="flex:1;min-width:0">
-            <span style="font-size:13px;color:var(--text);cursor:pointer" data-action="toggle-expand" data-task="${t.id}">${esc(t.title)}</span>
-            ${priorityBadge}${dueDateStr}${recurIcon}
-          </div>
-          <button data-action="snooze-plan-task" data-task-id="${p.id}" class="snooze-btn-hover" style="background:none;border:none;color:var(--text3);font-size:10px;cursor:pointer;padding:4px 8px;white-space:nowrap;flex-shrink:0;border-radius:var(--radius-xs);transition:all 0.15s" title="Snooze to tomorrow">\u2192 tomorrow</button>
-        </div>`;
-        if (p.why)
-          html += `<div style="margin-left:34px;font-size:11px;color:var(--text3);margin-bottom:6px;margin-top:-2px;font-style:italic">\u21b3 ${esc(p.why)}</div>`;
+        if (isExpanded) {
+          // Show full expanded view inline
+          html += renderTaskExpanded(t, true);
+        } else {
+          const priorityBadge =
+            t.priority === 'urgent' || t.priority === 'important' ? renderPriorityTag(t.priority) : '';
+          const dueDateStr = t.dueDate
+            ? ` <span class="tag tag-date" style="font-size:10px">${fmtDate(t.dueDate)}</span>`
+            : '';
+          const recurIcon = t.recurrence
+            ? ' <span title="Recurring: ' +
+              esc(t.recurrence) +
+              '" style="font-size:11px;color:var(--text3)">\u21bb</span>'
+            : '';
+          const subtaskInfo =
+            t.subtasks && t.subtasks.length
+              ? ` <span style="font-size:10px;color:var(--text3)">(${t.subtasks.filter((s) => s.done).length}/${t.subtasks.length})</span>`
+              : '';
+
+          html += `<div class="plan-task-row" style="display:flex;align-items:center;gap:10px;padding:8px 4px;border-radius:var(--radius-sm);margin-bottom:2px;transition:background 0.15s" onmouseenter="this.style.background='var(--surface2)'" onmouseleave="this.style.background='transparent'">
+            <div class="task-check" data-action="complete-task" data-task-id="${t.id}" role="checkbox" aria-checked="false" tabindex="0" aria-label="Mark ${esc(t.title)} done" style="flex-shrink:0"></div>
+            <div style="flex:1;min-width:0">
+              <span style="font-size:13px;color:var(--text);cursor:pointer" data-action="toggle-expand" data-task="${t.id}">${esc(t.title)}</span>
+              ${priorityBadge}${dueDateStr}${recurIcon}${subtaskInfo}
+            </div>
+            <button data-action="snooze-plan-task" data-task-id="${p.id}" class="snooze-btn-hover" style="background:none;border:none;color:var(--text3);font-size:10px;cursor:pointer;padding:4px 8px;white-space:nowrap;flex-shrink:0;border-radius:var(--radius-xs);transition:all 0.15s" title="Snooze to tomorrow">\u2192 tomorrow</button>
+          </div>`;
+          if (p.why)
+            html += `<div style="margin-left:34px;font-size:11px;color:var(--text3);margin-bottom:6px;margin-top:-2px;font-style:italic">\u21b3 ${esc(p.why)}</div>`;
+        }
       });
 
       // Completed tasks (collapsed at bottom)
