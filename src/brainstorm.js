@@ -739,6 +739,7 @@ For every task, estimate how many minutes it will take. Use your best judgment:
 
 ## OUTPUT FORMAT \u2014 Return ONLY this JSON object, nothing else:
 {
+  "summary": "2-4 sentence narrative of what you found in the input and how you organized it. Write in first person ('I found...', 'I created...'). Mention key themes, how many tasks, which projects, and any patterns you noticed. Be specific, not generic.",
   "projectUpdates": [
     { "name": "Project Name", "description": "One sentence, max 15 words \u2014 a subtitle, NOT details.", "background": "## Origin\\nWhere it came from\\n## Where It's Going\\nThe goal\\n## Roadblocks\\nBlockers\\n## Next Steps\\nWhat's next\\n## Notes\\nOther context", "isNew": true }
   ],
@@ -934,6 +935,7 @@ ${text}${getDumpAttachmentText()}`;
     const items = parsed.tasks || parsed || [];
     const taskItems = (Array.isArray(items) ? items : []).filter((item) => item && (item.title || item.id));
     const totalCount = taskItems.length;
+    const summary = parsed.summary || '';
 
     const rows = taskItems.map((item, i) => _renderReviewRow(item, i)).join('');
 
@@ -949,6 +951,7 @@ ${text}${getDumpAttachmentText()}`;
       <div class="modal" style="max-width:560px;max-height:85vh;display:flex;flex-direction:column;padding:0" aria-labelledby="modal-title-review-tasks">
         <div style="padding:20px 24px 0;flex-shrink:0">
           <h2 class="modal-title" id="modal-title-review-tasks" style="margin-bottom:4px">Review extracted tasks</h2>
+          ${summary ? `<div style="font-size:13px;color:var(--text2);line-height:1.5;margin-bottom:12px;padding:10px 12px;background:var(--surface2);border-radius:var(--radius-sm);border-left:2px solid var(--accent)">${esc(summary)}</div>` : ''}
           <div style="font-size:12px;color:var(--text3);margin-bottom:16px">${totalCount} task${totalCount !== 1 ? 's' : ''} found \u00b7 uncheck any you don't want</div>
         </div>
         <div style="flex:1;overflow-y:auto;padding:0 24px;display:flex;flex-direction:column;gap:2px" id="dumpReviewList">
