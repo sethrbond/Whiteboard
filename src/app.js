@@ -340,13 +340,13 @@ function render() {
     if (localStorage.getItem(userKey('wb_show_tips_after_brainstorm')) === '1') {
       localStorage.removeItem(userKey('wb_show_tips_after_brainstorm'));
       setTimeout(() => {
-        if (_auth && _auth.showFeatureTips) _auth.showFeatureTips();
+        if (_auth && _auth.showOnboardingExperience) _auth.showOnboardingExperience();
       }, 800);
     }
     // Also show feature tips on first dashboard view if user has tasks but hasn't seen tips
     if (currentView === 'dashboard' && data.tasks.length > 0 && !localStorage.getItem(userKey('wb_tips_seen'))) {
       setTimeout(() => {
-        if (_auth && _auth.showFeatureTips) _auth.showFeatureTips();
+        if (_auth && _auth.showOnboardingExperience) _auth.showOnboardingExperience();
       }, 1200);
     }
   });
@@ -1112,6 +1112,7 @@ const signOut = async () => {
 const _showApp = _auth.showApp;
 const _showOnboarding = _auth.showOnboarding;
 const showFeatureTips = _auth.showFeatureTips;
+const showOnboardingExperience = _auth.showOnboardingExperience;
 const _cleanupStaleLocalStorage = _auth.cleanupStaleLocalStorage;
 
 // ============================================================
@@ -1485,6 +1486,7 @@ createActions({
   guardedCloseEditModal,
   heroInputHandler,
   showFeatureTips,
+  showOnboardingExperience,
   openProjectChat,
   handleDumpFiles: (...args) => handleDumpFiles(...args),
   handleEscalationAction,

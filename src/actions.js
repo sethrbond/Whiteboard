@@ -124,6 +124,7 @@ export function createActions(deps) {
     skipReschedule,
     acceptAllReschedules,
     showFeatureTips,
+    showOnboardingExperience,
     // State getters/setters
     getExpandedTask,
     setExpandedTask,
@@ -320,11 +321,59 @@ export function createActions(deps) {
       case 'cal-today':
         deps.calToday();
         break;
-      // Onboarding
-      case 'onb-next':
-        if (window.onbNext) window.onbNext();
+      // Onboarding experience
+      case 'onb-next': {
+        const overlay = document.getElementById('onbOverlay');
+        if (overlay) {
+          const screens = overlay.querySelectorAll('.onb-screen');
+          const dots = overlay.querySelectorAll('.onb-dot');
+          let cur = -1;
+          screens.forEach((s, i) => {
+            if (s.classList.contains('onb-active')) cur = i;
+          });
+          if (cur < screens.length - 1) {
+            screens.forEach((s, i) => s.classList.toggle('onb-active', i === cur + 1));
+            dots.forEach((d, i) => d.classList.toggle('onb-dot-active', i === cur + 1));
+          }
+        }
         break;
-      // Feature tips
+      }
+      case 'onb-skip': {
+        localStorage.setItem('wb_onboarding_complete', '1');
+        const overlay = document.getElementById('onbOverlay');
+        if (overlay) {
+          overlay.style.opacity = '0';
+          setTimeout(() => {
+            if (overlay.parentNode) overlay.remove();
+          }, 300);
+        }
+        break;
+      }
+      case 'onb-brainstorm': {
+        localStorage.setItem('wb_onboarding_complete', '1');
+        const overlay = document.getElementById('onbOverlay');
+        if (overlay) {
+          overlay.style.opacity = '0';
+          setTimeout(() => {
+            if (overlay.parentNode) overlay.remove();
+          }, 300);
+        }
+        setView('dump');
+        break;
+      }
+      case 'onb-explore': {
+        localStorage.setItem('wb_onboarding_complete', '1');
+        const overlay = document.getElementById('onbOverlay');
+        if (overlay) {
+          overlay.style.opacity = '0';
+          setTimeout(() => {
+            if (overlay.parentNode) overlay.remove();
+          }, 300);
+        }
+        setView('dashboard');
+        break;
+      }
+      // Legacy feature tips
       case 'tip-skip':
         document.getElementById('modalRoot').innerHTML = '';
         break;
@@ -606,7 +655,7 @@ export function createActions(deps) {
       case 'show-tips-again':
         localStorage.removeItem(userKey('wb_tips_seen'));
         closeModal();
-        setTimeout(showFeatureTips, 300);
+        setTimeout(showOnboardingExperience, 300);
         break;
       // Templates
       case 'save-as-template':

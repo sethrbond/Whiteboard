@@ -486,7 +486,13 @@ RULES:
       const nextDate = new Date(completedDate);
 
       if (t.recurrence === 'daily') nextDate.setDate(nextDate.getDate() + 1);
-      else if (t.recurrence === 'weekly') nextDate.setDate(nextDate.getDate() + 7);
+      else if (t.recurrence === 'weekdays') {
+        nextDate.setDate(nextDate.getDate() + 1);
+        const dow = nextDate.getDay();
+        if (dow === 6)
+          nextDate.setDate(nextDate.getDate() + 2); // Saturday -> Monday
+        else if (dow === 0) nextDate.setDate(nextDate.getDate() + 1); // Sunday -> Monday
+      } else if (t.recurrence === 'weekly') nextDate.setDate(nextDate.getDate() + 7);
       else if (t.recurrence === 'monthly') nextDate.setMonth(nextDate.getMonth() + 1);
       else return;
 
@@ -614,6 +620,17 @@ RULES:
         result.suggestedEstimate = ests[Math.floor(ests.length / 2)];
       }
     }
+    // Recurrence inference
+    const dailyKW = /\b(daily|every day|each day|morning|evening|nightly)\b/i;
+    const weeklyKW = /\b(weekly|every week|each week)\b/i;
+    const monthlyKW = /\b(monthly|every month|each month)\b/i;
+    const weekdayKW = /\b(weekdays?|mon-fri|work days?)\b/i;
+
+    if (dailyKW.test(title)) result.suggestedRecurrence = 'daily';
+    else if (weekdayKW.test(title)) result.suggestedRecurrence = 'weekdays';
+    else if (weeklyKW.test(title)) result.suggestedRecurrence = 'weekly';
+    else if (monthlyKW.test(title)) result.suggestedRecurrence = 'monthly';
+
     if (typeof deps.getAIMemory === 'function') {
       const mem = deps.getAIMemory();
       mem

@@ -170,6 +170,7 @@ export function createTaskEditor(deps) {
       <div class="task-detail-row"><span class="task-detail-label">Horizon</span>${t.horizon === 'short' ? 'Short-term' : 'Long-term'}</div>
       ${t.phase ? `<div class="task-detail-row"><span class="task-detail-label">Phase</span>${esc(t.phase)}</div>` : ''}
       ${t.dueDate ? `<div class="task-detail-row"><span class="task-detail-label">Due</span>${fmtDate(t.dueDate)}</div>` : ''}
+      ${t.recurrence ? `<div class="task-detail-row"><span class="task-detail-label">Repeats</span><span>↻ ${t.recurrence}</span></div>` : ''}
       ${t.estimatedMinutes ? `<div class="task-detail-row"><span class="task-detail-label">Estimate</span>${fmtEstimate(t.estimatedMinutes)}</div>` : ''}
       <div class="task-detail-row"><span class="task-detail-label">Created</span>${relativeTime(t.createdAt)}</div>
       ${t.completedAt ? `<div class="task-detail-row"><span class="task-detail-label">Done</span>${relativeTime(t.completedAt)}</div>` : ''}
@@ -656,7 +657,7 @@ ONLY return JSON.`;
       <div class="form-group"><label class="form-label" for="fDue">Due Date</label>${smartDateInput('fDue', t.dueDate || '')}</div>
     </div>
     <div class="form-row">
-      <div class="form-group"><label class="form-label" for="fRecurrence">Repeats</label><select class="form-select" id="fRecurrence"><option value="" ${!t.recurrence ? 'selected' : ''}>Never</option><option value="daily" ${t.recurrence === 'daily' ? 'selected' : ''}>Daily</option><option value="weekly" ${t.recurrence === 'weekly' ? 'selected' : ''}>Weekly</option><option value="monthly" ${t.recurrence === 'monthly' ? 'selected' : ''}>Monthly</option></select></div>
+      <div class="form-group"><label class="form-label" for="fRecurrence">Repeats</label><select class="form-select" id="fRecurrence"><option value="" ${!t.recurrence ? 'selected' : ''}>Never</option><option value="daily" ${t.recurrence === 'daily' ? 'selected' : ''}>Every day</option><option value="weekdays" ${t.recurrence === 'weekdays' ? 'selected' : ''}>Weekdays (Mon-Fri)</option><option value="weekly" ${t.recurrence === 'weekly' ? 'selected' : ''}>Every week</option><option value="monthly" ${t.recurrence === 'monthly' ? 'selected' : ''}>Every month</option></select></div>
       <div class="form-group"><label class="form-label" for="fPhase">Phase</label><input class="form-input" id="fPhase" value="${esc(t.phase || '')}" placeholder="e.g. Phase 1"></div>
     </div>
     </fieldset>

@@ -96,6 +96,9 @@ describe('auth.js — createAuth()', () => {
     vi.useRealTimers();
     // Clean up any globals set by feature tips
     delete window._nextTip;
+    // Clean up onboarding overlay
+    const onbOverlay = document.getElementById('onbOverlay');
+    if (onbOverlay) onbOverlay.remove();
   });
 
   // ── Factory returns ─────────────────────────────────────────────────
@@ -113,6 +116,7 @@ describe('auth.js — createAuth()', () => {
       'showApp',
       'showOnboarding',
       'showFeatureTips',
+      'showOnboardingExperience',
       'cleanupStaleLocalStorage',
     ];
     keys.forEach((k) => expect(typeof auth[k]).toBe('function'));
@@ -703,62 +707,92 @@ describe('auth.js — createAuth()', () => {
     expect(deps.showToast).toHaveBeenCalledWith('Could not resend email', true);
   });
 
-  // ── showFeatureTips ───────────────────────────────────────────────
-  it('showFeatureTips does nothing if tips were already seen', () => {
-    localStorage.setItem('user1_wb_tips_seen', '1');
-    document.getElementById('modalRoot').innerHTML = '';
-    auth.showFeatureTips();
-    const modal = document.getElementById('modalRoot');
-    expect(modal.innerHTML).toBe('');
+  // ── showOnboardingExperience ──────────────────────────────────────
+  it('showOnboardingExperience does nothing if onboarding already complete', () => {
+    localStorage.setItem('wb_onboarding_complete', '1');
+    auth.showOnboardingExperience();
+    expect(document.getElementById('onbOverlay')).toBeNull();
   });
 
-  it('showFeatureTips renders tip modal when tips not seen', () => {
-    auth.showFeatureTips();
-    const modal = document.getElementById('modalRoot');
-    expect(modal.innerHTML).toContain('Dump your chaos');
+  it('showOnboardingExperience renders full-screen overlay with 5 screens', () => {
+    auth.showOnboardingExperience();
+    const overlay = document.getElementById('onbOverlay');
+    expect(overlay).not.toBeNull();
+    expect(overlay.classList.contains('onb-overlay')).toBe(true);
+    const screens = overlay.querySelectorAll('.onb-screen');
+    expect(screens.length).toBe(5);
   });
 
-  it('showFeatureTips marks tips as seen in localStorage', () => {
-    auth.showFeatureTips();
-    expect(localStorage.getItem('user1_wb_tips_seen')).toBe('1');
+  it('showOnboardingExperience first screen is active by default', () => {
+    auth.showOnboardingExperience();
+    const screens = document.querySelectorAll('.onb-screen');
+    expect(screens[0].classList.contains('onb-active')).toBe(true);
+    expect(screens[1].classList.contains('onb-active')).toBe(false);
   });
 
-  it('showFeatureTips _nextTip advances through tips', () => {
-    auth.showFeatureTips();
-    expect(document.getElementById('modalRoot').innerHTML).toContain('Dump your chaos');
-    window._nextTip();
-    expect(document.getElementById('modalRoot').innerHTML).toContain('AI Assistant');
-    window._nextTip();
-    expect(document.getElementById('modalRoot').innerHTML).toContain('Command Palette');
-    window._nextTip();
-    expect(document.getElementById('modalRoot').innerHTML).toContain('Focus Mode');
-    window._nextTip();
-    expect(document.getElementById('modalRoot').innerHTML).toContain('Keyboard Shortcuts');
+  it('showOnboardingExperience shows Welcome to Whiteboards content', () => {
+    auth.showOnboardingExperience();
+    const overlay = document.getElementById('onbOverlay');
+    expect(overlay.innerHTML).toContain('onb-logo');
+    expect(overlay.innerHTML).toContain('AI-powered second brain');
   });
 
-  it('showFeatureTips _nextTip clears modal after last tip', () => {
-    auth.showFeatureTips();
-    window._nextTip(); // -> AI Chat
-    window._nextTip(); // -> Command Palette
-    window._nextTip(); // -> Focus Mode
-    window._nextTip(); // -> Keyboard Shortcuts
-    window._nextTip(); // -> past end
-    expect(document.getElementById('modalRoot').innerHTML).toBe('');
-    expect(window._nextTip).toBeUndefined();
+  it('showOnboardingExperience shows progress dots', () => {
+    auth.showOnboardingExperience();
+    const dots = document.querySelectorAll('.onb-dot');
+    expect(dots.length).toBe(5);
+    expect(dots[0].classList.contains('onb-dot-active')).toBe(true);
   });
 
-  it('showFeatureTips shows tip counter in button', () => {
-    auth.showFeatureTips();
-    expect(document.getElementById('modalRoot').innerHTML).toContain('1/5');
+  it('showOnboardingExperience shows skip button', () => {
+    auth.showOnboardingExperience();
+    const skip = document.querySelector('.onb-skip');
+    expect(skip).not.toBeNull();
+    expect(skip.textContent).toBe('Skip tour');
   });
 
-  it('showFeatureTips last tip shows Got it! instead of Next', () => {
+  it('showOnboardingExperience contains brain dump screen content', () => {
+    auth.showOnboardingExperience();
+    const overlay = document.getElementById('onbOverlay');
+    expect(overlay.innerHTML).toContain('Brain dump anything');
+    expect(overlay.innerHTML).toContain('onb-typewriter');
+    expect(overlay.innerHTML).toContain('Paste chaos');
+  });
+
+  it('showOnboardingExperience contains AI chat screen content', () => {
+    auth.showOnboardingExperience();
+    const overlay = document.getElementById('onbOverlay');
+    expect(overlay.innerHTML).toContain('AI that works with you');
+    expect(overlay.innerHTML).toContain('Plan my week');
+  });
+
+  it('showOnboardingExperience contains stay on track screen', () => {
+    auth.showOnboardingExperience();
+    const overlay = document.getElementById('onbOverlay');
+    expect(overlay.innerHTML).toContain('Stay on track');
+    expect(overlay.innerHTML).toContain('onb-briefing-mock');
+  });
+
+  it('showOnboardingExperience last screen has two CTA buttons', () => {
+    auth.showOnboardingExperience();
+    const overlay = document.getElementById('onbOverlay');
+    expect(overlay.innerHTML).toContain('onb-brainstorm');
+    expect(overlay.innerHTML).toContain('onb-explore');
+    expect(overlay.innerHTML).toContain('brain dump');
+    expect(overlay.innerHTML).toContain('Explore on my own');
+  });
+
+  it('showFeatureTips delegates to showOnboardingExperience', () => {
     auth.showFeatureTips();
-    window._nextTip();
-    window._nextTip();
-    window._nextTip();
-    window._nextTip(); // on last tip
-    expect(document.getElementById('modalRoot').innerHTML).toContain('Got it!');
+    const overlay = document.getElementById('onbOverlay');
+    expect(overlay).not.toBeNull();
+  });
+
+  it('showOnboardingExperience sets wb_onboarding_complete via keyboard Escape', () => {
+    auth.showOnboardingExperience();
+    expect(document.getElementById('onbOverlay')).not.toBeNull();
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    expect(localStorage.getItem('wb_onboarding_complete')).toBe('1');
   });
 
   // ── showOnboarding ────────────────────────────────────────────────

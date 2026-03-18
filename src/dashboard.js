@@ -981,6 +981,23 @@ export function createDashboard(deps) {
     return html;
   }
 
+  function _renderHabitsWidget(active) {
+    const recurring = active.filter((t) => t.recurrence);
+    if (!recurring.length) return '';
+    let html = '<div class="habits-widget">';
+    html += '<div class="habits-widget-header">Today\'s Recurring</div>';
+    recurring.forEach((t) => {
+      const isDone = t.status === 'done';
+      html += `<div class="habits-widget-row">`;
+      html += `<div class="task-check${isDone ? ' done' : ''}" data-action="complete-task" data-task-id="${t.id}" role="checkbox" aria-checked="${isDone}" tabindex="0" aria-label="Mark ${esc(t.title)} done"></div>`;
+      html += `<span class="habits-widget-title${isDone ? ' done-text' : ''}">${esc(t.title)}</span>`;
+      html += `<span class="habits-widget-recurrence">↻ ${t.recurrence}</span>`;
+      html += `</div>`;
+    });
+    html += '</div>';
+    return html;
+  }
+
   function _renderDashboardSmartFeed() {
     let html = '';
     const _nudgeFilter = getNudgeFilter();
@@ -1447,6 +1464,9 @@ export function createDashboard(deps) {
 
     let html = '';
     html += _renderDashboardHero(data, active, done, inProgress, urgent);
+
+    // Today's Recurring habits widget
+    html += _renderHabitsWidget(active);
 
     // Consolidated AI Insights section (collapsible)
     html += _renderAIInsights(data);

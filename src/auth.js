@@ -6,7 +6,7 @@
 /**
  * Factory function to create auth functions.
  * @param {Object} deps - Dependencies from the main app
- * @returns {{ showAuthFromLanding, initAuth, handleAuth, toggleAuthMode, showForgotPassword, showPrivacy, showTerms, resendVerification, signOut, showApp, showOnboarding, showFeatureTips, cleanupStaleLocalStorage }}
+ * @returns {{ showAuthFromLanding, initAuth, handleAuth, toggleAuthMode, showForgotPassword, showPrivacy, showTerms, resendVerification, signOut, showApp, showOnboarding, showFeatureTips, showOnboardingExperience, cleanupStaleLocalStorage }}
  */
 export function createAuth(deps) {
   const {
@@ -353,8 +353,8 @@ export function createAuth(deps) {
     render();
     if (!localStorage.getItem(userKey('wb_onboarding_done')) && data.tasks.length === 0 && data.projects.length <= 1) {
       showOnboarding();
-      // Show tour for first-time users after a short delay
-      setTimeout(() => showFeatureTips(), 600);
+      // Show cinematic onboarding for first-time users after a short delay
+      setTimeout(() => showOnboardingExperience(), 600);
     }
   }
 
@@ -367,62 +367,142 @@ export function createAuth(deps) {
     render();
   }
 
-  function showFeatureTips() {
-    if (localStorage.getItem(userKey('wb_tips_seen'))) return;
-    localStorage.setItem(userKey('wb_tips_seen'), '1');
+  function showOnboardingExperience() {
+    if (localStorage.getItem('wb_onboarding_complete')) return;
     const isMac = navigator.platform?.includes('Mac');
-    const cmdKey = isMac ? 'Cmd' : 'Ctrl';
-    const tips = [
-      {
-        icon: '&#x2726;',
-        title: 'Dump your chaos, AI organizes it',
-        desc: 'Paste meeting notes, ideas, or anything in the box. Hit <strong>Analyze &amp; Organize</strong> and AI extracts tasks with priorities and deadlines.<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:12px"><div style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:6px 10px;font-size:11px;color:var(--text2)"><span style="color:var(--green)">&#x2713;</span> Finalize Q2 budget &middot; Fri</div><div style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:6px 10px;font-size:11px;color:var(--text2)"><span style="color:var(--orange)">&#x25CB;</span> Follow up with design</div><div style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:6px 10px;font-size:11px;color:var(--text2)"><span style="color:var(--orange)">&#x25CB;</span> Book NYC travel</div></div><div style="font-size:10px;color:var(--accent);margin-top:8px;opacity:0.7">&#x2726; 3 tasks extracted &middot; priorities set automatically</div>',
-      },
-      {
-        icon: '&#x2726;',
-        title: 'AI Assistant — Your Thinking Partner',
-        desc:
-          'Press <kbd>' +
-          cmdKey +
-          '+J</kbd> to open chat. Your AI can:<ul style="text-align:left;font-size:12px;margin:8px 0 0 16px;line-height:1.8;color:var(--text2)"><li><strong>Create &amp; organize tasks</strong> — "add a task to call the dentist"</li><li><strong>Plan your day</strong> — "plan my day" or "what should I focus on?"</li><li><strong>Reschedule in bulk</strong> — "push back everything due this week by 3 days"</li><li><strong>Think with you</strong> — "I\'m not sure how to prioritize this week"</li><li><strong>Analyze your data</strong> — "what\'s overdue?" or "how am I doing?"</li></ul>',
-      },
-      {
-        icon: '&#x2318;',
-        title: 'Command Palette',
-        desc: 'Press <kbd>' + cmdKey + '+K</kbd> to search, switch views, and run commands instantly.',
-      },
-      {
-        icon: '&#x25B6;',
-        title: 'Focus Mode',
-        desc: 'Type <kbd>/focus</kbd> in the command palette for AI-picked deep work sessions with a built-in timer.',
-      },
-      { icon: '?', title: 'Keyboard Shortcuts', desc: 'Press <kbd>?</kbd> anytime to see all available shortcuts.' },
-    ];
-    let idx = 0;
-    function renderTip() {
-      const t = tips[idx];
-      const isLast = idx === tips.length - 1;
-      document.getElementById('modalRoot').innerHTML =
-        `<div class="modal-overlay" style="background:rgba(0,0,0,0.5)"><div class="modal" style="max-width:380px;text-align:center;padding:32px">
-        <div style="font-size:32px;margin-bottom:12px;opacity:0.7">${t.icon}</div>
-        <div style="font-size:16px;font-weight:600;margin-bottom:8px">${esc(t.title)}</div>
-        <div style="font-size:13px;color:var(--text2);line-height:1.6;margin-bottom:20px">${t.desc}</div>
-        <div style="display:flex;gap:8px;justify-content:center">
-          <button class="btn" data-action="tip-skip" style="font-size:12px">Skip</button>
-          <button class="btn btn-primary" data-action="tip-next" style="font-size:12px">${isLast ? 'Got it!' : 'Next'} <span style="font-size:10px;opacity:0.6;margin-left:4px">${idx + 1}/${tips.length}</span></button>
-        </div>
-      </div></div>`;
+    const cmdKey = isMac ? '\u2318' : 'Ctrl';
+    let currentScreen = 0;
+    const totalScreens = 5;
+
+    function dismiss() {
+      localStorage.setItem('wb_onboarding_complete', '1');
+      const overlay = document.getElementById('onbOverlay');
+      if (overlay) {
+        overlay.style.opacity = '0';
+        setTimeout(() => {
+          if (overlay.parentNode) overlay.remove();
+        }, 300);
+      }
+      // Clean up keyboard listener
+      document.removeEventListener('keydown', onbKeyHandler);
     }
-    window._nextTip = function () {
-      idx++;
-      if (idx >= tips.length) {
-        document.getElementById('modalRoot').innerHTML = '';
-        delete window._nextTip;
+
+    function goToScreen(idx) {
+      if (idx < 0 || idx >= totalScreens) return;
+      currentScreen = idx;
+      const screens = document.querySelectorAll('.onb-screen');
+      screens.forEach((s, i) => {
+        s.classList.toggle('onb-active', i === idx);
+      });
+      const dots = document.querySelectorAll('.onb-dot');
+      dots.forEach((d, i) => {
+        d.classList.toggle('onb-dot-active', i === idx);
+      });
+    }
+
+    function nextScreen() {
+      if (currentScreen < totalScreens - 1) {
+        goToScreen(currentScreen + 1);
+      }
+    }
+
+    function onbKeyHandler(e) {
+      if (!document.getElementById('onbOverlay')) {
+        document.removeEventListener('keydown', onbKeyHandler);
         return;
       }
-      renderTip();
-    };
-    renderTip();
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        e.stopPropagation();
+        dismiss();
+      } else if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        e.stopPropagation();
+        if (currentScreen < totalScreens - 1) nextScreen();
+        else dismiss();
+      }
+    }
+
+    document.addEventListener('keydown', onbKeyHandler);
+
+    const dotsHTML = Array.from(
+      { length: totalScreens },
+      (_, i) => '<div class="onb-dot' + (i === 0 ? ' onb-dot-active' : '') + '"></div>',
+    ).join('');
+
+    const overlay = document.createElement('div');
+    overlay.id = 'onbOverlay';
+    overlay.className = 'onb-overlay';
+    overlay.style.transition = 'opacity 300ms';
+    overlay.innerHTML =
+      '<button class="onb-skip" data-action="onb-skip">Skip tour</button>' +
+      // Screen 1: Welcome
+      '<div class="onb-screen onb-active">' +
+      '<div class="onb-logo">W</div>' +
+      '<div class="onb-tagline">Your AI-powered second brain</div>' +
+      '<button class="onb-btn-primary" data-action="onb-next">Let\u2019s go \u2192</button>' +
+      '</div>' +
+      // Screen 2: Brain dump
+      '<div class="onb-screen">' +
+      '<div class="onb-title">Brain dump anything</div>' +
+      '<div class="onb-mock-textarea">' +
+      '<span class="onb-typewriter">Meeting with Sarah tomorrow, finalize Q2 budget by Friday, follow up with design team...</span>' +
+      '</div>' +
+      '<div class="onb-task-cards">' +
+      '<div class="onb-task-card">\u2713 Meeting with Sarah \u00b7 Tomorrow</div>' +
+      '<div class="onb-task-card">\u25CB Finalize Q2 budget \u00b7 Friday</div>' +
+      '<div class="onb-task-card">\u25CB Follow up with design team</div>' +
+      '</div>' +
+      '<div class="onb-caption">Paste chaos. AI extracts tasks instantly.</div>' +
+      '<button class="onb-btn-primary" data-action="onb-next" style="margin-top:20px">Next \u2192</button>' +
+      '</div>' +
+      // Screen 3: AI chat
+      '<div class="onb-screen">' +
+      '<div class="onb-title">AI that works with you</div>' +
+      '<div class="onb-chat-mock">' +
+      '<div class="onb-chat-bubble onb-chat-user">Plan my week</div>' +
+      '<div class="onb-chat-bubble onb-chat-ai">Here\u2019s your plan based on deadlines and priorities\u2026<br><br>\u2022 Monday: Finalize Q2 budget<br>\u2022 Tuesday: Design team follow-up<br>\u2022 Wednesday: Sarah meeting prep</div>' +
+      '</div>' +
+      '<div class="onb-caption">Chat naturally. Your assistant knows your context.</div>' +
+      '<button class="onb-btn-primary" data-action="onb-next" style="margin-top:20px">Next \u2192</button>' +
+      '</div>' +
+      // Screen 4: Stay on track
+      '<div class="onb-screen">' +
+      '<div class="onb-title">Stay on track</div>' +
+      '<div class="onb-briefing-mock">' +
+      '<div class="onb-briefing-title">\u2600\uFE0F Good morning</div>' +
+      '<div class="onb-briefing-item">\u2022 3 tasks due today</div>' +
+      '<div class="onb-briefing-item">\u2022 Q2 budget is high priority</div>' +
+      '<div class="onb-briefing-item">\u2022 You completed 5 tasks yesterday \u2014 nice!</div>' +
+      '</div>' +
+      '<div class="onb-notif-mock">\uD83D\uDD14 Reminder: Sarah meeting in 30 minutes</div>' +
+      '<div class="onb-caption">Daily plans, smart nudges, and focus mode keep you moving.</div>' +
+      '<button class="onb-btn-primary" data-action="onb-next" style="margin-top:20px">Next \u2192</button>' +
+      '</div>' +
+      // Screen 5: Ready
+      '<div class="onb-screen">' +
+      '<div class="onb-title">You\u2019re ready</div>' +
+      '<div class="onb-subtitle">Choose how you\u2019d like to start</div>' +
+      '<div class="onb-ready-btns">' +
+      '<button class="onb-btn-primary" data-action="onb-brainstorm" style="opacity:1;animation:none">Start with a brain dump \u2192</button>' +
+      '<button class="onb-btn-secondary" data-action="onb-explore">Explore on my own</button>' +
+      '</div>' +
+      '<div class="onb-tip">' +
+      cmdKey +
+      'K for commands, ' +
+      cmdKey +
+      'J for AI chat</div>' +
+      '</div>' +
+      '<div class="onb-dots">' +
+      dotsHTML +
+      '</div>';
+
+    document.body.appendChild(overlay);
+  }
+
+  // Legacy alias — keeps old call sites working
+  function showFeatureTips() {
+    showOnboardingExperience();
   }
   // skipAuth removed — was a security bypass callable from console
 
@@ -645,6 +725,7 @@ export function createAuth(deps) {
     showApp,
     showOnboarding,
     showFeatureTips,
+    showOnboardingExperience,
     cleanupStaleLocalStorage,
   };
 }

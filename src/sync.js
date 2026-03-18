@@ -6,7 +6,7 @@
 /**
  * Factory function to create sync functions.
  * @param {Object} deps - Dependencies from the main app
- * @returns {{ loadFromCloud, scheduleSyncToCloud, syncToCloud, updateSyncDot, showConflictBanner, getSyncStatus, setSyncStatus, getSyncTimer, resetSyncState, setupSyncListeners, destroySyncListeners, getLastCloudUpdatedAt, setLastCloudUpdatedAt, getSyncQueue, resetSyncQueue }}
+ * @returns {{ loadFromCloud, scheduleSyncToCloud, syncToCloud, updateSyncDot, getSyncStatus, setSyncStatus, getSyncTimer, resetSyncState, setupSyncListeners, destroySyncListeners, getLastCloudUpdatedAt, setLastCloudUpdatedAt, getSyncQueue, resetSyncQueue }}
  */
 export function createSync(deps) {
   const {
@@ -177,9 +177,17 @@ export function createSync(deps) {
           .select('updated_at')
           .eq('user_id', currentUser.id)
           .single();
-        // Conflict check disabled for beta — false positives from rapid deploys
-        void checkErr;
-        void checkRow;
+        if (!checkErr && checkRow && checkRow.updated_at) {
+          const cloudTime = new Date(checkRow.updated_at).getTime();
+          const lastKnown = new Date(_lastCloudUpdatedAt).getTime();
+          if (cloudTime - lastKnown > 60000) {
+            showToast('Synced from another device');
+            if (loadFromCloud) await loadFromCloud();
+            syncStatus = 'synced';
+            updateSyncDot();
+            return;
+          }
+        }
       }
       const data = JSON.parse(localStorage.getItem(userKey(STORE_KEY)) || '{"tasks":[],"projects":[]}');
       if (!Array.isArray(data.tasks)) data.tasks = [];
@@ -227,10 +235,6 @@ export function createSync(deps) {
     const currentUser = getCurrentUser();
     if (!currentUser || !sb) return;
     return withSyncLock(() => _doSyncToCloud());
-  }
-
-  function showConflictBanner() {
-    // Disabled for beta — was causing persistent false positive banners
   }
 
   function showSyncFailBanner() {
@@ -365,11 +369,19 @@ export function createSync(deps) {
           scheduleSyncToCloud();
           return;
         }
-        // Version check disabled for beta — was causing false positive conflict banners
+        // Check if cloud was updated by another session
+        if (!navigator.onLine || !_lastCloudUpdatedAt) return;
         try {
-          void 0;
+          const { data: row } = await sb.from('user_data').select('updated_at').eq('user_id', currentUser.id).single();
+          if (row && row.updated_at) {
+            const diff = new Date(row.updated_at).getTime() - new Date(_lastCloudUpdatedAt).getTime();
+            if (diff > 60000) {
+              showToast('Synced from another device');
+              if (loadFromCloud) await loadFromCloud();
+            }
+          }
         } catch (_e) {
-          /* no-op */
+          /* network error — ignore */
         }
       },
       { signal },
@@ -419,7 +431,6 @@ export function createSync(deps) {
     scheduleSyncToCloud,
     syncToCloud,
     updateSyncDot,
-    showConflictBanner,
     showSyncFailBanner,
     clearSyncFailBanner,
     getSyncStatus,

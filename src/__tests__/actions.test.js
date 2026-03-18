@@ -111,6 +111,7 @@ function makeDeps(overrides = {}) {
     runTaskCmd: vi.fn(),
     heroInputHandler: vi.fn(),
     showFeatureTips: vi.fn(),
+    showOnboardingExperience: vi.fn(),
     // State getters/setters
     getExpandedTask: vi.fn(() => null),
     setExpandedTask: vi.fn(),
@@ -1336,7 +1337,7 @@ describe('actions.js — createActions()', () => {
       expect(localStorage.getItem('u1_wb_tips_seen')).toBeNull();
       expect(deps.closeModal).toHaveBeenCalled();
       vi.advanceTimersByTime(500);
-      expect(deps.showFeatureTips).toHaveBeenCalled();
+      expect(deps.showOnboardingExperience).toHaveBeenCalled();
       vi.useRealTimers();
     });
 
@@ -1372,11 +1373,24 @@ describe('actions.js — createActions()', () => {
       delete window._nextTip;
     });
 
-    it('onb-next calls window.onbNext', () => {
-      window.onbNext = vi.fn();
+    it('onb-next advances to next screen in onboarding overlay', () => {
+      // Create a mock onboarding overlay with screens and dots
+      const overlay = document.createElement('div');
+      overlay.id = 'onbOverlay';
+      const s1 = document.createElement('div');
+      s1.className = 'onb-screen onb-active';
+      const s2 = document.createElement('div');
+      s2.className = 'onb-screen';
+      const d1 = document.createElement('div');
+      d1.className = 'onb-dot onb-dot-active';
+      const d2 = document.createElement('div');
+      d2.className = 'onb-dot';
+      overlay.append(s1, s2, d1, d2);
+      document.body.appendChild(overlay);
       click(makeActionEl('onb-next'));
-      expect(window.onbNext).toHaveBeenCalled();
-      delete window.onbNext;
+      expect(s1.classList.contains('onb-active')).toBe(false);
+      expect(s2.classList.contains('onb-active')).toBe(true);
+      overlay.remove();
     });
 
     it('load-dump-history sets view to dump', () => {

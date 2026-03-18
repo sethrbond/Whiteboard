@@ -25,7 +25,7 @@ const VALID_STATUSES = ['todo', 'in-progress', 'done'];
 const VALID_PRIORITIES = ['urgent', 'important', 'normal', 'low'];
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const VALID_HORIZONS = ['short', 'long', ''];
-const VALID_RECURRENCES = ['daily', 'weekly', 'monthly', ''];
+const VALID_RECURRENCES = ['daily', 'weekdays', 'weekly', 'monthly', ''];
 
 /**
  * Factory function to create the data layer.

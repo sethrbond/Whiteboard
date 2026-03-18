@@ -70,7 +70,6 @@ describe('sync.js — createSync()', () => {
       'scheduleSyncToCloud',
       'syncToCloud',
       'updateSyncDot',
-      'showConflictBanner',
       'getSyncStatus',
       'setSyncStatus',
       'getSyncTimer',
@@ -199,29 +198,6 @@ describe('sync.js — createSync()', () => {
     sync.updateSyncDot();
     const dot = document.getElementById('syncDot');
     expect(dot.title).toContain('Offline');
-  });
-
-  // ── showConflictBanner ────────────────────────────────────────────
-  it.skip('showConflictBanner adds a banner to the document (disabled for beta)', () => {
-    sync.showConflictBanner();
-    const banner = document.getElementById('conflict-banner');
-    expect(banner).not.toBeNull();
-    expect(banner.textContent).toContain('Another session');
-  });
-
-  it.skip('showConflictBanner does not add duplicate banners (disabled for beta)', () => {
-    sync.showConflictBanner();
-    sync.showConflictBanner();
-    const banners = document.querySelectorAll('#conflict-banner');
-    expect(banners.length).toBe(1);
-  });
-
-  it.skip('showConflictBanner banner is clickable and triggers reload (disabled for beta)', () => {
-    sync.showConflictBanner();
-    const banner = document.getElementById('conflict-banner');
-    expect(banner).not.toBeNull();
-    // Banner should have an onclick handler
-    expect(banner.onclick).toBeInstanceOf(Function);
   });
 
   // ── loadFromCloud ─────────────────────────────────────────────────
