@@ -218,9 +218,12 @@ export function createBrainstorm(deps) {
     return _libCache[url];
   }
 
+  let _pdfjsLib = null;
   async function ensurePDFLib() {
-    if (typeof pdfjsLib !== 'undefined') return;
-    await loadScript('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js');
+    if (_pdfjsLib) return;
+    const pdfjs = await import('pdfjs-dist');
+    pdfjs.GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/build/pdf.worker.mjs', import.meta.url).href;
+    _pdfjsLib = pdfjs;
   }
 
   async function ensureMammothLib() {
@@ -295,9 +298,7 @@ export function createBrainstorm(deps) {
     // PDF
     if (ext === 'pdf' || file.type === 'application/pdf') {
       await ensurePDFLib();
-      pdfjsLib.GlobalWorkerOptions.workerSrc =
-        'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-      const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+      const pdf = await _pdfjsLib.getDocument({ data: buf }).promise;
       const pages = [];
       for (let i = 1; i <= pdf.numPages; i++) {
         const page = await pdf.getPage(i);

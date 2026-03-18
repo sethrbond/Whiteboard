@@ -129,7 +129,7 @@ describe('getSmartDefaults', () => {
     expect(result.suggestedPriority).toBe('urgent');
   });
 
-  it('suggests due date from completion patterns', () => {
+  it('does not suggest due dates (never invent deadlines)', () => {
     const now = Date.now();
     const tasks = [];
     for (let i = 0; i < 6; i++) {
@@ -146,8 +146,7 @@ describe('getSmartDefaults', () => {
     deps.getData.mockReturnValue({ tasks, projects: [] });
     proactive = createProactive(deps);
     const result = proactive.getSmartDefaults('review document final');
-    expect(result.suggestedDueDate).toBeDefined();
-    expect(result.suggestedDueDays).toBeGreaterThanOrEqual(1);
+    expect(result.suggestedDueDate).toBeUndefined();
   });
 
   it('suggests estimated time from similar past tasks', () => {

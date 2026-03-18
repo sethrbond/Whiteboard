@@ -49,7 +49,7 @@ ACTIONS — include a JSON block in your response to take action:
   { "action": "update_task", "taskTitle": "partial match", "fields": { "priority": "...", "status": "todo|in-progress|done", "dueDate": "...", "notes": "...", "project": "Board Name", "title": "...", "tags": ["tag1"] } },
   { "action": "delete_task", "taskTitle": "partial match" },
   { "action": "move_task", "taskTitle": "partial match", "toProject": "Board Name" },
-  { "action": "add_subtasks", "taskTitle": "partial match", "subtasks": ["step 1", "step 2"] },
+  { "action": "add_subtasks", "taskTitle": "partial match", "subtasks": ["step 1", "step 2"], "parentSubtask": "optional — title of existing subtask to nest under" },
   { "action": "split_task", "taskTitle": "partial match", "into": [{ "title": "...", "priority": "normal", "notes": "..." }, ...] },
   { "action": "batch_update", "filter": { "project": "Board Name" | "priority": "low" | "status": "todo" }, "fields": { "priority": "normal" } },
   { "action": "batch_reschedule", "filter": { "project": "Board Name" | "priority": "low|normal|important" | "dueBefore": "YYYY-MM-DD" | "dueThisWeek": true }, "daysToAdd": 3, "newDate": "YYYY-MM-DD" },
@@ -721,7 +721,27 @@ export function createAIContext(deps) {
               const match = matchTask(a.taskTitle);
               if (match) {
                 if (!match.subtasks) match.subtasks = [];
-                a.subtasks.forEach((s) => match.subtasks.push({ id: genId('st'), title: s, done: false }));
+                // Find parent subtask if specified (for nesting)
+                let targetList = match.subtasks;
+                if (a.parentSubtask) {
+                  const _findByTitle = (subs, title) => {
+                    const lower = title.toLowerCase();
+                    for (const s of subs) {
+                      if (s.title.toLowerCase().includes(lower)) return s;
+                      if (s.subtasks) {
+                        const found = _findByTitle(s.subtasks, title);
+                        if (found) return found;
+                      }
+                    }
+                    return null;
+                  };
+                  const parent = _findByTitle(match.subtasks, a.parentSubtask);
+                  if (parent) {
+                    if (!parent.subtasks) parent.subtasks = [];
+                    targetList = parent.subtasks;
+                  }
+                }
+                a.subtasks.forEach((s) => targetList.push({ id: genId('st'), title: s, done: false }));
                 saveData(data);
                 applied++;
               }
