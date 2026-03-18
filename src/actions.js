@@ -395,6 +395,7 @@ export function createActions(deps) {
         break;
       // Modal close (generic)
       case 'close-modal':
+        cancelDump(); // abort brainstorm if running
         closeModal();
         break;
       case 'close-edit-modal':

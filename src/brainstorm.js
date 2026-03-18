@@ -615,7 +615,7 @@ Format if asking questions \u2014 respond ONLY with the questions, one per line,
       return null;
     }
 
-    const totalInput = text + getDumpAttachmentText();
+    const totalInput = text; // attachment text already included above
     const MAX_INPUT_CHARS = MAX_BRAINSTORM_INPUT_CHARS;
     if (totalInput.length > MAX_INPUT_CHARS) {
       const overBy = totalInput.length - MAX_INPUT_CHARS;
@@ -883,6 +883,11 @@ ${text}${getDumpAttachmentText()}`;
 
   function cancelDump() {
     if (dumpAbort) dumpAbort.abort();
+    if (window._dumpTimer) {
+      clearInterval(window._dumpTimer);
+      window._dumpTimer = null;
+    }
+    _dumpInProgress = false;
   }
 
   // ── Review modal ────────────────────────────────────────────────────────
