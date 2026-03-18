@@ -628,6 +628,10 @@ async function _loadBrainstorm() {
         genId,
         normalizeTitle,
         $,
+        setBatchMode: (v) => {
+          _batchMode = v;
+        },
+        saveData: (d) => _dataLayer.saveData(d),
       });
     }
     return _brainstormMod;

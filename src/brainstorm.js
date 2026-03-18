@@ -122,7 +122,8 @@ export function createBrainstorm(deps) {
             <div class="dump-result-stat"><div style="font-size:32px;font-weight:700;color:var(--accent)">${r.tasksCreated}</div><div style="font-size:12px;color:var(--text3)">tasks extracted</div></div>
             ${boardText.length ? `<div class="dump-result-stat"><div style="font-size:32px;font-weight:700;color:var(--purple)">${r.boardsCreated + r.boardsUpdated}</div><div style="font-size:12px;color:var(--text3)">boards (${boardText.join(', ')})</div></div>` : ''}
           </div>
-          ${statusParts.length ? `<div style="font-size:12px;color:var(--text3);margin-bottom:20px">${statusParts.join(' \u00b7 ')}</div>` : ''}
+          ${statusParts.length ? `<div style="font-size:12px;color:var(--text3);margin-bottom:12px">${statusParts.join(' \u00b7 ')}</div>` : ''}
+          ${r.summary ? `<div style="font-size:13px;color:var(--text2);line-height:1.6;text-align:left;margin-bottom:16px;padding:12px 16px;background:var(--surface);border-radius:var(--radius-sm);border-left:2px solid var(--accent)">${esc(r.summary)}</div>` : ''}
           ${
             r.tasksByBoard && Object.keys(r.tasksByBoard).length
               ? `<div style="margin-bottom:16px"><button class="btn btn-sm" data-action="toggle-what-changed" style="font-size:11px;color:var(--text3)">Hide details</button><div class="dump-what-changed open"><div style="text-align:left;padding:12px 0;border-top:1px solid var(--border);margin-top:8px">${Object.entries(
@@ -1140,6 +1141,12 @@ ${text}${getDumpAttachmentText()}`;
       return;
     }
 
+    // Push ONE undo snapshot before batch processing (not per-task)
+    pushUndo('Brainstorm: ' + items.length + ' tasks');
+
+    // Use batch mode to prevent per-task saves and undo snapshots
+    if (deps.setBatchMode) deps.setBatchMode(true);
+
     const projectUpdates = parsed.projectUpdates || [];
     const projectMap = {};
     const { projectsUpdated, boardsNewCount } = _applyProjectUpdates(projectUpdates, projectMap);
@@ -1159,6 +1166,15 @@ ${text}${getDumpAttachmentText()}`;
       else if (result === 'updated') updated++;
       else if (result === 'completed') completed++;
     });
+
+    // End batch mode and save everything once
+    if (deps.setBatchMode) deps.setBatchMode(false);
+    if (deps.saveData) deps.saveData(getData());
+    else {
+      // Force a save by calling a trivial update if saveData not available
+      const data = getData();
+      if (data.tasks.length) updateTask(data.tasks[0].id, {});
+    }
 
     const patterns = parsed.patterns || [];
 
@@ -1181,6 +1197,7 @@ ${text}${getDumpAttachmentText()}`;
       boardsCreated: boardsNewCount,
       boardsUpdated: projectsUpdated - boardsNewCount,
       inputSnippet: text.slice(0, 200),
+      summary: parsed.summary || '',
       tasksByBoard: (() => {
         const m = {};
         items.forEach((i) => {
