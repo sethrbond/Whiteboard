@@ -127,9 +127,14 @@ window._welcomeTypingInterval = null;
 document.addEventListener(
   'click',
   (e) => {
+    // Skip if user is selecting text, clicking interactive elements, or inside inputs
+    const sel = window.getSelection();
+    if (sel && sel.toString().length > 0) return;
     if (
       e.target.closest('button') ||
       e.target.closest('input') ||
+      e.target.closest('textarea') ||
+      e.target.closest('a') ||
       e.target.closest('[data-bulk]') ||
       e.target.closest('[data-toggle]') ||
       e.target.closest('[data-action]')
