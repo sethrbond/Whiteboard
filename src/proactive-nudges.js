@@ -261,9 +261,9 @@ ONE sentence max. Be genuine, not performative. No "Great job!" energy.`;
     callAI(prompt, { maxTokens: 100 })
       .then((reply) => {
         const clean = reply.replace(/\n/g, ' ').trim();
-        if (clean && clean !== '✓' && clean.length > 2) {
-          showReflectionToast(clean);
-          // Save insightful reflections to AI memory
+        if (clean && clean !== '\u2713' && clean.length > 2) {
+          // Delay reflection to avoid stacking with undo toast (5s undo + 1s buffer)
+          setTimeout(() => showToast(clean, false, true), 6000);
           if (clean.length > 20) {
             addAIMemory(clean, 'reflection');
           }
