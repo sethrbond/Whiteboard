@@ -222,7 +222,12 @@ export function createBrainstorm(deps) {
   async function ensurePDFLib() {
     if (_pdfjsLib) return;
     const pdfjs = await import('pdfjs-dist/legacy/build/pdf.js');
-    pdfjs.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.js';
+    // Create worker from blob URL to avoid static file serving issues
+    const workerJs = await import('pdfjs-dist/legacy/build/pdf.worker.js?url');
+    const resp = await fetch(workerJs.default);
+    const text = await resp.text();
+    const blob = new Blob([text], { type: 'application/javascript' });
+    pdfjs.GlobalWorkerOptions.workerSrc = URL.createObjectURL(blob);
     _pdfjsLib = pdfjs;
   }
 
