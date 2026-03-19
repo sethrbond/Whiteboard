@@ -830,14 +830,12 @@ describe('dashboard.js — createDashboard()', () => {
       expect(ha.innerHTML).toContain('data-action="new-project"');
     });
 
-    it('renders calendar when dashViewMode is week', () => {
+    it('dashboard always renders plan (not calendar) regardless of dashViewMode', () => {
       setupDomForRenderNow();
       deps.getData.mockReturnValue({ tasks: [{ id: 't1', status: 'todo', priority: 'normal' }], projects: [] });
       deps.getCurrentView.mockReturnValue('dashboard');
       deps.getDashViewMode.mockReturnValue('week');
       deps.activeTasks.mockReturnValue([]);
-      deps.urgentTasks.mockReturnValue([]);
-      deps.doneTasks.mockReturnValue([]);
       deps.projectTasks.mockReturnValue([]);
       deps.archivedTasks.mockReturnValue([]);
       deps.getBrainstormModule.mockReturnValue({
@@ -848,7 +846,8 @@ describe('dashboard.js — createDashboard()', () => {
       dashboard = createDashboard(deps);
 
       dashboard._renderNow();
-      expect(deps.renderCalendar).toHaveBeenCalled();
+      // Dashboard now always shows plan, calendar is a separate view
+      expect(deps.renderCalendar).not.toHaveBeenCalled();
     });
 
     it('renders project view', () => {
