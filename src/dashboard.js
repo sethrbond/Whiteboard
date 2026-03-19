@@ -474,7 +474,7 @@ export function createDashboard(deps) {
 
   function _renderNowDashboardView(c, ha, _data, _bulkMode, dashViewMode) {
     $('#viewSub').textContent = '';
-    ha.innerHTML = `<button class="btn btn-sm" data-action="toggle-chat"><span class="ai-badge" style="margin-right:4px">ai</span>Ask</button><button class="btn btn-primary btn-sm" data-action="new-project">+ Board</button>`;
+    ha.innerHTML = `<button class="btn btn-sm" data-action="toggle-chat"><span class="ai-badge" style="margin-right:4px" aria-hidden="true">ai</span>Ask</button><button class="btn btn-primary btn-sm" data-action="new-project">+ Board</button>`;
     c.innerHTML = dashViewMode === 'list' ? renderDashboard() : renderCalendar();
   }
 
@@ -488,7 +488,7 @@ export function createDashboard(deps) {
     $('#viewTitle').textContent = p.name;
     $('#viewSub').textContent = '';
     const vm = getProjectViewMode(p.id) || 'list';
-    ha.innerHTML = `<div class="view-toggle"><button class="view-toggle-btn ${vm === 'list' ? 'active' : ''}" data-action="project-view-mode" data-project-id="${esc(p.id)}" data-mode="list">List</button><button class="view-toggle-btn ${vm === 'board' ? 'active' : ''}" data-action="project-view-mode" data-project-id="${esc(p.id)}" data-mode="board">Board</button></div><button class="btn btn-sm" data-action="open-project-chat" data-project-id="${esc(p.id)}"><span class="ai-badge" style="margin-right:4px">ai</span>Ask</button><button class="btn btn-primary btn-sm" data-action="open-new-task" data-project-id="${esc(p.id)}">+ Task</button><div class="dropdown" style="position:relative"><button class="btn btn-sm" data-action="toggle-dropdown">\u00b7\u00b7\u00b7</button><div class="dropdown-menu"><button data-action="start-focus-project" data-project-id="${esc(p.id)}">\u25ce Focus Mode</button><button data-action="ai-reorganize" data-project-id="${esc(p.id)}"><span class="ai-badge" style="margin-right:4px">ai</span> Reorganize</button><button data-action="open-edit-project" data-project-id="${esc(p.id)}">Edit Board</button></div></div>`;
+    ha.innerHTML = `<div class="view-toggle"><button class="view-toggle-btn ${vm === 'list' ? 'active' : ''}" data-action="project-view-mode" data-project-id="${esc(p.id)}" data-mode="list">List</button><button class="view-toggle-btn ${vm === 'board' ? 'active' : ''}" data-action="project-view-mode" data-project-id="${esc(p.id)}" data-mode="board">Board</button></div><button class="btn btn-sm" data-action="open-project-chat" data-project-id="${esc(p.id)}"><span class="ai-badge" style="margin-right:4px" aria-hidden="true">ai</span>Ask</button><button class="btn btn-primary btn-sm" data-action="open-new-task" data-project-id="${esc(p.id)}">+ Task</button><div class="dropdown" style="position:relative"><button class="btn btn-sm" data-action="toggle-dropdown">\u00b7\u00b7\u00b7</button><div class="dropdown-menu"><button data-action="start-focus-project" data-project-id="${esc(p.id)}">\u25ce Focus Mode</button><button data-action="ai-reorganize" data-project-id="${esc(p.id)}"><span class="ai-badge" style="margin-right:4px" aria-hidden="true">ai</span> Reorganize</button><button data-action="open-edit-project" data-project-id="${esc(p.id)}">Edit Board</button></div></div>`;
     c.innerHTML = renderProject(p);
   }
 
@@ -947,6 +947,7 @@ export function createDashboard(deps) {
       </div>`;
 
       // Active tasks in plan order
+      html += `<div role="list" aria-label="Today's plan tasks">`;
       const _expandedTask = getExpandedTask();
       activePlanItems.forEach((p, i) => {
         const t = p._task;
@@ -989,6 +990,7 @@ export function createDashboard(deps) {
             html += `<div style="margin-left:34px;font-size:11px;color:var(--text3);margin-bottom:6px;margin-top:-2px;font-style:italic">\u21b3 ${esc(p.why)}</div>`;
         }
       });
+      html += `</div>`; // close role="list"
 
       // Completed tasks (collapsed at bottom)
       if (completedPlanItems.length > 0) {
@@ -1146,7 +1148,7 @@ export function createDashboard(deps) {
       return `<div style="max-width:520px;margin:40px auto">
         <div style="font-size:20px;font-weight:600;margin-bottom:6px;color:var(--text)">Drop everything here.</div>
         <p style="font-size:14px;color:var(--text3);line-height:1.6;margin-bottom:20px">Meeting notes, plans, ideas, to-do lists, a PDF \u2014 paste it all in. AI reads it and creates organized tasks and boards for you.</p>
-        <textarea id="onboardDump" style="width:100%;min-height:140px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px;font-size:14px;color:var(--text);font-family:inherit;resize:vertical;outline:none;line-height:1.6;box-sizing:border-box" placeholder="Paste meeting notes, write your thoughts, list everything on your mind..."></textarea>
+        <textarea id="onboardDump" aria-label="Brain dump — paste notes, ideas, plans" style="width:100%;min-height:140px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px;font-size:14px;color:var(--text);font-family:inherit;resize:vertical;outline:none;line-height:1.6;box-sizing:border-box" placeholder="Paste meeting notes, write your thoughts, list everything on your mind..."></textarea>
         <div style="display:flex;gap:12px;margin-top:12px;align-items:center">
           <button class="btn btn-primary" data-action="onboard-process" style="padding:10px 20px">Organize this \u2192</button>
           <span style="font-size:12px;color:var(--text3)">or <span style="color:var(--accent);cursor:pointer" data-action="go-dump">attach files</span> \u00b7 <span style="color:var(--accent);cursor:pointer" data-action="onboard-skip">skip, I'll add tasks manually</span></span>
@@ -1167,7 +1169,7 @@ export function createDashboard(deps) {
     if (dueToday.length) statusBits.push(`${dueToday.length} due today`);
     if (!statusBits.length && active.length) statusBits.push(`${active.length} active`);
     html += `<div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:16px">
-      <span style="font-size:16px;font-weight:600;color:var(--text)">${greeting}</span>
+      <h2 style="font-size:16px;font-weight:600;color:var(--text);margin:0">${greeting}</h2>
       <span style="font-size:12px;color:var(--text3)">${statusBits.join(' \u00b7 ')}</span>
     </div>`;
 

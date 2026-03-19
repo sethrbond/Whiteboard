@@ -180,7 +180,6 @@ const saveData = (d) => {
   _dataLayer.saveData(d);
   if (typeof scheduleNotifications === 'function') scheduleNotifications();
 };
-const _flushSave = _dataLayer._flushSave;
 const loadSettings = _dataLayer.loadSettings;
 const saveSettings = (s) => _dataLayer.saveSettings(s);
 const validateTaskFields = _dataLayer.validateTaskFields;
@@ -471,7 +470,6 @@ const _taskEditor = createTaskEditor({
 const renderTaskRow = _taskEditor.renderTaskRow;
 const renderTaskExpanded = _taskEditor.renderTaskExpanded;
 const renderPriorityTag = _taskEditor.renderPriorityTag;
-const _taskNudge = _taskEditor.taskNudge;
 const attachInlineEdit = _taskEditor.attachInlineEdit;
 const openNewTask = _taskEditor.openNewTask;
 const saveNewTask = _taskEditor.saveNewTask;
@@ -548,10 +546,7 @@ const archiveMemory = _aiCtx.archiveMemory;
 const restoreMemory = _aiCtx.restoreMemory;
 const addAIMemory = _aiCtx.addAIMemory;
 const pruneStaleMemories = _aiCtx.pruneStaleMemories;
-const _searchMemoryArchive = _aiCtx.searchMemoryArchive;
-const _getAIInteractionCount = _aiCtx.getAIInteractionCount;
 const incrementAIInteraction = _aiCtx.incrementAIInteraction;
-const _consolidateMemories = _aiCtx.consolidateMemories;
 const maybeLearnPattern = _aiCtx.maybeLearnPattern;
 const buildAIContext = _aiCtx.buildAIContext;
 const matchTask = _aiCtx.matchTask;
@@ -1117,11 +1112,8 @@ const signOut = async () => {
   stopEscalationLoop();
   return _origSignOut();
 };
-const _showApp = _auth.showApp;
-const _showOnboarding = _auth.showOnboarding;
 const showFeatureTips = _auth.showFeatureTips;
 const showOnboardingExperience = _auth.showOnboardingExperience;
-const _cleanupStaleLocalStorage = _auth.cleanupStaleLocalStorage;
 
 // ============================================================
 // PROACTIVE AI
@@ -1173,9 +1165,6 @@ const _proactive = createProactive({
     if (_dashboard) _dashboard.setPlanIndexCache(cache, date);
   },
 });
-const _matchProactivePattern = _proactive.matchProactivePattern;
-const _saveProactiveLog = _proactive.saveProactiveLog;
-const _getAIPreparedTaskIds = _proactive.getAIPreparedTaskIds;
 const filterAIPrepared = _proactive.filterAIPrepared;
 const maybeProactiveEnhance = _proactive.maybeProactiveEnhance;
 let runProactiveWorker = _proactive.runProactiveWorker;
@@ -1189,7 +1178,6 @@ const nudgeFilterOverdue = _proactive.nudgeFilterOverdue;
 const nudgeFilterStale = _proactive.nudgeFilterStale;
 const nudgeFilterUnassigned = _proactive.nudgeFilterUnassigned;
 const maybeReflect = _proactive.maybeReflect;
-const _showReflectionToast = _proactive.showReflectionToast;
 const getStuckTasks = _proactive.getStuckTasks;
 const processRecurringTasks = _proactive.processRecurringTasks;
 const getAIStatusItems = _proactive.getAIStatusItems;
@@ -1245,7 +1233,6 @@ const _escalation = createEscalation({
 });
 const startEscalationLoop = _escalation.startEscalationLoop;
 const stopEscalationLoop = _escalation.stopEscalationLoop;
-const _runEscalationCheck = _escalation.runEscalationCheck;
 const _maybeEscalationOnRender = _escalation.maybeCheckOnRender;
 const renderEscalationBanner = _escalation.renderEscalationBanner;
 const handleEscalationAction = _escalation.handleEscalationAction;

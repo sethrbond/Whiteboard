@@ -352,9 +352,9 @@ export function createAuth(deps) {
     }
     render();
     if (!localStorage.getItem(userKey('wb_onboarding_done')) && data.tasks.length === 0 && data.projects.length <= 1) {
-      showOnboarding();
-      // Show cinematic onboarding for first-time users after a short delay
-      setTimeout(() => showOnboardingExperience(), 600);
+      // Go straight to dashboard — the inline onboarding textarea handles first-time UX
+      setCurrentView('dashboard');
+      render();
     }
   }
 

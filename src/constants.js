@@ -41,7 +41,6 @@ export const MAX_KANBAN_DONE = 20;
 export const BRAINSTORM_WORD_THRESHOLD = 30;
 export const MAX_NOTES_LENGTH = 10000;
 export const MAX_AI_MEMORIES = 30;
-export const DESC_TRUNCATE_SHORT = 120;
 export const MAX_DUMP_INPUT_CHARS = 100000;
 export const MAX_BRAINSTORM_INPUT_CHARS = 200000;
 export const AI_CONTEXT_MAX_LENGTH = 30000;

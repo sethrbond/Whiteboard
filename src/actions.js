@@ -267,12 +267,19 @@ export function createActions(deps) {
         const _cTask = findTask(_cTaskId);
         updateTask(_cTaskId, { status: 'done' });
         render();
-        if (_cTask)
+        if (_cTask) {
+          const _safeTitle = _cTask.title
+            .slice(0, 30)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
           showToast(
-            `\u2713 ${_cTask.title.slice(0, 30)}${_cTask.title.length > 30 ? '...' : ''} done \u2014 <span style="color:var(--accent);cursor:pointer;text-decoration:underline" data-action="undo-btn">Undo</span>`,
+            `\u2713 ${_safeTitle}${_cTask.title.length > 30 ? '...' : ''} done \u2014 <span style="color:var(--accent);cursor:pointer;text-decoration:underline" data-action="undo-btn">Undo</span>`,
             false,
             true,
           );
+        }
         break;
       }
       // Task expand/collapse

@@ -904,13 +904,11 @@ describe('auth.js — createAuth()', () => {
     expect(deps.setCurrentView).toHaveBeenCalledWith('dashboard');
   });
 
-  it('showApp triggers onboarding for new users with no tasks', () => {
+  it('showApp sends new users to dashboard for inline onboarding', () => {
     deps.getData.mockReturnValue({ tasks: [], projects: [] });
     auth = createAuth(deps);
     auth.showApp();
-    // Onboarding now redirects to brainstorm with hint instead of modal
-    expect(localStorage.getItem('user1_wb_onboarding_hint')).toBe('true');
-    expect(deps.setCurrentView).toHaveBeenCalledWith('dump');
+    expect(deps.setCurrentView).toHaveBeenCalledWith('dashboard');
   });
 
   it('showApp does not show onboarding if already done', () => {

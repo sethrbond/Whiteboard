@@ -164,7 +164,7 @@ export function createTaskEditor(deps) {
       // Subtask notes (collapsible — shown if has notes, or toggled by clicking title)
       const hasNotes = s.notes && s.notes.trim();
       html += `<div class="subtask-notes-area" data-subtask-notes="${s.id}" style="${hasNotes ? '' : 'display:none;'}padding-left:${indent + 36}px;margin:2px 0 6px">
-        <textarea style="font-size:11px;color:var(--text2);background:var(--surface2);border:1px solid var(--border);border-radius:4px;padding:6px 8px;width:calc(100% - ${indent + 36}px);min-height:40px;resize:vertical;outline:none;font-family:inherit;line-height:1.4" placeholder="Add context, notes, links..." data-task-id="${taskId}" data-subtask-id="${s.id}" data-subtask-notes-input="true">${esc(s.notes || '')}</textarea>
+        <textarea aria-label="Notes for ${esc(s.title)}" style="font-size:11px;color:var(--text2);background:var(--surface2);border:1px solid var(--border);border-radius:4px;padding:6px 8px;width:calc(100% - ${indent + 36}px);min-height:40px;resize:vertical;outline:none;font-family:inherit;line-height:1.4" placeholder="Add context, notes, links..." data-task-id="${taskId}" data-subtask-id="${s.id}" data-subtask-notes-input="true">${esc(s.notes || '')}</textarea>
       </div>`;
       if (hasChildren) {
         html += _renderSubtasksRecursive(s.subtasks, taskId, depth + 1);

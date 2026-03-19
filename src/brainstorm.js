@@ -1147,28 +1147,34 @@ ${text}${getDumpAttachmentText()}`;
     // Use batch mode to prevent per-task saves and undo snapshots
     if (deps.setBatchMode) deps.setBatchMode(true);
 
-    const projectUpdates = parsed.projectUpdates || [];
-    const projectMap = {};
-    const { projectsUpdated, boardsNewCount } = _applyProjectUpdates(projectUpdates, projectMap);
     let created = 0,
       updated = 0,
       completed = 0;
+    let projectsUpdated = 0,
+      boardsNewCount = 0;
 
-    // Process selected tasks
-    items.forEach((item) => {
-      if (!item || (!item.title && !item.id)) return;
+    try {
+      const projectUpdates = parsed.projectUpdates || [];
+      const projectMap = {};
+      ({ projectsUpdated, boardsNewCount } = _applyProjectUpdates(projectUpdates, projectMap));
 
-      _resolveItemProject(item, projectMap, parsed.projectUpdates);
-      const projId = projectMap[item.suggestedProject] || '';
+      // Process selected tasks
+      items.forEach((item) => {
+        if (!item || (!item.title && !item.id)) return;
 
-      const result = _applyTaskItem(item, projId);
-      if (result === 'created') created++;
-      else if (result === 'updated') updated++;
-      else if (result === 'completed') completed++;
-    });
+        _resolveItemProject(item, projectMap, parsed.projectUpdates);
+        const projId = projectMap[item.suggestedProject] || '';
 
-    // End batch mode and save everything once
-    if (deps.setBatchMode) deps.setBatchMode(false);
+        const result = _applyTaskItem(item, projId);
+        if (result === 'created') created++;
+        else if (result === 'updated') updated++;
+        else if (result === 'completed') completed++;
+      });
+    } finally {
+      // ALWAYS end batch mode, even if processing threw
+      if (deps.setBatchMode) deps.setBatchMode(false);
+    }
+
     if (deps.saveData) deps.saveData(getData());
     else {
       // Force a save by calling a trivial update if saveData not available
