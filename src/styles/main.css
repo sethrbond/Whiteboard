@@ -3975,12 +3975,65 @@ h3.section-title {
   background: var(--surface2);
 }
 
+/* Plan drag handle */
+.plan-task-row [aria-hidden='true']:first-child {
+  transition: opacity 0.15s;
+}
+.plan-task-row:hover [aria-hidden='true']:first-child {
+  opacity: 0.7 !important;
+}
+.plan-task-row:active [aria-hidden='true']:first-child {
+  cursor: grabbing;
+}
+
 /* Snooze button */
 .snooze-btn-hover {
   transition: color 0.15s;
 }
 .snooze-btn-hover:hover {
   color: var(--accent) !important;
+}
+
+/* Subtask action buttons (edit, delete) */
+.subtask-action {
+  font-size: 11px;
+  color: var(--text3);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 2px 6px;
+  opacity: 0.3;
+  flex-shrink: 0;
+  border-radius: var(--radius-xs);
+  transition:
+    opacity 0.15s,
+    background 0.15s;
+}
+.subtask-action:hover {
+  opacity: 1;
+  background: var(--surface2);
+}
+.subtask-action:focus-visible {
+  opacity: 1;
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+/* Subtask checkbox focus */
+[data-action='toggle-subtask']:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+
+/* Subtask nested add button */
+[data-action='toggle-add-child-subtask']:hover {
+  background: var(--accent) !important;
+  color: #fff !important;
+}
+[data-action='toggle-add-child-subtask']:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 /* Dependency search results */
@@ -5289,17 +5342,18 @@ h3.section-title {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 24px;
-  height: 24px;
+  width: 20px;
+  height: 20px;
   border-radius: 50%;
   background: linear-gradient(135deg, var(--accent), var(--purple));
   color: #fff;
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 700;
   font-family: inherit;
   letter-spacing: -0.5px;
   flex-shrink: 0;
   line-height: 1;
+  vertical-align: middle;
 }
 
 /* ---------- 1. Mobile Add FAB ---------- */
