@@ -643,7 +643,7 @@ export function createDataLayer(deps) {
         best = p;
       }
     }
-    return bestScore >= 0.6 ? best : null;
+    return bestScore >= 0.75 ? best : null;
   }
 
   // --- Render-cycle cache ---
