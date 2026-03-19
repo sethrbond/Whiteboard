@@ -884,8 +884,10 @@ export function createActions(deps) {
         planMyDay();
         break;
       case 'clear-plan':
-        localStorage.removeItem(actionEl.dataset.planKey);
-        render();
+        if (confirm("Clear today's plan? You can regenerate it with Replan.")) {
+          localStorage.removeItem(actionEl.dataset.planKey);
+          render();
+        }
         break;
       case 'snooze-plan-task':
         snoozePlanTask(actionEl.dataset.taskId);

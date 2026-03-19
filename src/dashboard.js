@@ -604,7 +604,11 @@ export function createDashboard(deps) {
       '|' +
       getArchiveShowCount() +
       '|' +
-      (getExpandedTask() || '');
+      (getExpandedTask() || '') +
+      '|' +
+      (localStorage.getItem(userKey('whiteboard_plan_' + todayStr())) || '').length +
+      '|' +
+      (localStorage.getItem(userKey('whiteboard_briefing_' + todayStr())) || '').length;
     if (contentState === _lastContentState) {
       return;
     }
@@ -967,7 +971,6 @@ export function createDashboard(deps) {
         <span style="font-size:16px;color:${allDone ? 'var(--green)' : 'var(--accent)'}">\u25ce</span>
         <span style="font-size:15px;font-weight:600;color:var(--text)">Today's Plan</span>
         <span style="font-size:11px;color:var(--text3)">${new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</span>
-        <span style="margin-left:auto;font-size:10px;color:var(--text3);cursor:pointer" data-action="clear-plan" data-plan-key="${planKey}" role="button" tabindex="0" aria-label="Clear plan">clear</span>
       </div>`;
 
       // Progress bar

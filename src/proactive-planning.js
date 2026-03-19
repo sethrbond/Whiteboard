@@ -129,6 +129,11 @@ Return ONLY a JSON array (3-8 items), no other text:
         render();
         showToast(`Day planned: ${valid.length} tasks`);
         notifyOverdueTasks();
+        // Regenerate briefing to stay in sync with plan
+        if (typeof deps.generateAIBriefing === 'function') {
+          localStorage.removeItem(userKey('whiteboard_briefing_' + todayStr()));
+          deps.generateAIBriefing();
+        }
       }
     } catch (err) {
       console.error('Plan error:', err);

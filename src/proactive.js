@@ -263,6 +263,7 @@ export function createProactive(deps) {
     extractMemoryInsights,
     _buildInsightsPromptSection,
     getAIMemory: deps.getAIMemory,
+    generateAIBriefing: () => briefing.generateAIBriefing(),
   });
   _planningRef = planning;
 
