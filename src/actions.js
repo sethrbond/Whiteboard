@@ -887,6 +887,32 @@ export function createActions(deps) {
       case 'generate-briefing':
         generateAIBriefing();
         break;
+      case 'plan-move-up':
+      case 'plan-move-down': {
+        const moveIdx = parseInt(actionEl.dataset.planIndex, 10);
+        const moveDir = action === 'plan-move-up' ? -1 : 1;
+        const planKey = deps.userKey('whiteboard_plan_' + deps.todayStr());
+        try {
+          const plan = JSON.parse(localStorage.getItem(planKey) || '[]');
+          const activeItems = plan.filter((p) => {
+            const t = deps.findTask ? deps.findTask(p.id) : null;
+            return t && t.status !== 'done';
+          });
+          const completedItems = plan.filter((p) => {
+            const t = deps.findTask ? deps.findTask(p.id) : null;
+            return !t || t.status === 'done';
+          });
+          const swapIdx = moveIdx + moveDir;
+          if (swapIdx >= 0 && swapIdx < activeItems.length) {
+            [activeItems[moveIdx], activeItems[swapIdx]] = [activeItems[swapIdx], activeItems[moveIdx]];
+            localStorage.setItem(planKey, JSON.stringify([...activeItems, ...completedItems]));
+            render();
+          }
+        } catch (_e) {
+          /* ignore */
+        }
+        break;
+      }
       case 'plan-my-day':
         planMyDay();
         break;

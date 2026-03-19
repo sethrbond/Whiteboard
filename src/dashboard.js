@@ -946,6 +946,25 @@ export function createDashboard(deps) {
         <div style="font-size:12px;color:${allDone ? 'var(--green)' : 'var(--text2)'}">${doneCount}/${totalCount} done${remainingStr}${allDone ? ' \u2014 great work!' : ''}</div>
       </div>`;
 
+      // Adaptive status — changes throughout the day
+      const _hour = new Date().getHours();
+      const _pct = totalCount > 0 ? doneCount / totalCount : 0;
+      let _adaptiveMsg = '';
+      if (allDone) {
+        _adaptiveMsg = 'Plan complete. Add more or enjoy your day.';
+      } else if (_hour >= 15 && _pct < 0.3) {
+        _adaptiveMsg = `Behind schedule \u2014 consider moving ${activePlanItems.length > 2 ? 'some tasks' : 'a task'} to tomorrow.`;
+      } else if (_hour >= 12 && _pct >= 0.6) {
+        _adaptiveMsg = 'Ahead of pace \u2014 great momentum.';
+      } else if (_hour < 12 && _pct >= 0.5) {
+        _adaptiveMsg = 'Strong morning \u2014 keep it going.';
+      } else if (_hour >= 17 && _pct < 0.5) {
+        _adaptiveMsg = 'End of day \u2014 move unfinished items to tomorrow?';
+      }
+      if (_adaptiveMsg) {
+        html += `<div style="font-size:11px;color:var(--text3);margin-bottom:12px;font-style:italic">${_adaptiveMsg}</div>`;
+      }
+
       // Active tasks in plan order
       html += `<div role="list" aria-label="Today's plan tasks">`;
       const _expandedTask = getExpandedTask();
@@ -977,8 +996,11 @@ export function createDashboard(deps) {
               ? ` <span style="font-size:10px;color:var(--text3)">(${t.subtasks.filter((s) => s.done).length}/${t.subtasks.length})</span>`
               : '';
 
-          html += `<div class="plan-task-row" draggable="true" data-plan-drag="${p.id}" data-plan-index="${i}">
-            <div style="cursor:grab;color:var(--text3);font-size:10px;padding:0 4px;flex-shrink:0;opacity:0.3" aria-hidden="true">\u2261</div>
+          html += `<div class="plan-task-row" draggable="true" data-plan-drag="${p.id}" data-plan-index="${i}" role="listitem">
+            <div class="plan-reorder-btns" style="display:flex;flex-direction:column;gap:0;flex-shrink:0;opacity:0.3;transition:opacity 0.15s">
+              ${i > 0 ? `<button class="subtask-action" data-action="plan-move-up" data-plan-index="${i}" aria-label="Move up" style="font-size:8px;padding:0 3px;line-height:1">\u25b2</button>` : '<div style="width:16px;height:10px"></div>'}
+              ${i < activePlanItems.length - 1 ? `<button class="subtask-action" data-action="plan-move-down" data-plan-index="${i}" aria-label="Move down" style="font-size:8px;padding:0 3px;line-height:1">\u25bc</button>` : '<div style="width:16px;height:10px"></div>'}
+            </div>
             <div class="task-check" data-action="complete-task" data-task-id="${t.id}" role="checkbox" aria-checked="false" tabindex="0" aria-label="Mark ${esc(t.title)} done" style="flex-shrink:0"></div>
             <div style="flex:1;min-width:0">
               <span style="font-size:13px;color:var(--text);cursor:pointer" data-action="toggle-expand" data-task="${t.id}">${esc(t.title)}</span>

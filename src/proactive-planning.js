@@ -53,7 +53,11 @@ export function createProactivePlanning(deps) {
       .map((t) => {
         const proj = data.projects.find((p) => p.id === t.project);
         const est = t.estimatedMinutes ? `${t.estimatedMinutes}m` : 'no estimate';
-        return `${t.id}|${t.title}|${t.priority}|${t.status}|${t.dueDate || 'no date'}|${proj ? proj.name : 'unassigned'}|${isBlocked(t) ? 'BLOCKED' : 'ready'}|${est}`;
+        const subProg = t.subtasks?.length
+          ? `${t.subtasks.filter((s) => s.done).length}/${t.subtasks.length} subtasks`
+          : '';
+        const age = t.createdAt ? Math.floor((Date.now() - new Date(t.createdAt).getTime()) / 86400000) + 'd old' : '';
+        return `${t.id}|${t.title}|${t.priority}|${t.status}|${t.dueDate || 'no date'}|${proj ? proj.name : 'unassigned'}|${isBlocked(t) ? 'BLOCKED' : 'ready'}|${est}|${subProg}|${age}`;
       })
       .join('\n');
 

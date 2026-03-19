@@ -930,6 +930,127 @@ describe('data.js — createDataLayer()', () => {
     });
   });
 
+  // ── Nested subtasks (addSubtask with parentSubtaskId, deleteSubtask, renameSubtask, updateSubtaskNotes) ──
+  describe('nested subtask operations', () => {
+    it('addSubtask with parentSubtaskId nests under parent', () => {
+      const t = dl.createTask({ title: 'Parent' });
+      dl.addTask(t);
+      dl.addSubtask(t.id, 'Level 1');
+      const st1Id = dl.findTask(t.id).subtasks[0].id;
+      dl.addSubtask(t.id, 'Level 2', st1Id);
+      const st1 = dl.findTask(t.id).subtasks[0];
+      expect(st1.subtasks).toBeDefined();
+      expect(st1.subtasks.length).toBe(1);
+      expect(st1.subtasks[0].title).toBe('Level 2');
+    });
+
+    it('addSubtask falls back to root if parent not found', () => {
+      const t = dl.createTask({ title: 'Parent' });
+      dl.addTask(t);
+      dl.addSubtask(t.id, 'Orphan', 'nonexistent_parent');
+      expect(dl.findTask(t.id).subtasks.length).toBe(1);
+      expect(dl.findTask(t.id).subtasks[0].title).toBe('Orphan');
+    });
+
+    it('addSubtask rejects nesting beyond MAX_SUBTASK_DEPTH', () => {
+      const t = dl.createTask({ title: 'Deep' });
+      dl.addTask(t);
+      dl.addSubtask(t.id, 'L0');
+      let parentId = dl.findTask(t.id).subtasks[0].id;
+      for (let i = 1; i < 4; i++) {
+        dl.addSubtask(t.id, 'L' + i, parentId);
+        const parent = dl.findTask(t.id).subtasks[0];
+        let node = parent;
+        for (let j = 0; j < i; j++) node = node.subtasks[0];
+        parentId = node.id;
+      }
+      // L0(d0) → L1(d1) → L2(d2) → L3(d3) → now add L4 at depth 4 (should succeed, limit is depth >= 4)
+      dl.addSubtask(t.id, 'L4', parentId);
+      const countAll = (subs) => subs.reduce((n, s) => n + 1 + (s.subtasks ? countAll(s.subtasks) : 0), 0);
+      expect(countAll(dl.findTask(t.id).subtasks)).toBe(5); // L0-L4 all added
+      // Now try L5 at depth 5 — THIS should be rejected
+      let deepNode = dl.findTask(t.id).subtasks[0];
+      for (let j = 0; j < 4; j++) deepNode = deepNode.subtasks[0];
+      dl.addSubtask(t.id, 'L5 too deep', deepNode.id);
+      expect(countAll(dl.findTask(t.id).subtasks)).toBe(5); // L5 rejected
+    });
+
+    it('deleteSubtask removes subtask at root level', () => {
+      const t = dl.createTask({ title: 'Parent' });
+      dl.addTask(t);
+      dl.addSubtask(t.id, 'To delete');
+      dl.addSubtask(t.id, 'To keep');
+      const delId = dl.findTask(t.id).subtasks[0].id;
+      dl.deleteSubtask(t.id, delId);
+      expect(dl.findTask(t.id).subtasks.length).toBe(1);
+      expect(dl.findTask(t.id).subtasks[0].title).toBe('To keep');
+    });
+
+    it('deleteSubtask removes nested subtask', () => {
+      const t = dl.createTask({ title: 'Parent' });
+      dl.addTask(t);
+      dl.addSubtask(t.id, 'L1');
+      const l1Id = dl.findTask(t.id).subtasks[0].id;
+      dl.addSubtask(t.id, 'L2', l1Id);
+      const l2Id = dl.findTask(t.id).subtasks[0].subtasks[0].id;
+      dl.deleteSubtask(t.id, l2Id);
+      expect(dl.findTask(t.id).subtasks[0].subtasks.length).toBe(0);
+    });
+
+    it('deleteSubtask does nothing for nonexistent task', () => {
+      dl.deleteSubtask('nonexistent', 'st1');
+    });
+
+    it('renameSubtask changes title', () => {
+      const t = dl.createTask({ title: 'Parent' });
+      dl.addTask(t);
+      dl.addSubtask(t.id, 'Old name');
+      const stId = dl.findTask(t.id).subtasks[0].id;
+      dl.renameSubtask(t.id, stId, 'New name');
+      expect(dl.findTask(t.id).subtasks[0].title).toBe('New name');
+    });
+
+    it('renameSubtask does nothing with empty title', () => {
+      const t = dl.createTask({ title: 'Parent' });
+      dl.addTask(t);
+      dl.addSubtask(t.id, 'Keep');
+      const stId = dl.findTask(t.id).subtasks[0].id;
+      dl.renameSubtask(t.id, stId, '');
+      expect(dl.findTask(t.id).subtasks[0].title).toBe('Keep');
+    });
+
+    it('updateSubtaskNotes sets notes on subtask', () => {
+      const t = dl.createTask({ title: 'Parent' });
+      dl.addTask(t);
+      dl.addSubtask(t.id, 'Has notes');
+      const stId = dl.findTask(t.id).subtasks[0].id;
+      dl.updateSubtaskNotes(t.id, stId, 'Some context here');
+      expect(dl.findTask(t.id).subtasks[0].notes).toBe('Some context here');
+    });
+
+    it('updateSubtaskNotes works on nested subtask', () => {
+      const t = dl.createTask({ title: 'Parent' });
+      dl.addTask(t);
+      dl.addSubtask(t.id, 'L1');
+      const l1Id = dl.findTask(t.id).subtasks[0].id;
+      dl.addSubtask(t.id, 'L2', l1Id);
+      const l2Id = dl.findTask(t.id).subtasks[0].subtasks[0].id;
+      dl.updateSubtaskNotes(t.id, l2Id, 'Deep notes');
+      expect(dl.findTask(t.id).subtasks[0].subtasks[0].notes).toBe('Deep notes');
+    });
+
+    it('toggleSubtask works on nested subtask', () => {
+      const t = dl.createTask({ title: 'Parent' });
+      dl.addTask(t);
+      dl.addSubtask(t.id, 'L1');
+      const l1Id = dl.findTask(t.id).subtasks[0].id;
+      dl.addSubtask(t.id, 'L2', l1Id);
+      const l2Id = dl.findTask(t.id).subtasks[0].subtasks[0].id;
+      dl.toggleSubtask(t.id, l2Id);
+      expect(dl.findTask(t.id).subtasks[0].subtasks[0].done).toBe(true);
+    });
+  });
+
   // ── unarchiveTask / deleteArchivedPermanently ───────────────────
   describe('unarchiveTask / deleteArchivedPermanently', () => {
     it('unarchiveTask restores an archived task', () => {

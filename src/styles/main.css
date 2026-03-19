@@ -3850,8 +3850,11 @@ h3.section-title {
 .plan-task-row:hover {
   background: var(--surface2);
 }
+.plan-task-row:hover .plan-reorder-btns {
+  opacity: 0.7 !important;
+}
 
-/* Plan drag handle */
+/* Plan drag handle (desktop only) */
 .plan-task-row [aria-hidden='true']:first-child {
   transition: opacity 0.15s;
 }
