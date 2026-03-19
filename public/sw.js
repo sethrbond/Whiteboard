@@ -30,8 +30,8 @@ self.addEventListener('fetch', (e) => {
   // Skip non-GET requests
   if (e.request.method !== 'GET') return;
 
-  // API calls (Supabase, Anthropic) — network only, don't cache
-  if (url.hostname.includes('supabase') || url.hostname.includes('anthropic')) return;
+  // External requests (APIs, fonts, CDNs) — let browser handle natively, don't intercept
+  if (url.origin !== self.location.origin) return;
 
   // Static assets (JS, CSS, fonts) — cache first, update in background
   if (url.pathname.startsWith('/assets/') || url.pathname.endsWith('.css') || url.pathname.endsWith('.js')) {

@@ -405,37 +405,6 @@ export function createDashboard(deps) {
     return html;
   }
 
-  function _renderProjectRoadmap(tasks) {
-    const phases = {};
-    tasks.forEach((t) => {
-      if (t.phase) {
-        if (!phases[t.phase]) phases[t.phase] = [];
-        phases[t.phase].push(t);
-      }
-    });
-    const phaseNames = Object.keys(phases);
-    if (phaseNames.length <= 1) return '';
-
-    let html = `<div class="section"><div class="section-header"><h3 class="section-title">Roadmap</h3><div class="section-line"></div></div><div class="roadmap">`;
-    phaseNames.forEach((phase) => {
-      const pt = phases[phase];
-      const ptDone = pt.filter((t) => t.status === 'done').length;
-      const ptTotal = pt.length;
-      const allDone = ptDone === ptTotal;
-      const hasActive = pt.some((t) => t.status === 'in-progress');
-      html += `<div class="roadmap-phase">
-        <div class="roadmap-line"></div>
-        <div class="roadmap-dot ${allDone ? 'done' : hasActive ? 'active' : ''}"></div>
-        <div class="roadmap-content">
-          <div class="roadmap-label">${esc(phase)}</div>
-          <div class="roadmap-sub">${ptDone}/${ptTotal} complete</div>
-        </div>
-      </div>`;
-    });
-    html += `</div></div>`;
-    return html;
-  }
-
   function _renderProjectTaskSections(p, active, done, urgent, upcoming) {
     let html = '';
 

@@ -472,7 +472,6 @@ const _taskEditor = createTaskEditor({
 const renderTaskRow = _taskEditor.renderTaskRow;
 const renderTaskExpanded = _taskEditor.renderTaskExpanded;
 const renderPriorityTag = _taskEditor.renderPriorityTag;
-const priorityColor = _taskEditor.priorityColor;
 const _taskNudge = _taskEditor.taskNudge;
 const attachInlineEdit = _taskEditor.attachInlineEdit;
 const openNewTask = _taskEditor.openNewTask;
@@ -1271,8 +1270,6 @@ const _dashboard = createDashboard({
   userKey,
   findTask,
   activeTasks,
-  doneTasks,
-  urgentTasks,
   projectTasks,
   archivedTasks,
   sortTasksDeps: { getDataVersion: () => _dataLayer.getDataVersion() },

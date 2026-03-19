@@ -75,7 +75,7 @@ export function migrateData(data) {
       console.warn(`[MIGRATE] No migration found for version ${version} -> ${version + 1}`);
       break;
     }
-    console.log(`[MIGRATE] Running migration v${version} -> v${version + 1}`);
+    console.debug(`[MIGRATE] Running migration v${version} -> v${version + 1}`);
     data = migrationFn(data);
     version = data._schemaVersion || version + 1;
   }
