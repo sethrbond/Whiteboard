@@ -460,6 +460,13 @@ export function createActions(deps) {
         startFocus(actionEl.dataset.projectId);
         actionEl.closest('.dropdown').classList.remove('open');
         break;
+      case 'generate-board-narrative': {
+        const _bnPid = actionEl.dataset.projectId;
+        if (typeof deps.generateBoardNarrative === 'function') {
+          deps.generateBoardNarrative(_bnPid).catch((_e) => console.error('Board narrative error:', _e));
+        }
+        break;
+      }
       case 'ai-reorganize':
         aiReorganize(actionEl.dataset.projectId);
         actionEl.closest('.dropdown').classList.remove('open');
@@ -493,6 +500,8 @@ export function createActions(deps) {
           if (ta) {
             ta.value = _raInput;
             ta.dispatchEvent(new Event('input'));
+            // Auto-run the analysis
+            setTimeout(() => processDump(true), 200);
           }
         }, 100);
         break;

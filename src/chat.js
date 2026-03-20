@@ -509,11 +509,16 @@ ${AI_ACTIONS_SPEC}`;
       : [{ role: 'user', content: `Help me work on: "${t.title}"`, ts: Date.now() }];
     saveChatHistory();
 
-    // Update UI
-    const titleEl = document.getElementById('chatTitle');
-    if (titleEl) titleEl.textContent = `Working: ${t.title.slice(0, 30)}${t.title.length > 30 ? '...' : ''}`;
+    // Ensure chat panel is open
     const panel = document.getElementById('chatPanel');
-    if (panel && !panel.classList.contains('open')) panel.classList.add('open');
+    if (panel && !panel.classList.contains('open')) {
+      toggleChat(); // Use toggleChat to properly initialize the panel
+    }
+    // Update title after panel is open
+    setTimeout(() => {
+      const titleEl = document.getElementById('chatTitle');
+      if (titleEl) titleEl.textContent = `Working: ${t.title.slice(0, 30)}${t.title.length > 30 ? '...' : ''}`;
+    }, 50);
 
     // If this is a fresh start, generate the initial research response
     if (!twHistory.length) {

@@ -411,29 +411,45 @@ export function createDashboard(deps) {
     return html;
   }
 
-  function _renderProjectTaskSections(p, active, done, urgent, upcoming) {
+  function _renderProjectTaskSections(p, active, done, _urgent, _upcoming) {
     let html = '';
+    const today = todayStr();
+    const weekEnd = new Date(Date.now() + 7 * MS_PER_DAY).toISOString().slice(0, 10);
 
-    // Urgent
-    if (urgent.length > 0) {
-      html += `<div class="section"><div class="section-header"><h3 class="section-title" style="color:var(--red)">Urgent</h3><div class="section-count">${urgent.length}</div><div class="section-line"></div></div>`;
-      html += renderTaskSlice(sortTasks(urgent), 'urgent_' + p.id, (t) => renderTaskRow(t));
+    // Group into: Do Now (overdue + due today + in-progress, max display), This Week, Later
+    const doNow = active.filter(
+      (t) => t.status === 'in-progress' || (t.dueDate && t.dueDate <= today) || t.priority === 'urgent',
+    );
+    const thisWeek = active.filter((t) => !doNow.includes(t) && t.dueDate && t.dueDate > today && t.dueDate <= weekEnd);
+    const later = active.filter((t) => !doNow.includes(t) && !thisWeek.includes(t));
+
+    // Board narrative (cached)
+    const narrativeKey = userKey('whiteboard_board_narrative_' + p.id);
+    const cachedNarrative = localStorage.getItem(narrativeKey);
+    if (cachedNarrative) {
+      html += `<div style="font-size:13px;color:var(--text2);line-height:1.6;margin-bottom:20px;padding:14px 16px;background:var(--surface);border-radius:var(--radius);border-left:3px solid var(--accent)">${esc(cachedNarrative)}</div>`;
+    } else if (hasAI() && active.length >= 3) {
+      html += `<div style="margin-bottom:16px"><button class="btn btn-sm" data-action="generate-board-narrative" data-project-id="${esc(p.id)}" style="font-size:11px;color:var(--accent)">\u2726 Generate board summary</button></div>`;
+    }
+
+    // Do Now
+    if (doNow.length > 0) {
+      html += `<div class="section"><div class="section-header"><h3 class="section-title">Do Now</h3><div class="section-count">${doNow.length}</div><div class="section-line"></div></div>`;
+      html += renderTaskSlice(sortTasks(doNow), 'donow_' + p.id, (t) => renderTaskRow(t));
       html += `</div>`;
     }
 
-    // In Progress
-    const inProgress = active.filter((t) => t.status === 'in-progress');
-    if (inProgress.length > 0) {
-      html += `<div class="section"><div class="section-header"><h3 class="section-title" style="color:var(--blue)">In Progress</h3><div class="section-count">${inProgress.length}</div><div class="section-line"></div></div>`;
-      html += renderTaskSlice(inProgress, 'wip_' + p.id, (t) => renderTaskRow(t));
+    // This Week
+    if (thisWeek.length > 0) {
+      html += `<div class="section"><div class="section-header"><h3 class="section-title">This Week</h3><div class="section-count">${thisWeek.length}</div><div class="section-line"></div></div>`;
+      html += renderTaskSlice(sortTasks(thisWeek), 'week_' + p.id, (t) => renderTaskRow(t));
       html += `</div>`;
     }
 
-    // Upcoming (todo, non-urgent)
-    const todoNonUrgent = upcoming.filter((t) => !urgent.includes(t));
-    if (todoNonUrgent.length > 0) {
-      html += `<div class="section"><div class="section-header"><h3 class="section-title">Upcoming</h3><div class="section-count">${todoNonUrgent.length}</div><div class="section-line"></div></div>`;
-      html += renderTaskSlice(sortTasks(todoNonUrgent), 'upcoming_' + p.id, (t) => renderTaskRow(t));
+    // Later
+    if (later.length > 0) {
+      html += `<div class="section"><div class="section-header"><h3 class="section-title" style="color:var(--text3)">Later</h3><div class="section-count">${later.length}</div><div class="section-line"></div></div>`;
+      html += renderTaskSlice(sortTasks(later), 'later_' + p.id, (t) => renderTaskRow(t));
       html += `</div>`;
     }
 
@@ -445,7 +461,7 @@ export function createDashboard(deps) {
     if (done.length > 0) {
       const key = p.id;
       html += `<div class="section"><div class="completed-toggle" data-action="toggle-completed" data-key="${key}">
-        ${getShowCompleted(key) ? '\u25be' : '\u25b8'} Completed <span class="section-count" style="margin-left:4px">${done.length}</span>
+        ${getShowCompleted(key) ? '\u25be' : '\u25b8'} Done <span class="section-count" style="margin-left:4px">${done.length}</span>
       </div>`;
       if (getShowCompleted(key)) {
         html += renderTaskSlice([...done].reverse(), 'done_' + p.id, (t) => renderTaskRow(t));
@@ -962,47 +978,20 @@ export function createDashboard(deps) {
       const remainingStr =
         remainingMinutes > 0 ? ` \u00b7 ~${Math.round((remainingMinutes / 60) * 10) / 10}h remaining` : '';
 
-      // Progress bar
       const allDone = doneCount === totalCount && totalCount > 0;
-      const barFilled = totalCount > 0 ? Math.round((doneCount / totalCount) * 10) : 0;
-      const barEmpty = 10 - barFilled;
-      const barText = '\u2588'.repeat(barFilled) + '\u2591'.repeat(barEmpty);
 
-      html += `<div class="day-plan-centerpiece" style="background:var(--surface);border:1px solid ${allDone ? 'var(--green)' : 'var(--accent)'};border-radius:var(--radius);padding:24px;margin-bottom:20px">`;
+      html += `<div class="day-plan-centerpiece" style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:24px;margin-bottom:20px">`;
 
-      // Header
-      html += `<div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
-        <span style="font-size:16px;color:${allDone ? 'var(--green)' : 'var(--accent)'}">\u25ce</span>
-        <span style="font-size:15px;font-weight:600;color:var(--text)">Today's Plan</span>
-        <span style="font-size:11px;color:var(--text3)">${new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</span>
+      // Header — clean, calm
+      html += `<div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:16px">
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="font-size:15px;font-weight:600;color:var(--text)">Today's Plan</span>
+          <span style="font-size:11px;color:var(--text3)">${new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</span>
+        </div>
+        <span style="font-size:12px;color:${allDone ? 'var(--green)' : 'var(--text3)'}">${doneCount}/${totalCount}${remainingStr}</span>
       </div>`;
 
-      // Progress bar
-      html += `<div style="margin-bottom:16px">
-        <div style="font-family:monospace;font-size:13px;color:${allDone ? 'var(--green)' : 'var(--accent)'};letter-spacing:1px;margin-bottom:4px">${barText}</div>
-        <div style="font-size:12px;color:${allDone ? 'var(--green)' : 'var(--text2)'}">${doneCount}/${totalCount} done${remainingStr}${allDone ? ' \u2014 great work!' : ''}</div>
-      </div>`;
-
-      // Adaptive status — changes throughout the day
-      const _hour = new Date().getHours();
-      const _pct = totalCount > 0 ? doneCount / totalCount : 0;
-      let _adaptiveMsg = '';
-      if (allDone) {
-        _adaptiveMsg = 'Plan complete. Add more or enjoy your day.';
-      } else if (_hour >= 15 && _pct < 0.3) {
-        _adaptiveMsg = `Behind schedule \u2014 consider moving ${activePlanItems.length > 2 ? 'some tasks' : 'a task'} to tomorrow.`;
-      } else if (_hour >= 12 && _pct >= 0.6) {
-        _adaptiveMsg = 'Ahead of pace \u2014 great momentum.';
-      } else if (_hour < 12 && _pct >= 0.5) {
-        _adaptiveMsg = 'Strong morning \u2014 keep it going.';
-      } else if (_hour >= 17 && _pct < 0.5) {
-        _adaptiveMsg = 'End of day \u2014 move unfinished items to tomorrow?';
-      }
-      if (_adaptiveMsg) {
-        html += `<div style="font-size:11px;color:var(--text3);margin-bottom:12px;font-style:italic">${_adaptiveMsg}</div>`;
-      }
-
-      // Active tasks in plan order
+      // Active tasks in plan order — clean, calm rows
       html += `<div role="list" aria-label="Today's plan tasks">`;
       const _expandedTask = getExpandedTask();
       activePlanItems.forEach((p, i) => {
@@ -1010,7 +999,6 @@ export function createDashboard(deps) {
         const isExpanded = _expandedTask === t.id;
 
         if (isExpanded) {
-          // Show full expanded view inline
           try {
             html += renderTaskExpanded(t, true);
           } catch (_expandErr) {
@@ -1018,35 +1006,30 @@ export function createDashboard(deps) {
             html += `<div style="padding:8px;color:var(--red);font-size:12px">Error rendering task details</div>`;
           }
         } else {
-          const priorityBadge =
-            t.priority === 'urgent' || t.priority === 'important' ? renderPriorityTag(t.priority) : '';
           const dueDateStr = t.dueDate
-            ? ` <span class="tag tag-date" style="font-size:10px">${fmtDate(t.dueDate)}</span>`
-            : '';
-          const recurIcon = t.recurrence
-            ? ' <span title="Recurring: ' +
-              esc(t.recurrence) +
-              '" style="font-size:11px;color:var(--text3)">\u21bb</span>'
+            ? ` <span style="font-size:10px;color:var(--text3)">${fmtDate(t.dueDate)}</span>`
             : '';
           const subtaskInfo =
             t.subtasks && t.subtasks.length
               ? ` <span style="font-size:10px;color:var(--text3)">(${t.subtasks.filter((s) => s.done).length}/${t.subtasks.length})</span>`
               : '';
+          const borderColor =
+            t.priority === 'urgent' ? 'var(--red)' : t.priority === 'important' ? 'var(--orange)' : 'transparent';
 
-          html += `<div class="plan-task-row" draggable="true" data-plan-drag="${p.id}" data-plan-index="${i}" role="listitem">
+          html += `<div class="plan-task-row" draggable="true" data-plan-drag="${p.id}" data-plan-index="${i}" role="listitem" style="border-left:3px solid ${borderColor}">
             <div class="plan-reorder-btns" style="display:flex;flex-direction:column;gap:0;flex-shrink:0;opacity:0.3;transition:opacity 0.15s">
               ${i > 0 ? `<button class="subtask-action" data-action="plan-move-up" data-plan-index="${i}" aria-label="Move up" style="font-size:8px;padding:0 3px;line-height:1">\u25b2</button>` : '<div style="width:16px;height:10px"></div>'}
               ${i < activePlanItems.length - 1 ? `<button class="subtask-action" data-action="plan-move-down" data-plan-index="${i}" aria-label="Move down" style="font-size:8px;padding:0 3px;line-height:1">\u25bc</button>` : '<div style="width:16px;height:10px"></div>'}
             </div>
             <div class="task-check" data-action="complete-task" data-task-id="${t.id}" role="checkbox" aria-checked="false" tabindex="0" aria-label="Mark ${esc(t.title)} done" style="flex-shrink:0"></div>
             <div style="flex:1;min-width:0">
-              <span style="font-size:13px;color:var(--text);cursor:pointer" data-action="toggle-expand" data-task="${t.id}">${esc(t.title)}</span>
-              ${priorityBadge}${dueDateStr}${recurIcon}${subtaskInfo}
+              <span style="font-size:14px;color:var(--text);cursor:pointer" data-action="toggle-expand" data-task="${t.id}">${esc(t.title)}</span>
+              ${dueDateStr}${subtaskInfo}
             </div>
-            <button data-action="snooze-plan-task" data-task-id="${p.id}" class="snooze-btn-hover" style="background:none;border:none;color:var(--text3);font-size:10px;cursor:pointer;padding:4px 8px;white-space:nowrap;flex-shrink:0;border-radius:var(--radius-xs);transition:all 0.15s" title="Snooze to tomorrow">\u2192 tomorrow</button>
+            <button data-action="snooze-plan-task" data-task-id="${p.id}" class="snooze-btn-hover" style="background:none;border:none;color:var(--text3);font-size:10px;cursor:pointer;padding:4px 8px;white-space:nowrap;flex-shrink:0;border-radius:var(--radius-xs);transition:all 0.15s;opacity:0" title="Move to tomorrow">\u2192</button>
           </div>`;
           if (p.why)
-            html += `<div style="margin-left:34px;font-size:11px;color:var(--text3);margin-bottom:6px;margin-top:-2px;font-style:italic">\u21b3 ${esc(p.why)}</div>`;
+            html += `<div style="margin-left:34px;font-size:11px;color:var(--text3);margin-bottom:4px;margin-top:-4px;font-style:italic">${esc(p.why)}</div>`;
         }
       });
       html += `</div>`; // close role="list"
@@ -1222,14 +1205,9 @@ export function createDashboard(deps) {
 
     let html = '';
 
-    // Minimal header: greeting + status in one line
-    const statusBits = [];
-    if (overdue.length) statusBits.push(`${overdue.length} overdue`);
-    if (dueToday.length) statusBits.push(`${dueToday.length} due today`);
-    if (!statusBits.length && active.length) statusBits.push(`${active.length} active`);
-    html += `<div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:16px">
-      <h2 style="font-size:16px;font-weight:600;color:var(--text);margin:0">${greeting}</h2>
-      <span style="font-size:12px;color:var(--text3)">${statusBits.join(' \u00b7 ')}</span>
+    // Clean greeting — no badge noise
+    html += `<div style="margin-bottom:20px">
+      <h2 style="font-size:18px;font-weight:600;color:var(--text);margin:0">${greeting}</h2>
     </div>`;
 
     // THE PLAN — this is the entire dashboard

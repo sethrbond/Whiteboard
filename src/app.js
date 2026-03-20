@@ -1173,6 +1173,7 @@ let planMyDay = _proactive.planMyDay;
 const snoozePlanTask = _proactive.snoozePlanTask;
 const replanDay = _proactive.replanDay;
 let generateAIBriefing = _proactive.generateAIBriefing;
+const generateBoardNarrative = _proactive.generateBoardNarrative;
 let submitEndOfDay = _proactive.submitEndOfDay;
 const getSmartNudges = _proactive.getSmartNudges;
 const nudgeFilterOverdue = _proactive.nudgeFilterOverdue;
@@ -1616,6 +1617,7 @@ exposeWindowAPI(
     sendChatChip,
     updateChatChips,
     aiReorganize,
+    generateBoardNarrative,
     startFocus: (...args) => startFocus(...args),
     closeFocus: (...args) => closeFocus(...args),
     openFocusView: (...args) => openFocusView(...args),

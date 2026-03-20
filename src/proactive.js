@@ -854,6 +854,63 @@ RULES:
     return items;
   }
 
+  // ── Board narrative generation ──────────────────────────────────────
+  async function generateBoardNarrative(projectId) {
+    if (!hasAI()) return;
+    const data = getData();
+    const proj = data.projects.find((p) => p.id === projectId);
+    if (!proj) return;
+    const tasks = data.tasks.filter((t) => t.project === projectId && !t.archived);
+    if (tasks.length < 2) return;
+
+    const today = todayStr();
+    const active = tasks.filter((t) => t.status !== 'done');
+    const done = tasks.filter((t) => t.status === 'done');
+    const overdue = active.filter((t) => t.dueDate && t.dueDate < today);
+    const dueThisWeek = active.filter((t) => {
+      if (!t.dueDate) return false;
+      const weekEnd = new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10);
+      return t.dueDate >= today && t.dueDate <= weekEnd;
+    });
+
+    const taskSummary = active
+      .slice(0, 20)
+      .map((t) => {
+        const due = t.dueDate ? `due ${t.dueDate}` : '';
+        const est = t.estimatedMinutes ? `${t.estimatedMinutes}m` : '';
+        return `- ${t.title} (${t.priority}) ${due} ${est}`.trim();
+      })
+      .join('\n');
+
+    const prompt = `You are a calm, intelligent productivity partner. Write a 2-3 sentence narrative summary for this project board.
+
+PROJECT: "${proj.name}"
+${proj.description ? 'Description: ' + proj.description : ''}
+Today: ${today}
+
+${active.length} active tasks, ${done.length} completed, ${overdue.length} overdue, ${dueThisWeek.length} due this week.
+
+Active tasks:
+${taskSummary}
+
+RULES:
+- Lead with what matters most RIGHT NOW and why
+- Mention timing: what's overdue, what's due soon, what can wait
+- If most tasks have no deadlines, note that and suggest which to tackle first
+- 2-3 sentences max. Warm, direct, second person ("Your...")
+- Don't list tasks — explain the situation`;
+
+    try {
+      showToast('Generating board summary...');
+      const reply = await callAI(prompt, { maxTokens: 300, temperature: 0.3 });
+      const narrative = reply.trim();
+      localStorage.setItem(userKey('whiteboard_board_narrative_' + projectId), narrative);
+      render();
+    } catch (err) {
+      console.error('Board narrative error:', err);
+    }
+  }
+
   // ── Return the exact same public API ────────────────────────────────
 
   return {
@@ -896,6 +953,7 @@ RULES:
     isWeekOverloaded: planning.isWeekOverloaded,
     extractMemoryInsights,
     trackNudgeInteraction: nudges.trackNudgeInteraction,
+    generateBoardNarrative,
     PROACTIVE_PATTERNS,
   };
 }

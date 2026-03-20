@@ -684,6 +684,13 @@ PRIORITY (correlate with time \u2014 today is ${new Date().toISOString().slice(0
 
 DEADLINES: Only set dueDate if the input mentions a SPECIFIC date. NEVER invent deadlines.
 
+TIME ESTIMATES: ALWAYS estimate. Every task MUST have estimatedMinutes > 0.
+- Quick tasks (email, call, form, lookup): 15 minutes
+- Standard tasks (review, meeting prep, short writing): 30-60 minutes
+- Deep work (coding, analysis, detailed writing, research): 90-180 minutes
+- Large tasks (project planning, major deliverable): 240+ minutes
+- NEVER leave estimatedMinutes as 0. Your best guess is better than nothing.
+
 SUBTASKS: Multi-step processes = ONE task with subtasks, not many separate tasks.
 
 DEDUPLICATION: Check existing tasks below. If similar exists, use "action": "update" with the existing ID.

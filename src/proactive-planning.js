@@ -88,24 +88,25 @@ ALL ACTIVE TASKS (id|title|priority|status|due|project|blocked|estimate|subtask_
 ${taskList}
 
 RULES FOR TASK SELECTION:
-- Pick 5-8 tasks. MINIMUM 3, MAXIMUM 8. A day with 1 task is not a plan.
-- ALWAYS include overdue tasks and tasks due today — these are non-negotiable
-- Then add high-impact and quick wins to fill the plan
+- Pick 3-6 tasks. This is what you can REALISTICALLY do today, not a wish list.
+- ALWAYS include overdue tasks and tasks due today — non-negotiable
+- Then add 1-3 high-impact items that genuinely fit in a day
 - Consider energy: harder tasks earlier, lighter tasks later${orderHint}
 - Include in-progress tasks (momentum matters)
-- Skip BLOCKED tasks only — everything else is fair game
-- If a task has subtasks, include it and note which subtask to start with
-- Respect time estimates — aim for 5-7 hours of actual work
+- Skip BLOCKED tasks only
+- TRIAGE RULE: If more than 3 tasks are marked "urgent", you MUST triage. Only 1-3 things can truly be urgent. The rest get downgraded to "important" with an explanation in the why field.
+- REALITY CHECK: If total estimated time for selected tasks exceeds 6 hours, cut tasks. If estimates are mostly 0 or missing, note this in the narrative and suggest rough estimates.
 - Use the task IDs EXACTLY as provided — copy them character for character
 
 RULES FOR NARRATIVE:
 - Write 2-4 sentences telling the user what matters TODAY and why
-- Lead with the most important/urgent thing and explain why it's urgent (deadline proximity, blocking other work, etc.)
-- Mention what can wait and why
-- If projects are simmering with no urgent tasks, say so
+- Lead with the ONE thing that matters most and explain why (deadline, blocking other work, etc.)
+- Be honest about capacity: "You have 6 tasks but realistically 4 fit today"
+- If many tasks lack time estimates, say so: "Most tasks have no estimate — I've picked what feels like a full day"
+- Mention what can wait and why — give permission to defer
 - Be specific: reference dates, deadlines, dependencies
-- Don't list tasks — explain what matters. The task list is below the narrative.
-- Write in second person ("You have...", "Your...") — warm but direct
+- Don't list tasks — explain the situation. The task list is below.
+- Write in second person ("You have...", "Your...") — calm, warm, direct
 
 Return ONLY this JSON object, no other text:
 {

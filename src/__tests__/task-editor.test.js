@@ -265,22 +265,22 @@ describe('task-editor.js — createTaskEditor()', () => {
     expect(html).toContain('task-expanded');
   });
 
-  it('renderTaskRow shows P1 label for urgent tasks', () => {
+  it('renderTaskRow shows red left border for urgent tasks', () => {
     const t = { id: 't_1', title: 'Urgent task', priority: 'urgent', status: 'todo' };
     const html = editor.renderTaskRow(t);
-    expect(html).toContain('P1');
+    expect(html).toContain('var(--red)');
   });
 
-  it('renderTaskRow shows P2 label for important tasks', () => {
+  it('renderTaskRow shows orange left border for important tasks', () => {
     const t = { id: 't_1', title: 'Important task', priority: 'important', status: 'todo' };
     const html = editor.renderTaskRow(t);
-    expect(html).toContain('P2');
+    expect(html).toContain('var(--orange)');
   });
 
-  it('renderTaskRow shows P3 label for normal tasks', () => {
+  it('renderTaskRow shows transparent border for normal tasks', () => {
     const t = { id: 't_1', title: 'Normal task', priority: 'normal', status: 'todo' };
     const html = editor.renderTaskRow(t);
-    expect(html).toContain('P3');
+    expect(html).toContain('border-left:3px solid transparent');
   });
 
   it('renderTaskRow does not show priority label for low tasks', () => {
@@ -297,16 +297,16 @@ describe('task-editor.js — createTaskEditor()', () => {
     expect(html).not.toContain('P1');
   });
 
-  it('renderTaskRow applies pri-urgent class for urgent tasks', () => {
+  it('renderTaskRow uses subtle left-border for urgent tasks', () => {
     const t = { id: 't_1', title: 'Urgent', priority: 'urgent', status: 'todo' };
     const html = editor.renderTaskRow(t);
-    expect(html).toContain('pri-urgent');
+    expect(html).toContain('border-left:3px solid var(--red)');
   });
 
-  it('renderTaskRow applies pri-important class for important tasks', () => {
+  it('renderTaskRow uses subtle left-border for important tasks', () => {
     const t = { id: 't_1', title: 'Important', priority: 'important', status: 'todo' };
     const html = editor.renderTaskRow(t);
-    expect(html).toContain('pri-important');
+    expect(html).toContain('border-left:3px solid var(--orange)');
   });
 
   it('renderTaskRow shows blocked indicator', () => {
@@ -332,11 +332,13 @@ describe('task-editor.js — createTaskEditor()', () => {
     expect(html).toContain('bulk-check on');
   });
 
-  it('renderTaskRow shows AI prepared badge when in proactive log', () => {
+  it('renderTaskRow renders clean task title without AI badge', () => {
     deps.getProactiveLog.mockReturnValue([{ taskId: 't_1' }]);
     const t = { id: 't_1', title: 'Task', priority: 'normal', status: 'todo' };
     const html = editor.renderTaskRow(t);
-    expect(html).toContain('AI prepared');
+    expect(html).toContain('Task');
+    // AI badge removed in v3 calm aesthetic
+    expect(html).not.toContain('AI prepared');
   });
 
   it('renderTaskRow shows notes', () => {
@@ -352,10 +354,11 @@ describe('task-editor.js — createTaskEditor()', () => {
     expect(html).toContain('weekly');
   });
 
-  it('renderTaskRow shows estimated time', () => {
+  it('renderTaskRow shows estimated time as subtle text', () => {
     const t = { id: 't_1', title: 'Task', priority: 'normal', status: 'todo', estimatedMinutes: 30 };
     const html = editor.renderTaskRow(t);
-    expect(html).toContain('Estimated time');
+    // Estimated time shown as simple text, not a titled tag
+    expect(html).toContain('30m');
   });
 
   it('renderTaskRow shows overdue class for past due tasks', () => {
@@ -370,10 +373,11 @@ describe('task-editor.js — createTaskEditor()', () => {
     expect(html).not.toContain('overdue');
   });
 
-  it('renderTaskRow shows phase tag', () => {
+  it('renderTaskRow omits phase tag from row (shown in expanded view only)', () => {
     const t = { id: 't_1', title: 'Task', priority: 'normal', status: 'todo', phase: 'Phase 1' };
     const html = editor.renderTaskRow(t);
-    expect(html).toContain('Phase 1');
+    // Phase moved to expanded view in v3
+    expect(html).not.toContain('Phase 1');
   });
 
   it('renderTaskRow hides done button for completed tasks', () => {

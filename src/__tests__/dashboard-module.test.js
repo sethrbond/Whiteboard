@@ -452,7 +452,7 @@ describe('dashboard.js — createDashboard()', () => {
       expect(html).toContain('attach files');
     });
 
-    it('shows overdue sub-greeting when tasks are overdue', () => {
+    it('shows clean greeting without badge noise', () => {
       const overdue = [{ id: 't1', title: 'Overdue', status: 'todo', priority: 'normal', dueDate: '2026-03-10' }];
       const projects = [{ id: 'p1', name: 'Work', color: '#818cf8' }];
       deps.getData.mockReturnValue({ tasks: overdue, projects });
@@ -468,7 +468,8 @@ describe('dashboard.js — createDashboard()', () => {
       dashboard = createDashboard(deps);
 
       const html = dashboard.renderDashboard();
-      expect(html).toContain('1 overdue');
+      // v3: greeting without overdue/active counts — narrative handles this
+      expect(html).toContain('Good');
     });
 
     it('shows greeting and quickCapture when no active tasks', () => {
@@ -613,22 +614,22 @@ describe('dashboard.js — createDashboard()', () => {
       expect(html).toContain('Urgent');
     });
 
-    it('renders in-progress section', () => {
+    it('renders Do Now section for in-progress tasks', () => {
       const tasks = [{ id: 't1', title: 'WIP', status: 'in-progress', priority: 'normal' }];
       deps.projectTasks.mockReturnValue(tasks);
       dashboard = createDashboard(deps);
 
       const html = dashboard.renderProject(project);
-      expect(html).toContain('In Progress');
+      expect(html).toContain('Do Now');
     });
 
-    it('renders upcoming (todo non-urgent) section', () => {
+    it('renders Later section for tasks without deadlines', () => {
       const tasks = [{ id: 't1', title: 'Do later', status: 'todo', priority: 'normal' }];
       deps.projectTasks.mockReturnValue(tasks);
       dashboard = createDashboard(deps);
 
       const html = dashboard.renderProject(project);
-      expect(html).toContain('Upcoming');
+      expect(html).toContain('Later');
     });
 
     it('renders completed section toggle when done tasks exist', () => {
@@ -1875,7 +1876,7 @@ describe('dashboard.js — additional coverage', () => {
       dashboard = createDashboard(deps);
 
       const html = dashboard.renderDashboard();
-      expect(html).toContain('1/2 done');
+      expect(html).toContain('1/2');
       expect(html).toContain('~1h remaining');
     });
 
@@ -1966,7 +1967,7 @@ describe('dashboard.js — additional coverage', () => {
       expect(html).toContain('Urgent');
     });
 
-    it('renders all sections together', () => {
+    it('renders all sections together with v3 grouping', () => {
       const tasks = [
         { id: 't1', title: 'Urgent', status: 'todo', priority: 'urgent' },
         { id: 't2', title: 'WIP', status: 'in-progress', priority: 'normal' },
@@ -1978,16 +1979,15 @@ describe('dashboard.js — additional coverage', () => {
       dashboard = createDashboard(deps);
 
       const html = dashboard.renderProject(project);
-      expect(html).toContain('Urgent');
-      expect(html).toContain('In Progress');
-      expect(html).toContain('Upcoming');
-      expect(html).toContain('Completed');
+      expect(html).toContain('Do Now');
+      expect(html).toContain('Later');
+      expect(html).toContain('Done');
     });
   });
 
   // ── _renderDashboardHero brainstorm stats ────────────────────────
   describe('_renderDashboardHero brainstorm stats (via renderDashboard)', () => {
-    it('renders due today sub-greeting', () => {
+    it('renders clean greeting for dashboard with due tasks', () => {
       const tasks = [{ id: 't1', title: 'Due task', status: 'todo', priority: 'normal', dueDate: '2026-03-15' }];
       deps.getData.mockReturnValue({ tasks, projects: [{ id: 'p1', name: 'W', color: '#f00' }] });
       deps.urgentTasks.mockReturnValue([]);
@@ -2002,7 +2002,8 @@ describe('dashboard.js — additional coverage', () => {
       dashboard = createDashboard(deps);
 
       const html = dashboard.renderDashboard();
-      expect(html).toContain('1 due today');
+      // v3: clean greeting without badge noise
+      expect(html).toContain('Good');
     });
   });
 

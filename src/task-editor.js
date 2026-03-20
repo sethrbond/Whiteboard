@@ -114,31 +114,31 @@ export function createTaskEditor(deps) {
     const bulkSelected = getBulkSelected();
     const proactiveLog = getProactiveLog();
 
-    const priClass = !isDone && (t.priority === 'urgent' || t.priority === 'important') ? ` pri-${t.priority}` : '';
     const blocked = !isDone && isBlocked(t);
-    return `<div class="task-row${priClass}" data-task="${t.id}" data-expandable="true" role="listitem" aria-expanded="false"${blocked ? ' style="opacity:0.55"' : ''}>
-    ${bulkMode ? `<div class="bulk-check${bulkSelected.has(t.id) ? ' on' : ''}" data-bulk="${t.id}" role="checkbox" aria-checked="${bulkSelected.has(t.id)}" tabindex="0" aria-label="Select ${esc(t.title)}">${bulkSelected.has(t.id) ? '✓' : ''}</div>` : ''}
-    <div class="task-expand-dot${isDone ? ' done' : ''}" data-expandable="true" role="button" tabindex="0" aria-label="Expand ${esc(t.title)}" title="Show details">▸</div>
-    ${!isDone && (t.priority === 'urgent' || t.priority === 'important' || t.priority === 'normal') ? `<span style="font-size:9px;font-weight:600;color:${priorityColor(t.priority)};margin-right:4px;opacity:0.7;flex-shrink:0" aria-label="${t.priority === 'urgent' ? 'Priority: Critical' : t.priority === 'important' ? 'Priority: High' : 'Priority: Normal'}">${t.priority === 'urgent' ? 'P1' : t.priority === 'important' ? 'P2' : 'P3'}</span>` : ''}
+    // Subtle left-border color instead of screaming badges
+    const borderColor =
+      !isDone && t.priority === 'urgent'
+        ? 'var(--red)'
+        : !isDone && t.priority === 'important'
+          ? 'var(--orange)'
+          : 'transparent';
+    return `<div class="task-row" data-task="${t.id}" data-expandable="true" role="listitem" aria-expanded="false" style="border-left:3px solid ${borderColor}${blocked ? ';opacity:0.55' : ''}">
+    ${bulkMode ? `<div class="bulk-check${bulkSelected.has(t.id) ? ' on' : ''}" data-bulk="${t.id}" role="checkbox" aria-checked="${bulkSelected.has(t.id)}" tabindex="0" aria-label="Select ${esc(t.title)}">${bulkSelected.has(t.id) ? '\u2713' : ''}</div>` : ''}
+    <div class="task-expand-dot${isDone ? ' done' : ''}" data-expandable="true" role="button" tabindex="0" aria-label="Expand ${esc(t.title)}" title="Show details">\u25b8</div>
     <div class="task-body" style="cursor:pointer">
-      <div class="task-title ${isDone ? 'done-text' : ''}">${blocked ? '<span style="color:var(--red);font-size:10px;margin-right:4px" title="Blocked" aria-label="Blocked">◆</span>' : ''}${esc(t.title)}${proactiveLog.some((l) => l.taskId === t.id) ? ' <span style="font-size:10px;color:var(--accent);opacity:0.7;font-weight:500" title="AI pre-filled drafts for this task">✦ AI prepared</span>' : ''}</div>
+      <div class="task-title ${isDone ? 'done-text' : ''}" style="font-size:14px">${blocked ? '<span style="color:var(--red);font-size:10px;margin-right:4px" title="Blocked">\u25c6</span>' : ''}${esc(t.title)}</div>
       ${t.notes ? `<div class="task-note">${esc(t.notes)}</div>` : ''}
       ${t.subtasks && t.subtasks.length ? renderSubtaskProgress(t.subtasks) : ''}
-      ${taskNudge(t)}
     </div>
     <div class="task-tags">
       ${proj ? `<span class="tag tag-project" style="border-left:2px solid ${proj.color};padding-left:6px">${esc(proj.name)}</span>` : ''}
-      ${renderTagChips(t.tags)}
-      ${t.phase ? `<span class="tag" style="background:rgba(168,85,247,0.08);color:var(--purple);font-size:9px">${esc(t.phase)}</span>` : ''}
-      ${renderPriorityTag(t.priority)}
-      ${t.recurrence ? `<span class="tag" style="background:rgba(168,85,247,0.08);color:var(--purple);font-size:9px">↻ ${t.recurrence}</span>` : ''}
-      ${t.estimatedMinutes ? `<span class="tag" style="background:rgba(129,140,248,0.08);color:var(--text3);font-size:9px" title="Estimated time">${fmtEstimate(t.estimatedMinutes)}</span>` : ''}
-      ${t.dueDate ? `<span class="tag tag-date${t.status !== 'done' && t.dueDate < todayStr() ? ' overdue' : ''}">${fmtDate(t.dueDate)}</span>` : ''}
+      ${t.dueDate ? `<span class="tag tag-date${t.status !== 'done' && t.dueDate < todayStr() ? ' overdue' : ''}" style="font-size:10px">${fmtDate(t.dueDate)}</span>` : ''}
+      ${t.recurrence ? `<span class="tag" style="font-size:10px;color:var(--text3)">\u21bb ${t.recurrence}</span>` : ''}
+      ${t.estimatedMinutes ? `<span style="font-size:10px;color:var(--text3)">${fmtEstimate(t.estimatedMinutes)}</span>` : ''}
     </div>
     <div class="task-actions">
-      <button class="task-action-btn" title="Edit" aria-label="Edit task" data-action="edit-task" data-task-id="${t.id}">✎</button>
-      <button class="task-action-btn" title="Focus" aria-label="Focus on task" data-action="focus-task" data-task-id="${t.id}">◎</button>
-      ${!isDone ? `<button class="task-action-btn" title="Done" aria-label="Mark task done" data-action="complete-task" data-task-id="${t.id}">✓</button>` : ''}
+      <button class="task-action-btn" title="Edit" aria-label="Edit task" data-action="edit-task" data-task-id="${t.id}">\u270e</button>
+      ${!isDone ? `<button class="task-action-btn" title="Done" aria-label="Mark task done" data-action="complete-task" data-task-id="${t.id}">\u2713</button>` : ''}
     </div>
   </div>`;
   }
