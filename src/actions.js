@@ -110,6 +110,7 @@ export function createActions(deps) {
     submitEndOfDay,
     aiReorganize,
     generateBoardNarrative,
+    sendBoardReply,
     generateWeeklyReview,
     discussReview,
     // UI helpers
@@ -276,6 +277,22 @@ export function createActions(deps) {
           // Send the reply to the AI chat with plan context
           if (typeof sendNarrativeReply === 'function') {
             sendNarrativeReply(_nrMsg);
+          }
+        }
+        break;
+      }
+      case 'send-board-reply': {
+        const _brInput = document.getElementById('boardReply');
+        if (_brInput && _brInput.value.trim()) {
+          const _brMsg = _brInput.value.trim();
+          const _brProjId = actionEl.dataset.projectId;
+          _brInput.value = '';
+          _brInput.disabled = true;
+          if (typeof sendBoardReply === 'function') {
+            sendBoardReply(_brProjId, _brMsg).finally(() => {
+              const inp = document.getElementById('boardReply');
+              if (inp) inp.disabled = false;
+            });
           }
         }
         break;
@@ -1339,6 +1356,12 @@ export function createActions(deps) {
           e.preventDefault();
           const _nrBtn = document.querySelector('[data-action="send-narrative-reply"]');
           if (_nrBtn) _nrBtn.click();
+          break;
+        }
+        case 'board-reply': {
+          e.preventDefault();
+          const _brBtn = document.querySelector('[data-action="send-board-reply"]');
+          if (_brBtn) _brBtn.click();
           break;
         }
         case 'quick-add-submit':

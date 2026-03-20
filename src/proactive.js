@@ -855,6 +855,99 @@ RULES:
   }
 
   // ── Board narrative generation ──────────────────────────────────────
+  async function sendBoardReply(projectId, userMsg) {
+    if (!hasAI()) return;
+    const data = getData();
+    const proj = data.projects.find((p) => p.id === projectId);
+    if (!proj) return;
+    const tasks = data.tasks.filter((t) => t.project === projectId && !t.archived);
+    const active = tasks.filter((t) => t.status !== 'done');
+    const done = tasks.filter((t) => t.status === 'done');
+    const today = todayStr();
+
+    const taskSummary = active
+      .map((t) => {
+        const status = t.status === 'in-progress' ? '[WIP]' : '';
+        const due = t.dueDate ? `due ${t.dueDate}` : '';
+        const overdue = t.dueDate && t.dueDate < today ? '[OVERDUE]' : '';
+        return `- ${status}${overdue} ${t.title} [${t.priority}] ${due} (id: ${t.id})`.trim();
+      })
+      .join('\n');
+
+    const narrativeKey = userKey('whiteboard_board_narrative_' + projectId);
+    const currentNarrative = localStorage.getItem(narrativeKey) || '';
+
+    const prompt = `${AI_PERSONA_SHORT}
+
+The user is looking at their "${proj.name}" board and giving you an instruction.
+${proj.description ? 'Board description: ' + proj.description : ''}
+${currentNarrative ? 'Current board summary: ' + currentNarrative : ''}
+Today: ${today}
+
+${active.length} active tasks, ${done.length} completed:
+${taskSummary}
+
+USER SAYS: "${userMsg}"
+
+RULES:
+- Interpret their intent and make changes. Common requests:
+  - "X can wait" → reschedule/deprioritize
+  - "prioritize X" → set urgent/important, move due date closer
+  - "defer everything except X" → batch deprioritize, keep X
+  - Questions → answer based on board context
+- Return a JSON object (no markdown fences)
+- Keep response brief (1-2 sentences)
+
+Return ONLY this JSON:
+{
+  "response": "Brief acknowledgment of what you changed (1-2 sentences)",
+  "narrative": "Updated 2-3 sentence board summary reflecting current state",
+  "changes": [
+    { "id": "task_id", "fields": { "priority": "low", "dueDate": "2026-04-01" } }
+  ]
+}
+
+changes[].fields can include: priority, dueDate, status, notes (append context).
+Leave changes empty [] if just answering a question.`;
+
+    try {
+      showToast('Thinking...');
+      const reply = await callAI(prompt, { maxTokens: 4096, temperature: 0.3 });
+      const cleaned = reply
+        .replace(/```json?\s*/g, '')
+        .replace(/```/g, '')
+        .trim();
+      const parsed = JSON.parse(cleaned);
+
+      // Apply task changes
+      if (parsed.changes && parsed.changes.length) {
+        parsed.changes.forEach((change) => {
+          if (change.id && change.fields) {
+            const task = findTask(change.id);
+            if (task) {
+              updateTask(change.id, change.fields);
+            }
+          }
+        });
+      }
+
+      // Update narrative
+      if (parsed.narrative) {
+        localStorage.setItem(narrativeKey, parsed.narrative);
+      }
+
+      // Show response as toast
+      if (parsed.response) {
+        showToast(parsed.response, false, true);
+      }
+
+      render();
+    } catch (err) {
+      console.error('Board reply error:', err);
+      showToast('Could not process — try again', true);
+    }
+  }
+
   async function generateBoardNarrative(projectId) {
     if (!hasAI()) return;
     const data = getData();
@@ -955,6 +1048,7 @@ RULES:
     extractMemoryInsights,
     trackNudgeInteraction: nudges.trackNudgeInteraction,
     generateBoardNarrative,
+    sendBoardReply,
     PROACTIVE_PATTERNS,
   };
 }

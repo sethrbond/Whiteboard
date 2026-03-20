@@ -423,13 +423,19 @@ export function createDashboard(deps) {
     const thisWeek = active.filter((t) => !doNow.includes(t) && t.dueDate && t.dueDate > today && t.dueDate <= weekEnd);
     const later = active.filter((t) => !doNow.includes(t) && !thisWeek.includes(t));
 
-    // Board narrative (cached)
+    // Board narrative (cached) with inline reply
     const narrativeKey = userKey('whiteboard_board_narrative_' + p.id);
     const cachedNarrative = localStorage.getItem(narrativeKey);
-    if (cachedNarrative) {
-      html += `<div style="font-size:13px;color:var(--text2);line-height:1.6;margin-bottom:20px;padding:14px 16px;background:var(--surface);border-radius:var(--radius);border-left:3px solid var(--accent)">${esc(cachedNarrative)}</div>`;
-    } else if (hasAI() && active.length >= 3) {
-      html += `<div style="margin-bottom:16px"><button class="btn btn-sm" data-action="generate-board-narrative" data-project-id="${esc(p.id)}" style="font-size:11px;color:var(--accent)">\u2726 Generate board summary</button></div>`;
+    if (hasAI()) {
+      html += `<div style="margin-bottom:20px;padding:14px 16px;background:var(--surface);border-radius:var(--radius);border-left:3px solid var(--accent)">`;
+      if (cachedNarrative) {
+        html += `<div style="font-size:13px;color:var(--text2);line-height:1.6;margin-bottom:12px">${esc(cachedNarrative)}</div>`;
+      }
+      html += `<div style="display:flex;gap:8px;align-items:center">
+            <input type="text" id="boardReply" placeholder="${cachedNarrative ? "Reply... (e.g. 'defer the low priority stuff')" : 'Ask about this board or tell me what to change...'}" style="flex:1;padding:8px 12px;border:1px solid var(--border);border-radius:6px;font-size:13px;color:var(--text);background:var(--surface2);outline:none;font-family:inherit" data-keydown-action="board-reply" data-project-id="${esc(p.id)}">
+            <button class="btn btn-sm" data-action="send-board-reply" data-project-id="${esc(p.id)}" style="flex-shrink:0;color:var(--accent)">${cachedNarrative ? 'Reply' : '\u2726 Ask'}</button>
+          </div>`;
+      html += `</div>`;
     }
 
     // Do Now

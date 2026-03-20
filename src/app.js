@@ -1186,6 +1186,7 @@ const snoozePlanTask = _proactive.snoozePlanTask;
 const replanDay = _proactive.replanDay;
 let generateAIBriefing = _proactive.generateAIBriefing;
 const generateBoardNarrative = _proactive.generateBoardNarrative;
+const sendBoardReply = _proactive.sendBoardReply;
 let submitEndOfDay = _proactive.submitEndOfDay;
 const getSmartNudges = _proactive.getSmartNudges;
 const nudgeFilterOverdue = _proactive.nudgeFilterOverdue;
@@ -1503,6 +1504,7 @@ createActions({
   openTaskWork,
   sendNarrativeReply,
   generateBoardNarrative,
+  sendBoardReply,
   handleDumpFiles: (...args) => handleDumpFiles(...args),
   handleEscalationAction,
   trackNudgeInteraction,
@@ -1634,6 +1636,7 @@ exposeWindowAPI(
     aiReorganize,
     generateBoardNarrative,
     sendNarrativeReply,
+    sendBoardReply,
     startFocus: (...args) => startFocus(...args),
     closeFocus: (...args) => closeFocus(...args),
     openFocusView: (...args) => openFocusView(...args),
