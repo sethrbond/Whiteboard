@@ -547,7 +547,6 @@ export function createBrainstorm(deps) {
       <div style="display:flex;gap:8px;flex-wrap:wrap">
         ${hasQuestions ? `<button class="btn btn-primary btn-sm" data-action="brainstorm-clarify-theme" data-theme-idx="${idx}">Answer questions first</button>` : ''}
         <button class="btn ${!hasQuestions ? 'btn-primary' : ''} btn-sm" data-action="brainstorm-approve-theme" data-theme-idx="${idx}">\u2713 Create these tasks</button>
-        <button class="btn btn-sm" data-action="brainstorm-skip-theme" data-theme-idx="${idx}" style="color:var(--text3)">Skip</button>
       </div>
     </div>`;
   }
@@ -978,6 +977,7 @@ ${text}${getDumpAttachmentText()}`;
   }
 
   function startThemeClarify(themeIdx) {
+    _convCurrentTheme = themeIdx;
     _convState = 'CLARIFYING';
     _refreshConversationUI();
     // Focus first input after render
