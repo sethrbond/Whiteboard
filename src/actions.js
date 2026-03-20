@@ -481,29 +481,36 @@ export function createActions(deps) {
           showToast('No tasks in this board to re-analyze');
           break;
         }
+        // Build the analysis input with all task data
         const _raSummary = _raTasks
           .map((t) => {
             const status = t.status === 'done' ? '[DONE]' : t.status === 'in-progress' ? '[IN PROGRESS]' : '[TODO]';
             const prio = `(${t.priority})`;
             const due = t.dueDate ? `due ${t.dueDate}` : '';
-            const notes = t.notes ? `notes: ${t.notes.slice(0, 80)}` : '';
-            const subs = t.subtasks?.length
-              ? `[${t.subtasks.filter((s) => s.done).length}/${t.subtasks.length} subtasks]`
-              : '';
-            return `- ${status} ${t.title} ${prio} ${due} ${notes} ${subs}`.trim();
+            const notes = t.notes ? `- ${t.notes.slice(0, 80)}` : '';
+            return `${status} ${t.title} ${prio} ${due}\n${notes}`.trim();
           })
-          .join('\n');
-        const _raInput = `RE-ANALYZE THIS BOARD: "${_raProj?.name || 'Unknown'}"\n\nCurrent tasks:\n${_raSummary}\n\n${_raProj?.background ? `Board background:\n${_raProj.background.slice(0, 500)}` : ''}\n\nPlease review all ${_raTasks.length} tasks above. For each theme you find:\n- Flag vague tasks that need breakdown\n- Suggest priority adjustments with reasons\n- Identify duplicates or tasks that should be merged\n- Propose subtask enrichment for bare items\n- Note tasks that might belong in a different board`;
+          .join('\n\n');
+        const _raInput = `Re-analyze board "${_raProj?.name || 'Unknown'}":\n\n${_raSummary}`;
+        // Open brainstorm modal and pre-fill, then auto-trigger after modal renders
         if (typeof deps.openBrainstormModal === 'function') deps.openBrainstormModal();
-        setTimeout(() => {
+        // Use multiple retries to find the textarea (modal may take time to render)
+        let _raRetries = 0;
+        const _raInterval = setInterval(() => {
+          _raRetries++;
           const ta = document.getElementById('dumpText');
           if (ta) {
+            clearInterval(_raInterval);
             ta.value = _raInput;
             ta.dispatchEvent(new Event('input'));
-            // Auto-run the analysis
-            setTimeout(() => processDump(true), 200);
+            // Auto-click the analyze button
+            setTimeout(() => {
+              const btn = document.querySelector('[data-action="process-dump"]');
+              if (btn) btn.click();
+            }, 150);
           }
-        }, 100);
+          if (_raRetries > 20) clearInterval(_raInterval);
+        }, 50);
         break;
       }
       case 'open-edit-project':
