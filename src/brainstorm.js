@@ -605,7 +605,28 @@ export function createBrainstorm(deps) {
         container.scrollTop = container.scrollHeight;
       }, 50);
     } else {
-      render();
+      // The brainstorm is in a modal — update the modal content directly
+      // Find the modal's content area and replace it with conversation UI
+      const modalContent = document.querySelector('#modalRoot .modal .dump-area');
+      if (modalContent) {
+        modalContent.outerHTML = `<div class="dump-area">
+          <div id="brainstormConversation" style="max-height:60vh;overflow-y:auto;padding:4px 0">
+            ${_renderConversationHTML()}
+          </div>
+        </div>`;
+      } else {
+        // Last resort: re-render the entire modal
+        const modal = document.querySelector('#modalRoot .modal');
+        if (modal) {
+          const dumpHtml = renderDump();
+          const contentArea = modal.querySelector('.dump-area') || modal.lastElementChild;
+          if (contentArea) {
+            contentArea.outerHTML = dumpHtml;
+          }
+        } else {
+          render();
+        }
+      }
     }
   }
 
@@ -759,8 +780,8 @@ For updates: { "action": "update", "id": "existing_task_id", "updateFields": { "
     pushUndo('Brainstorm');
     dumpAbort = new AbortController();
 
-    // Switch to conversation view
-    render();
+    // Switch to conversation view — update the modal directly
+    _refreshConversationUI();
 
     try {
       const { existingCompact, taskNote, projectCompact } = _buildDumpContext();
