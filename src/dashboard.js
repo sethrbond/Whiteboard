@@ -132,11 +132,11 @@ export function createDashboard(deps) {
       if (sd) return sd;
       const pd = po[a.priority] - po[b.priority];
       if (pd) return pd;
-      // Due date: no-date first (needs attention), then chronological
+      // Due date: tasks with dates first (chronological), no-date tasks last
       const aDate = a.dueDate || '';
       const bDate = b.dueDate || '';
-      if (aDate && !bDate) return 1;
-      if (!aDate && bDate) return -1;
+      if (aDate && !bDate) return -1;
+      if (!aDate && bDate) return 1;
       if (aDate && bDate && aDate !== bDate) return aDate.localeCompare(bDate);
       return (b.interest || 3) - (a.interest || 3);
     });

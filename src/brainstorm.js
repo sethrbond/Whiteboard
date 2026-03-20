@@ -691,10 +691,11 @@ ${_getTaskExtractionRules()}
 - Do NOT create tasks for background info. That goes in boardBackground.
 - A 1-page dump = 3-10 tasks. A 10-page doc = 15-40 tasks.
 
-STATUS DETECTION:
-DONE: [x], "completed", "done", "finished", "submitted", "signed", past tense = DONE.
-TODO: [ ], "pending", "needs to", "will", future tense = TODO.
-IN-PROGRESS: "working on", "currently", "started" = IN-PROGRESS.
+STATUS DETECTION — GET THIS RIGHT:
+DONE/COMPLETED: [x], "completed", "done", "finished", "submitted", "signed", "applied", "APPLIED", "SUBMITTED", "sent", "filed", "approved", "received", "confirmed", "secured", "decided", "locked", "locked in", past tense verbs = status "done". Items under headers like "COMPLETED", "DONE", "IN PROGRESS" with status labels = use that status. AGGRESSIVELY detect completed work. If a document describes something as already accomplished, it is DONE.
+TODO: [ ], "pending", "needs to", "will", "check", "verify", "apply", future tense = status "todo".
+IN-PROGRESS: "working on", "currently", "started", "PENDING", "waiting" = status "in-progress".
+CRITICAL: If a document has 20+ items and ZERO are marked "done", you are almost certainly misreading it. Re-check for past-tense accomplishments.
 
 PRIORITY (correlate with time \u2014 today is ${new Date().toISOString().slice(0, 10)}):
 - Due in 0-3 days \u2192 urgent
@@ -702,7 +703,11 @@ PRIORITY (correlate with time \u2014 today is ${new Date().toISOString().slice(0
 - Due in 15+ days \u2192 normal
 - Due in 60+ days \u2192 low
 
-DEADLINES: Only set dueDate if the input mentions a SPECIFIC date. NEVER invent deadlines.
+DEADLINES — CRITICAL:
+- Only set dueDate if the input mentions a SPECIFIC date or deadline ("by Friday", "due March 25", "opens late April", "deadline Apr 23").
+- NEVER invent or guess deadlines. If no date is mentioned, leave dueDate empty ("").
+- If the input is vague about timing ("soon", "this month", "ASAP"), do NOT set a dueDate. Instead, add a question asking the user when it's actually due.
+- For tasks without explicit deadlines, include a question in the theme's "questions" array: "When do you need [task] done by?"
 
 TIME ESTIMATES: ALWAYS estimate. Every task MUST have estimatedMinutes > 0.
 - Quick tasks (email, call, form, lookup): 15 minutes
