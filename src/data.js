@@ -341,6 +341,7 @@ export function createDataLayer(deps) {
       phase: '',
       recurrence: '', // 'daily', 'weekly', 'monthly', or ''
       estimatedMinutes: 0,
+      priorityReason: '', // AI-generated explanation for priority level
       tags: [],
       blockedBy: [],
       subtasks: [],

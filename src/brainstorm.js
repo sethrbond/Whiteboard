@@ -1,8 +1,8 @@
 // ============================================================
-// BRAINSTORM MODULE
+// BRAINSTORM MODULE — Conversational AI Brainstorm
 // ============================================================
-// Extracted from app.js — handles brainstorm/dump input, file attachments,
-// AI-powered task extraction, review modal, and manual parsing.
+// Handles brainstorm/dump input, file attachments, and
+// conversational theme-by-theme AI-powered task extraction.
 
 import {
   DUMP_DRAFT_KEY,
@@ -19,7 +19,7 @@ import { chunkText } from './utils.js';
 /**
  * Factory function to create brainstorm functions.
  * @param {Object} deps - Dependencies from the main app
- * @returns {{ renderDump, initDumpDropZone, processDump, processDumpManual, cancelDump, applyDumpResults, submitClarify, skipClarify, handleDumpFiles, saveDumpDraft, loadDumpDraft, clearDumpDraft, isDumpInProgress, getLastDumpResult, setLastDumpResult, removeDumpAttachment, shouldShowDumpInvite, getDumpHistory, resetState }}
+ * @returns {{ renderDump, initDumpDropZone, processDump, processDumpManual, cancelDump, applyDumpResults, submitClarify, skipClarify, handleDumpFiles, saveDumpDraft, loadDumpDraft, clearDumpDraft, isDumpInProgress, getLastDumpResult, setLastDumpResult, removeDumpAttachment, shouldShowDumpInvite, getDumpHistory, resetState, approveTheme, skipTheme, submitThemeClarify, skipThemeClarify, startThemeClarify, getConvState }}
  */
 export function createBrainstorm(deps) {
   const {
@@ -58,6 +58,30 @@ export function createBrainstorm(deps) {
 
   const DUMP_HISTORY_KEY = 'wb_dump_history';
   const DUMP_LAST_TS_KEY = 'wb_last_dump';
+
+  // ── Conversational state ──────────────────────────────────────────────
+  // States: IDLE | ANALYZING | THEME_REVIEW | CLARIFYING | APPLYING | COMPLETE
+  let _convState = 'IDLE';
+  let _convThemes = [];
+  let _convCurrentTheme = 0;
+  let _convMessages = [];
+  let _convAppliedTasks = [];
+  let _convOriginalInput = '';
+  let _convParsedFull = null; // Full parsed response for fallback
+
+  function _resetConvState() {
+    _convState = 'IDLE';
+    _convThemes = [];
+    _convCurrentTheme = 0;
+    _convMessages = [];
+    _convAppliedTasks = [];
+    _convOriginalInput = '';
+    _convParsedFull = null;
+  }
+
+  function getConvState() {
+    return _convState;
+  }
 
   // ── Draft persistence ───────────────────────────────────────────────────
   function saveDumpDraft() {
@@ -141,9 +165,18 @@ export function createBrainstorm(deps) {
               : ``
           }
           <div style="display:flex;gap:8px;justify-content:center">
-            <button class="btn btn-primary" data-action="view-organized">View organized tasks →</button>
+            <button class="btn btn-primary" data-action="view-organized">View organized tasks \u2192</button>
             <button class="btn" data-action="new-brainstorm">New brainstorm</button>
           </div>
+        </div>
+      </div>`;
+    }
+
+    // Show conversation UI if brainstorm is in progress
+    if (_convState !== 'IDLE') {
+      return `<div class="dump-area">
+        <div id="brainstormConversation" style="max-height:60vh;overflow-y:auto;padding:4px 0">
+          ${_renderConversationHTML()}
         </div>
       </div>`;
     }
@@ -159,7 +192,7 @@ export function createBrainstorm(deps) {
         <span style="font-size:16px">${_fileIcon(name)}</span>
         <div style="flex:1;min-width:0">
           <div style="font-weight:500;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(name)}</div>
-          <div style="font-size:10px;color:var(--accent)">Processing…</div>
+          <div style="font-size:10px;color:var(--accent)">Processing\u2026</div>
         </div>
       </div>`,
       )
@@ -173,9 +206,9 @@ export function createBrainstorm(deps) {
         <span style="font-size:16px">${a.icon}</span>
         <div style="flex:1;min-width:0">
           <div style="font-weight:500;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(a.name)}</div>
-          <div style="font-size:10px;color:var(--text3)">${a.size} · ${a.pages ? a.pages + ' pages' : Math.round(a.textLength / 1000) + 'K chars'}</div>
+          <div style="font-size:10px;color:var(--text3)">${a.size} \u00b7 ${a.pages ? a.pages + ' pages' : Math.round(a.textLength / 1000) + 'K chars'}</div>
         </div>
-        <button data-action="remove-dump-attachment" data-idx="${i}" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:14px;padding:0 2px" title="Remove">×</button>
+        <button data-action="remove-dump-attachment" data-idx="${i}" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:14px;padding:0 2px" title="Remove">\u00d7</button>
       </div>`,
             )
             .join('')}${processingHtml}</div>`
@@ -223,7 +256,6 @@ export function createBrainstorm(deps) {
   async function ensurePDFLib() {
     if (_pdfjsLib) return;
     const pdfjs = await import('pdfjs-dist/legacy/build/pdf.js');
-    // Create worker from blob URL to avoid static file serving issues
     const workerJs = await import('pdfjs-dist/legacy/build/pdf.worker.js?url');
     const resp = await fetch(workerJs.default);
     const text = await resp.text();
@@ -291,7 +323,6 @@ export function createBrainstorm(deps) {
     const name = file.name.toLowerCase();
     const ext = name.split('.').pop();
 
-    // Images — not supported for text extraction
     if (
       ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'svg', 'ico', 'tiff', 'heic'].includes(ext) ||
       file.type.startsWith('image/')
@@ -301,7 +332,6 @@ export function createBrainstorm(deps) {
 
     const buf = await readFileAsArrayBuffer(file);
 
-    // PDF
     if (ext === 'pdf' || file.type === 'application/pdf') {
       await ensurePDFLib();
       const pdf = await _pdfjsLib.getDocument({ data: buf }).promise;
@@ -314,19 +344,16 @@ export function createBrainstorm(deps) {
       return { text: pages.join('\n\n'), pages: pdf.numPages };
     }
 
-    // Legacy .doc (not .docx)
     if (name.endsWith('.doc') && !name.endsWith('.docx')) {
       throw new Error('Legacy .doc files are not supported. Please save as .docx and try again.');
     }
 
-    // Word (.docx)
     if (ext === 'docx' || file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
       await ensureMammothLib();
       const result = await mammoth.extractRawText({ arrayBuffer: buf });
       return { text: result.value };
     }
 
-    // Excel (.xlsx, .xls) and CSV
     if (['xlsx', 'xls', 'csv', 'numbers'].includes(ext) || file.type.includes('spreadsheet')) {
       await ensureXLSXLib();
       const workbook = XLSX.read(buf, { type: 'array' });
@@ -339,7 +366,6 @@ export function createBrainstorm(deps) {
       return { text: sheets.join('\n\n'), pages: workbook.SheetNames.length };
     }
 
-    // Plain text fallback
     const text = new TextDecoder('utf-8', { fatal: false }).decode(buf);
     const binaryChars = (text.match(/[\x00-\x08\x0E-\x1F]/g) || []).length;
     if (binaryChars > text.length * 0.1)
@@ -387,7 +413,6 @@ export function createBrainstorm(deps) {
     const list = document.getElementById('dumpAttachList');
     const container = list ? list.parentElement : document.querySelector('.dump-area');
     if (!container) return;
-    // Build processing chips HTML
     const processingHtml = _processingFiles
       .map(
         (name) =>
@@ -395,13 +420,12 @@ export function createBrainstorm(deps) {
         <span style="font-size:16px">${_fileIcon(name)}</span>
         <div style="flex:1;min-width:0">
           <div style="font-weight:500;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(name)}</div>
-          <div style="font-size:10px;color:var(--accent)">Processing…</div>
+          <div style="font-size:10px;color:var(--accent)">Processing\u2026</div>
         </div>
       </div>`,
       )
       .join('');
     if (list) {
-      // Remove existing processing chips and append new ones
       list.querySelectorAll('.skeleton-pulse').forEach((el) => el.remove());
       if (processingHtml) list.insertAdjacentHTML('beforeend', processingHtml);
     } else if (processingHtml) {
@@ -446,326 +470,231 @@ export function createBrainstorm(deps) {
     });
   }
 
-  // ── Clarify pass ────────────────────────────────────────────────────────
-  async function maybeClarify(text) {
-    if (_dumpAttachments.length) return null;
-    const wordCount = text.split(/\s+/).filter(Boolean).length;
-    if (wordCount > 80) return null;
+  // ── Conversation UI rendering ─────────────────────────────────────────
+  function _renderConversationHTML() {
+    let html = '';
 
-    try {
-      const reply = await callAI(
-        `You are a sharp, direct productivity partner helping someone brainstorm. They just typed this into a quick capture box:
+    // Render all messages
+    _convMessages.forEach((msg) => {
+      if (msg.role === 'ai') {
+        html += `<div style="margin-bottom:16px">
+          <div style="font-size:13px;color:var(--text);line-height:1.6;padding:14px 16px;background:var(--surface2);border-radius:var(--radius);border-left:2px solid var(--accent)">${msg.content}</div>
+        </div>`;
+      } else if (msg.role === 'user') {
+        html += `<div style="margin-bottom:16px;text-align:right">
+          <div style="display:inline-block;font-size:13px;color:var(--bg);line-height:1.5;padding:10px 14px;background:var(--accent);border-radius:var(--radius);max-width:80%;text-align:left">${esc(msg.content)}</div>
+        </div>`;
+      } else if (msg.role === 'status') {
+        html += `<div style="margin-bottom:12px;text-align:center;font-size:12px;color:var(--green)">\u2713 ${msg.content}</div>`;
+      }
+    });
 
-"${text}"
-
-Is this clear enough to extract specific, actionable tasks? Or is it vague/missing key details?
-
-Rules:
-- If the input already contains specific tasks, deadlines, names, or enough detail to act on \u2192 respond with exactly: CLEAR
-- If it's vague, short, or missing important context (what specifically? when? who? which?) \u2192 respond with 2-4 SHORT clarifying questions that would help you extract better tasks. Be conversational and curious, not interrogative. Questions should feel like a smart assistant genuinely trying to help, not a form to fill out.
-
-Format if asking questions \u2014 respond ONLY with the questions, one per line, no numbering, no preamble. Keep each under 15 words.`,
-        { maxTokens: 200 },
-      );
-
-      const trimmed = reply.trim();
-      if (trimmed === 'CLEAR' || trimmed.startsWith('CLEAR')) return null;
-      return trimmed;
-    } catch {
-      return null;
+    // Current state UI
+    if (_convState === 'ANALYZING') {
+      html += `<div style="display:flex;align-items:center;gap:8px;padding:16px 0">
+        <div class="spinner"></div>
+        <span style="font-size:13px;color:var(--text2)">Reading your input and identifying themes...</span>
+        <button class="btn btn-sm" style="margin-left:auto;font-size:10px;color:var(--red);border-color:var(--red)" data-action="cancel-dump">Cancel</button>
+      </div>`;
+    } else if (_convState === 'THEME_REVIEW') {
+      const theme = _convThemes[_convCurrentTheme];
+      if (theme) html += _renderThemeCard(theme, _convCurrentTheme, _convThemes.length);
+    } else if (_convState === 'CLARIFYING') {
+      const theme = _convThemes[_convCurrentTheme];
+      if (theme) html += _renderClarifyCard(theme);
+    } else if (_convState === 'APPLYING') {
+      html += `<div style="display:flex;align-items:center;gap:8px;padding:16px 0">
+        <div class="spinner"></div>
+        <span style="font-size:13px;color:var(--text2)">Creating tasks...</span>
+      </div>`;
+    } else if (_convState === 'COMPLETE') {
+      html += _renderCompleteSummary();
     }
+
+    return html;
   }
 
-  function showClarifyUI(questions, _originalText) {
-    const statusEl = $('#dumpStatus');
-    const lines = questions.split('\n').filter((l) => l.trim());
-    let html = `<div class="clarify-card" style="background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius);padding:20px;margin-top:12px;animation:fadeIn .3s ease">
-      <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:12px">\u2726 A few quick questions to get you better results:</div>
-      <div style="display:flex;flex-direction:column;gap:8px">`;
-    lines.forEach((q, i) => {
-      html += `<div style="display:flex;gap:8px;align-items:start">
-        <span style="color:var(--accent);font-size:13px;flex-shrink:0;margin-top:6px">\u2192</span>
-        <div style="flex:1">
-          <div style="font-size:12px;color:var(--text2);margin-bottom:4px">${esc(q.replace(/^[-\u2022*]\s*/, ''))}</div>
-          <input type="text" class="clarify-input" data-idx="${i}" placeholder="Type your answer..." aria-label="Answer to clarifying question" style="width:100%;padding:6px 10px;background:var(--surface3);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:13px;outline:none" data-keydown-action="submit-clarify-input">
-        </div>
+  function _renderThemeCard(theme, idx, total) {
+    const tasks = theme.tasks || [];
+    const tasksPreview = tasks
+      .slice(0, 6)
+      .map((t) => {
+        const prioBadge =
+          t.priority === 'urgent'
+            ? ' <span style="color:var(--red);font-size:10px;font-weight:600">Urgent</span>'
+            : t.priority === 'important'
+              ? ' <span style="color:var(--orange);font-size:10px;font-weight:600">Important</span>'
+              : '';
+        return `<div style="display:flex;gap:6px;align-items:start;padding:3px 0">
+        <span style="color:var(--text3);flex-shrink:0;font-size:11px">\u2022</span>
+        <span style="font-size:12px;color:var(--text2)">${esc(t.title)}${prioBadge}</span>
+      </div>`;
+      })
+      .join('');
+    const moreCount = tasks.length - 6;
+
+    const hasQuestions = theme.questions && theme.questions.length > 0;
+
+    return `<div style="background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius);padding:20px;margin:12px 0;animation:fadeIn .3s ease">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px">Theme ${idx + 1} of ${total}</div>
+        <div style="font-size:11px;color:var(--text3)">${tasks.length} task${tasks.length !== 1 ? 's' : ''}</div>
+      </div>
+      <div style="font-size:15px;font-weight:600;color:var(--text);margin-bottom:8px">${esc(theme.name)}</div>
+      <div style="font-size:13px;color:var(--text2);line-height:1.6;margin-bottom:14px">${esc(theme.narrative)}</div>
+      ${tasksPreview ? `<div style="margin-bottom:14px;padding:10px 12px;background:var(--surface3);border-radius:var(--radius-sm)">${tasksPreview}${moreCount > 0 ? `<div style="font-size:11px;color:var(--text3);padding:4px 0">+${moreCount} more</div>` : ''}</div>` : ''}
+      ${hasQuestions ? `<div style="font-size:12px;color:var(--accent);margin-bottom:12px">\u2726 I have ${theme.questions.length} question${theme.questions.length > 1 ? 's' : ''} that would help me create better tasks for this.</div>` : ''}
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        ${hasQuestions ? `<button class="btn btn-primary btn-sm" data-action="brainstorm-clarify-theme" data-theme-idx="${idx}">Answer questions first</button>` : ''}
+        <button class="btn ${!hasQuestions ? 'btn-primary' : ''} btn-sm" data-action="brainstorm-approve-theme" data-theme-idx="${idx}">\u2713 Create these tasks</button>
+        <button class="btn btn-sm" data-action="brainstorm-skip-theme" data-theme-idx="${idx}" style="color:var(--text3)">Skip</button>
+      </div>
+    </div>`;
+  }
+
+  function _renderClarifyCard(theme) {
+    const questions = theme.questions || [];
+    let html = `<div style="background:var(--surface2);border:1px solid var(--accent);border-radius:var(--radius);padding:20px;margin:12px 0;animation:fadeIn .3s ease">
+      <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:14px">Quick questions about "${esc(theme.name)}":</div>
+      <div style="display:flex;flex-direction:column;gap:12px">`;
+    questions.forEach((q, i) => {
+      html += `<div>
+        <div style="font-size:12px;color:var(--text2);margin-bottom:4px">${esc(q)}</div>
+        <input type="text" class="conv-clarify-input" data-q-idx="${i}" placeholder="Your answer..." aria-label="${esc(q)}" style="width:100%;padding:8px 12px;background:var(--surface3);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:13px;outline:none;box-sizing:border-box" data-keydown-action="conv-clarify-enter">
       </div>`;
     });
     html += `</div>
-      <div style="display:flex;gap:8px;margin-top:14px">
-        <button class="btn btn-primary btn-sm" data-action="submit-clarify">\u2726 Continue with answers</button>
-        <button class="btn btn-sm" data-action="skip-clarify" style="color:var(--text3)">Skip \u2014 just extract what you can</button>
+      <div style="display:flex;gap:8px;margin-top:16px">
+        <button class="btn btn-primary btn-sm" data-action="brainstorm-submit-clarify">\u2726 Continue with answers</button>
+        <button class="btn btn-sm" data-action="brainstorm-skip-clarify" style="color:var(--text3)">Skip \u2014 create as-is</button>
       </div>
     </div>`;
-    if (statusEl) statusEl.innerHTML = html;
-    setTimeout(() => {
-      const first = document.querySelector('.clarify-input');
-      if (first) first.focus();
-    }, 100);
+    return html;
   }
 
-  function submitClarify() {
-    const inputs = document.querySelectorAll('.clarify-input');
-    const answers = [];
-    inputs.forEach((inp) => {
-      if (inp.value.trim()) answers.push(inp.value.trim());
+  function _renderCompleteSummary() {
+    const total = _convAppliedTasks.length;
+    const boards = {};
+    _convAppliedTasks.forEach((t) => {
+      const b = t.suggestedProject || 'Unsorted';
+      boards[b] = (boards[b] || 0) + 1;
     });
-    const ta = $('#dumpText');
-    if (ta && answers.length) {
-      ta.value = ta.value.trim() + '\n\n--- Additional details ---\n' + answers.join('\n');
-      saveDumpDraft();
+    const boardList = Object.entries(boards)
+      .map(
+        ([name, count]) =>
+          `<div style="display:flex;justify-content:space-between;font-size:12px;padding:3px 0"><span style="color:var(--text2)">${esc(name)}</span><span style="color:var(--accent)">${count}</span></div>`,
+      )
+      .join('');
+
+    return `<div style="background:linear-gradient(135deg,var(--surface2),var(--surface3));border:1px solid var(--border2);border-radius:var(--radius);padding:24px;margin:16px 0;text-align:center;animation:fadeIn .3s ease">
+      <div style="font-size:32px;font-weight:700;color:var(--accent);margin-bottom:4px">${total}</div>
+      <div style="font-size:13px;color:var(--text3);margin-bottom:16px">tasks processed across ${Object.keys(boards).length} board${Object.keys(boards).length !== 1 ? 's' : ''}</div>
+      ${boardList ? `<div style="text-align:left;padding:12px;background:var(--surface);border-radius:var(--radius-sm);margin-bottom:16px">${boardList}</div>` : ''}
+      <div style="display:flex;gap:8px;justify-content:center">
+        <button class="btn btn-primary" data-action="view-organized">View organized tasks \u2192</button>
+        <button class="btn" data-action="new-brainstorm">New brainstorm</button>
+      </div>
+    </div>`;
+  }
+
+  function _refreshConversationUI() {
+    const container = document.getElementById('brainstormConversation');
+    if (container) {
+      container.innerHTML = _renderConversationHTML();
+      setTimeout(() => {
+        container.scrollTop = container.scrollHeight;
+      }, 50);
+    } else {
+      render();
     }
-    const statusEl = $('#dumpStatus');
-    if (statusEl) statusEl.innerHTML = '';
-    processDump(true);
   }
 
-  function skipClarify() {
-    const statusEl = $('#dumpStatus');
-    if (statusEl) statusEl.innerHTML = '';
-    processDump(true);
-  }
+  // ── AI prompts ────────────────────────────────────────────────────────
+  function _buildThemeExtractionPrompt() {
+    return `You are a sharp, direct productivity partner. You've been handed a brainstorm dump. Your job: identify the distinct THEMES in this input, then for each theme, extract the tasks.
 
-  async function _fetchDumpSingleChunk(dumpSystemPrompt, dumpUserPrompt, settings) {
-    const _ep = getAIEndpoint();
-    const resp = await fetch(_ep.url, {
-      method: 'POST',
-      signal: dumpAbort.signal,
-      headers: { 'Content-Type': 'application/json', 'anthropic-version': '2023-06-01', ..._ep.headers },
-      body: JSON.stringify({
-        model: settings.aiModel || 'claude-haiku-4-5-20251001',
-        max_tokens: 16384,
-        temperature: 0.3,
-        system: dumpSystemPrompt,
-        messages: [{ role: 'user', content: dumpUserPrompt }],
-      }),
-    });
-    if (!resp.ok) {
-      const errBody = await resp.json().catch(() => ({}));
-      const errMsg = errBody?.error?.message || '';
-      console.error('Brainstorm API error:', resp.status, errMsg);
-      throw new Error(
-        resp.status === 429
-          ? 'AI is busy — try again in a moment'
-          : resp.status === 500 || resp.status === 503
-            ? 'AI service is temporarily down'
-            : errMsg || 'Something went wrong with AI — try again',
-      );
-    }
-    const result = await resp.json();
-    return parseDumpResponse(result.content[0].text);
-  }
+## WHAT IS A THEME?
+A theme is a distinct topic, project, or area of life. Examples:
+- "Morocco trip planning" = one theme
+- "Graduate school applications" = one theme
+- "Random personal errands" = one theme
+- "Work project: Justice Architecture" = one theme
 
-  async function _fetchDumpMultipleChunks(chunks, dumpSystemPrompt, cappedTasks, projectCompact, statusEl, settings) {
-    const allTasks = [],
-      allProjectUpdates = [],
-      allPatterns = [];
-    const _ep = getAIEndpoint();
-    for (let i = 0; i < chunks.length; i++) {
-      if (dumpAbort.signal.aborted) throw new Error('Cancelled');
-      if (statusEl)
-        statusEl.innerHTML = `<div class="ai-status"><div class="spinner"></div>Processing chunk ${i + 1} of ${chunks.length}...<button class="btn btn-sm" style="margin-left:12px;font-size:10px;color:var(--red);border-color:var(--red)" data-action="cancel-dump">Cancel</button></div>`;
-      const leanTasks = cappedTasks
-        .slice(0, 50)
-        .map((t) => `${t.id}|${t.title}|${t.status}`)
-        .join('\n');
-      const chunkUserPrompt = `EXISTING TASKS (id|title|status):\n${leanTasks || '(none)'}\n\nEXISTING PROJECTS (id|name):\n${projectCompact || '(none)'}\n\nTODAY: ${todayStr()}\n\nBrainstorm input [Chunk ${i + 1} of ${chunks.length}]:\n${chunks[i]}`;
-      const resp = await fetch(_ep.url, {
-        method: 'POST',
-        signal: dumpAbort.signal,
-        headers: { 'Content-Type': 'application/json', 'anthropic-version': '2023-06-01', ..._ep.headers },
-        body: JSON.stringify({
-          model: settings.aiModel || 'claude-haiku-4-5-20251001',
-          max_tokens: 16384,
-          temperature: 0.3,
-          system: dumpSystemPrompt,
-          messages: [{ role: 'user', content: chunkUserPrompt }],
-        }),
-      });
-      if (!resp.ok) {
-        const errBody = await resp.json().catch(() => ({}));
-        const errMsg = errBody?.error?.message || '';
-        console.error('Brainstorm chunk API error:', resp.status, errMsg);
-        throw new Error(
-          resp.status === 429
-            ? 'AI is busy — try again in a moment'
-            : resp.status === 500 || resp.status === 503
-              ? 'AI service is temporarily down'
-              : errMsg || 'Something went wrong with AI — try again',
-        );
-      }
-      const result = await resp.json();
-      const chunkParsed = parseDumpResponse(result.content[0].text);
-      if (chunkParsed) {
-        allTasks.push(...(chunkParsed.tasks || []));
-        allProjectUpdates.push(...(chunkParsed.projectUpdates || []));
-        allPatterns.push(...(chunkParsed.patterns || []));
-      }
-    }
-    const seen = new Set();
-    const dedupedTasks = allTasks.filter((t) => {
-      const key = (t.title || '').toLowerCase().trim();
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    });
-    return { tasks: dedupedTasks, projectUpdates: allProjectUpdates, patterns: allPatterns };
-  }
+If the entire input is about ONE topic, return exactly ONE theme. Do NOT split artificially.
+For a multi-topic brain dump, typically 2-5 themes.
 
-  // ── Main processing helpers ─────────────────────────────────────────────
+## FOR EACH THEME, PROVIDE:
+1. A short name (2-5 words)
+2. A narrative explanation (2-4 sentences) that tells the user what you found and why it matters. Write like a smart assistant explaining back what they dumped. Include timing context (how soon things are due, what's urgent).
+3. 1-2 clarifying questions that would help create BETTER tasks (optional \u2014 only if the input is genuinely vague about important details). Skip questions if the input is already detailed enough.
+4. The extracted tasks for this theme.
 
-  function _validateDumpInput() {
-    const text =
-      ($('#dumpText')?.value?.trim() || '') + (_dumpAttachments.length ? '\n' + getDumpAttachmentText() : '');
-    if (!text.trim() && !_dumpAttachments.length) {
-      showToast('Write something or attach a file first', true);
-      return null;
-    }
+## TASK EXTRACTION RULES
+${_getTaskExtractionRules()}
 
-    const totalInput = text; // attachment text already included above
-    const MAX_INPUT_CHARS = MAX_BRAINSTORM_INPUT_CHARS;
-    if (totalInput.length > MAX_INPUT_CHARS) {
-      const overBy = totalInput.length - MAX_INPUT_CHARS;
-      showToast(
-        `Input too long by ~${Math.ceil(overBy / 1000)}K characters. Try splitting into smaller brainstorms.`,
-        true,
-      );
-      return null;
-    }
-    return text;
-  }
-
-  function _initDumpProgress(statusEl) {
-    const _dumpStart = Date.now();
-    const _dumpPhases = [
-      'Reading your input...',
-      'Extracting tasks and context...',
-      'Organizing by project and priority...',
-      'Detecting patterns and duplicates...',
-    ];
-    let _dumpPhase = 0;
-    if (window._dumpTimer) clearInterval(window._dumpTimer);
-    window._dumpTimer = setInterval(() => {
-      if (!statusEl) return;
-      const elapsed = Math.round((Date.now() - _dumpStart) / 1000);
-      _dumpPhase = Math.min(_dumpPhase + 1, _dumpPhases.length - 1);
-      statusEl.innerHTML = `<div class="ai-status"><div class="spinner"></div>${_dumpPhases[_dumpPhase]} <span style="color:var(--text3);font-size:11px">(${elapsed}s)</span><button class="btn btn-sm" style="margin-left:12px;font-size:10px;color:var(--red);border-color:var(--red)" data-action="cancel-dump">Cancel</button></div>`;
-    }, 4000);
-    if (statusEl)
-      statusEl.innerHTML = `<div class="ai-status"><div class="spinner"></div>${_dumpPhases[0]} <button class="btn btn-sm" style="margin-left:12px;font-size:10px;color:var(--red);border-color:var(--red)" data-action="cancel-dump">Cancel</button></div>`;
-  }
-
-  function _buildDumpSystemPrompt() {
-    return `You are a sharp, direct productivity partner. You have been handed a brainstorm \u2014 it could be a stream of consciousness, a formal project document, meeting notes, a status update, or anything in between. Your job: extract EVERYTHING useful and organize it perfectly.
-
-## YOUR EXTRACTION PHILOSOPHY
-- Extract ALL discrete items \u2014 things to DO, things already DONE, things IN PROGRESS.
-- COMPLETED WORK IS JUST AS IMPORTANT AS PENDING WORK. If the document says something was finished, submitted, approved, or done \u2014 create it as a task with status "done". The user needs a complete picture of their project, not just what's left.
-- Do NOT create tasks for background info, context, history, mission statements, or descriptive text. That goes in the project background.
-- A 1-page dump should produce 3-10 tasks. A 10-page document should produce 15-40 tasks.
-- If something is informational/context rather than actionable, put it in the board's background field, NOT as a task.
-- Background info, mission statements, team rosters, key decisions, context = board description updates.
-- You are CATALOGUING the full state of this work \u2014 done, in-progress, and todo.
-
-## HOW TO DETECT STATUS \u2014 THIS IS CRITICAL, GET IT RIGHT
-DONE/COMPLETED \u2014 AGGRESSIVELY detect completed work. Look for: [x], [X], checkmarks, "completed", "done", "finished", "locked", "filed", "approved", "executed", "received", "submitted", "signed", "selected", "confirmed", "secured", "decided", "chose", "set up", "created", "built", "wrote", "sent", "paid", past tense verbs describing accomplished work, items under headers like "COMPLETED" or "WHAT'S LOCKED IN" or "DONE" or "PROGRESS SO FAR". When in doubt between done and todo, look at the verb tense \u2014 past tense = DONE.
-TODO/PENDING \u2014 look for: [ ], empty checkbox, "pending", "needs to", "must", "should", "will", "plan to", "to-do", "next step", future tense, items under headers like "NEXT STEPS" or "TO DO" or "ACTION ITEMS" or "UPCOMING".
-IN-PROGRESS \u2014 look for: "working on", "currently", "in progress", "started", "underway", "building", present tense active work.
-
-IMPORTANT: A project document typically has BOTH completed and pending items. If you extract 20 tasks and zero are "done", you are almost certainly misreading the document. Go back and re-check for past-tense accomplishments.
-
-## HOW TO SET PRIORITY
-URGENT \u2014 deadline within 3 days, blocks other work, user explicitly says "urgent"/"ASAP"/"immediately".
-IMPORTANT \u2014 deadline within 2 weeks AND significant impact. NOT for tasks months out, even if they matter.
-NORMAL \u2014 deadline more than 2 weeks out, or standard tasks without time pressure.
-LOW \u2014 nice-to-have, future consideration, exploratory, deadlines 2+ months out.
-
-CRITICAL RULE: Priority MUST correlate with time proximity. Today is ${new Date().toISOString().slice(0, 10)}. Calculate the days until deadline BEFORE assigning priority:
-- Due in 0-3 days → urgent
-- Due in 4-14 days → important
-- Due in 15+ days → normal
-- Due in 60+ days → low
-A task due March 31 when today is March 17 = 14 days = IMPORTANT, not urgent. Do the math EVERY time.
-
-## HOW TO SET DEADLINES
-Only set a dueDate if the input contains a SPECIFIC date or clear deadline ("by Friday", "due March 25", "opens late April").
-Do NOT invent deadlines. If there's no date mentioned, leave dueDate empty.
-If the input says "~September" or "late April", use the LAST day of that period (April 30, September 30).
-Today is ${new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}.
-
-## HOW TO ESTIMATE TIME
-For every task, estimate how many minutes it will take. Use your best judgment:
-- Quick tasks (email, call, form): 15 minutes
-- Standard tasks (write document, review, meeting): 30-60 minutes
-- Deep work (coding, analysis, writing): 120 minutes
-- Large tasks (project planning, major deliverable): 240 minutes
-- If truly unknown, use 0 (not estimated). But try to estimate \u2014 even rough is better than nothing.
-
-## HOW TO HANDLE DIFFERENT INPUT TYPES
-- **Project planning document**: This is a FULL PROJECT IMPORT. Extract everything \u2014 done items, pending items, phases, deadlines. Use phases liberally. A project doc with 30+ items is normal. Set status accurately: things already accomplished = "done", things planned = "todo".
-- **Checklist document with phases**: Each checkbox = one task. Preserve the phase/section header. Items under "Phase 3" get phase="Phase 3: [phase name]".
-- **Stream of consciousness**: Parse every distinct thought. "oh and the dentist moved to friday" = task: "Dentist appointment" with dueDate for Friday. "groceries: milk, eggs" = task: "Buy groceries" with notes "milk, eggs".
-- **Status update**: Things described as done = done tasks. Things described as next = todo tasks. Context about the project = projectUpdates.
-- **Meeting notes**: Action items = tasks. Decisions = project description updates. Assignments = task notes.
-- **Lists of organizations/people**: If they need to be reviewed/contacted/vetted, each one = a separate task.
-
-## TASKS vs SUBTASKS
-- A TASK is a standalone deliverable: "Build landing page", "File taxes", "Plan team offsite"
-- SUBTASKS are steps within a task: "Design header", "Write copy", "Get approval" are subtasks of "Build landing page"
-- When the input describes a multi-step process, create ONE task with subtasks, not many separate tasks
-- When items are independent and could be done in any order, they are separate tasks
-- Use the "subtasks" field: an array of strings, e.g. ["Design header", "Write copy", "Deploy"]
-
-## PATTERN DETECTION
-- If a new task is similar to an existing task from a different date, it may be RECURRING \u2014 flag it in the task notes: "[Pattern: appears recurring \u2014 see similar task: existing_title]"
-- If an existing task had notes/details last time but the new input mentions the same item with LESS info, flag it: "[Pattern: previous version had more detail \u2014 may need review]"
-- If you see the same topic mentioned across multiple brainstorms (appearing in existing tasks AND new input), note the connection
-- Look for tasks that logically depend on each other and note dependencies in the notes field
-
-## DEDUPLICATION \u2014 THIS IS CRITICAL
-- Before creating ANY task, check the existing tasks list below. If a task with a similar meaning already exists (even with different wording), use "action": "update" with the existing task's ID instead of creating a new one.
-- "Schedule meeting with client about Q2 roadmap" and "Meeting with client re: Q2 roadmap planning" = SAME TASK. Update, don't create.
-- Prefer updating existing tasks over creating new ones. When in doubt, UPDATE.
-- Use exact IDs from the existing tasks list when updating.
-
-## PROJECT ASSIGNMENT \u2014 BE CONSERVATIVE
-- Only create a new project via projectUpdates if the input clearly describes a substantial new workstream with multiple tasks.
-- A single phone call, meeting, or task about a company does NOT warrant its own project. Put it in "${LIFE_PROJECT_NAME}" or an existing project.
-- If items are random personal stuff (gym, errands, appointments, calls), assign to "${LIFE_PROJECT_NAME}".
-- Match existing project names FUZZILY \u2014 "Career Tracker" matches "Seth Bond Program Tracker & Career Vision".
-- When assigning tasks to existing projects, match based on the TOPIC and CONTEXT of the task, not just keywords. A task about academic recommendations should go in an academic/career board, not a travel board \u2014 even if the person is mentioned in both contexts. When in doubt, create an 'Unsorted' assignment and let the user move it.
-- CRITICAL: If the user's input is clearly about ONE topic/project/organization, put ALL tasks in ONE board for that topic. Do NOT scatter tasks across unrelated boards. If you're creating a new board, EVERY task from that input should go in it unless it's obviously unrelated (like a personal errand mentioned in passing).
-- CRITICAL \u2014 "description" vs "background":
-  - "description" = a SUBTITLE for the project card. MAXIMUM 12 WORDS. Example: "Nonprofit advancing immigration justice through trust-based philanthropy." NEVER include team names, financials, phases, dates, status updates, or any detail. If your description is longer than 12 words, it is WRONG. Rewrite it shorter.
-  - "background" = ALL detailed info using ## section headers (Origin, Where It's Going, Roadblocks, Next Steps, Notes). Mission, team roster, phase, decisions, context, financials, timelines, compliance \u2014 EVERYTHING detailed goes HERE. This is a collapsible dropdown, so be thorough.
-
-## OUTPUT FORMAT \u2014 Return ONLY this JSON object, nothing else:
+## OUTPUT FORMAT \u2014 Return ONLY this JSON:
 {
-  "summary": "2-4 sentence narrative of what you found in the input and how you organized it. Write in first person ('I found...', 'I created...'). Mention key themes, how many tasks, which projects, and any patterns you noticed. Be specific, not generic.",
-  "projectUpdates": [
-    { "name": "Project Name", "description": "One sentence, max 15 words \u2014 a subtitle, NOT details.", "background": "## Origin\\nWhere it came from\\n## Where It's Going\\nThe goal\\n## Roadblocks\\nBlockers\\n## Next Steps\\nWhat's next\\n## Notes\\nOther context", "isNew": true }
-  ],
-  "tasks": [
+  "opening": "1-2 sentence overview. Example: 'I see three threads here: your Morocco trip, grad school tracking, and some personal admin. Let me walk you through each.'",
+  "themes": [
     {
-      "action": "create",
-      "title": "Clear, specific task title",
-      "notes": "One sentence of context. Max 20 words. No paragraphs.",
-      "status": "done",
-      "priority": "normal",
-      "suggestedProject": "Project Name",
-      "dueDate": "",
-      "phase": "Phase 1: Foundation",
-      "subtasks": ["Step 1", "Step 2"],
-      "recurrence": "",
-      "estimatedMinutes": 30
+      "name": "Theme Name",
+      "narrative": "What you found and why it matters. Be specific about timing and urgency.",
+      "questions": ["Optional clarifying question 1", "Optional question 2"],
+      "suggestedBoard": "Board name for these tasks",
+      "boardDescription": "One sentence, max 12 words",
+      "boardBackground": "## Origin\\nContext\\n## Next Steps\\nWhat's next",
+      "isNewBoard": true,
+      "tasks": [
+        {
+          "action": "create",
+          "title": "Clear task title",
+          "notes": "Context. Max 20 words.",
+          "status": "todo",
+          "priority": "normal",
+          "priorityReason": "Why this priority level, referencing dates or context",
+          "dueDate": "",
+          "phase": "",
+          "subtasks": ["Step 1", "Step 2"],
+          "recurrence": "",
+          "estimatedMinutes": 30
+        }
+      ]
     }
   ],
-  "patterns": [
-    { "type": "recurring|dependency|gap", "message": "Brief description of the pattern detected" }
-  ]
-}
+  "closing": "Brief summary of total scope. Example: 'That's 28 items across 3 areas. The Airbnb booking is the most time-sensitive.'"
+}`;
+  }
 
-For updates to existing tasks, use: { "action": "update", "id": "existing_task_id", "updateFields": { "status": "done" } }`;
+  function _getTaskExtractionRules() {
+    return `- Extract ALL discrete items: things to DO, things already DONE, things IN PROGRESS.
+- COMPLETED WORK matters. Past tense = status "done". Checkmarks [x] = "done".
+- Do NOT create tasks for background info. That goes in boardBackground.
+- A 1-page dump = 3-10 tasks. A 10-page doc = 15-40 tasks.
+
+STATUS DETECTION:
+DONE: [x], "completed", "done", "finished", "submitted", "signed", past tense = DONE.
+TODO: [ ], "pending", "needs to", "will", future tense = TODO.
+IN-PROGRESS: "working on", "currently", "started" = IN-PROGRESS.
+
+PRIORITY (correlate with time \u2014 today is ${new Date().toISOString().slice(0, 10)}):
+- Due in 0-3 days \u2192 urgent
+- Due in 4-14 days \u2192 important
+- Due in 15+ days \u2192 normal
+- Due in 60+ days \u2192 low
+
+DEADLINES: Only set dueDate if the input mentions a SPECIFIC date. NEVER invent deadlines.
+
+SUBTASKS: Multi-step processes = ONE task with subtasks, not many separate tasks.
+
+DEDUPLICATION: Check existing tasks below. If similar exists, use "action": "update" with the existing ID.
+
+PROJECT ASSIGNMENT:
+- CRITICAL: If input is about ONE topic, ALL tasks go in ONE board.
+- Random personal stuff goes in "${LIFE_PROJECT_NAME}".
+- Match existing boards fuzzily. Only create new boards for substantial new workstreams.
+- "description" = max 12 words subtitle. "background" = all detailed info.
+
+For updates: { "action": "update", "id": "existing_task_id", "updateFields": { "status": "done" } }`;
   }
 
   function _buildDumpContext() {
@@ -795,7 +724,7 @@ For updates to existing tasks, use: { "action": "update", "id": "existing_task_i
     return { cappedTasks, existingCompact, taskNote, projectCompact };
   }
 
-  // ── Main processing ─────────────────────────────────────────────────────
+  // ── Main processing (conversational) ──────────────────────────────────
   async function processDump(skipClarifyPass) {
     if (_dumpInProgress) return;
 
@@ -810,32 +739,23 @@ For updates to existing tasks, use: { "action": "update", "id": "existing_task_i
       return;
     }
 
-    // Curiosity pass
-    if (!skipClarifyPass) {
-      dumpAbort = new AbortController();
-      const statusEl = $('#dumpStatus');
-      if (statusEl)
-        statusEl.innerHTML = `<div class="ai-status"><div class="spinner"></div>Thinking... <button class="btn btn-sm" style="margin-left:12px;font-size:10px;color:var(--red);border-color:var(--red)" data-action="cancel-dump">Cancel</button></div>`;
-      const questions = await maybeClarify(text);
-      if (questions) {
-        showClarifyUI(questions, text);
-        return;
-      }
-      if (statusEl) statusEl.innerHTML = '';
-    }
-
     _dumpInProgress = true;
+    _convOriginalInput = text;
+    _convState = 'ANALYZING';
+    _convMessages = [];
+    _convAppliedTasks = [];
+    _convCurrentTheme = 0;
 
     pushUndo('Brainstorm');
     dumpAbort = new AbortController();
-    const statusEl = $('#dumpStatus');
-    _initDumpProgress(statusEl);
 
-    const { cappedTasks, existingCompact, taskNote, projectCompact } = _buildDumpContext();
+    // Switch to conversation view
+    render();
 
-    const dumpSystemPrompt = _buildDumpSystemPrompt();
-
-    const dumpUserPrompt = `EXISTING TASKS (id|title|status|notes_preview):
+    try {
+      const { existingCompact, taskNote, projectCompact } = _buildDumpContext();
+      const systemPrompt = _buildThemeExtractionPrompt();
+      const userPrompt = `EXISTING TASKS (id|title|status|notes_preview):
 ${existingCompact || '(none)'}${taskNote}
 
 EXISTING PROJECTS (id|name):
@@ -846,144 +766,376 @@ TODAY: ${todayStr()}
 Brainstorm input:
 ${text}${getDumpAttachmentText()}`;
 
-    const fullInput = text + getDumpAttachmentText();
+      const _ep = getAIEndpoint();
+      const resp = await fetch(_ep.url, {
+        method: 'POST',
+        signal: dumpAbort.signal,
+        headers: { 'Content-Type': 'application/json', 'anthropic-version': '2023-06-01', ..._ep.headers },
+        body: JSON.stringify({
+          model: settings.aiModel || 'claude-haiku-4-5-20251001',
+          max_tokens: 16384,
+          temperature: 0.3,
+          system: systemPrompt,
+          messages: [{ role: 'user', content: userPrompt }],
+        }),
+      });
 
-    try {
-      let parsed;
-      const chunkSize = settings.apiKey ? 50000 : 40000;
-      const chunks = chunkText(fullInput, chunkSize);
-
-      if (chunks.length <= 1) {
-        parsed = await _fetchDumpSingleChunk(dumpSystemPrompt, dumpUserPrompt, settings);
-      } else {
-        parsed = await _fetchDumpMultipleChunks(
-          chunks,
-          dumpSystemPrompt,
-          cappedTasks,
-          projectCompact,
-          statusEl,
-          settings,
+      if (!resp.ok) {
+        const errBody = await resp.json().catch(() => ({}));
+        const errMsg = errBody?.error?.message || '';
+        throw new Error(
+          resp.status === 429
+            ? 'AI is busy \u2014 try again in a moment'
+            : resp.status === 500 || resp.status === 503
+              ? 'AI service is temporarily down'
+              : errMsg || 'Something went wrong \u2014 try again',
         );
       }
 
-      if (!parsed) throw new Error('Could not parse AI response. Please try again.');
+      const result = await resp.json();
+      const rawText = result.content[0].text;
 
-      _dumpInProgress = false;
-      clearInterval(window._dumpTimer);
-      if (statusEl) statusEl.innerHTML = '';
-      showDumpReviewModal(parsed, text);
+      // Try to parse as themed response
+      const parsed = _parseThemeResponse(rawText);
+
+      if (parsed && parsed.themes && parsed.themes.length > 0) {
+        // Conversational flow
+        _convThemes = parsed.themes;
+        _convParsedFull = parsed;
+
+        // Show opening narrative
+        if (parsed.opening) {
+          _convMessages.push({ role: 'ai', content: parsed.opening });
+        }
+
+        _convState = 'THEME_REVIEW';
+        _convCurrentTheme = 0;
+        _refreshConversationUI();
+      } else {
+        // Fallback to legacy batch flow
+        const legacyParsed = parseDumpResponse(rawText);
+        if (legacyParsed) {
+          _convParsedFull = legacyParsed;
+          // Convert to single theme
+          _convThemes = [
+            {
+              name: 'Your brainstorm',
+              narrative: legacyParsed.summary || "Here's what I found in your input.",
+              tasks: legacyParsed.tasks || [],
+              suggestedBoard: null,
+              questions: [],
+            },
+          ];
+          if (legacyParsed.summary) {
+            _convMessages.push({ role: 'ai', content: legacyParsed.summary });
+          }
+          _convState = 'THEME_REVIEW';
+          _convCurrentTheme = 0;
+          _refreshConversationUI();
+        } else {
+          throw new Error('Could not parse AI response. Please try again.');
+        }
+      }
     } catch (err) {
-      clearInterval(window._dumpTimer);
       if (err.name === 'AbortError') {
-        if (statusEl)
-          statusEl.innerHTML =
-            '<div class="ai-status" style="color:var(--orange)">Cancelled. Your data was not changed.</div>';
+        showToast('Cancelled. Your data was not changed.', false, false);
         undo();
+        _resetConvState();
+        _dumpInProgress = false;
+        render();
         return;
       }
       console.error('AI error:', err);
-      if (statusEl)
-        statusEl.innerHTML = `<div class="ai-status" style="color:var(--red)">Error: ${esc(err.message)}</div>`;
+      showToast('Error: ' + err.message, true);
+      _resetConvState();
+      _dumpInProgress = false;
+      render();
     } finally {
       dumpAbort = null;
-      _dumpInProgress = false;
     }
+  }
+
+  function _parseThemeResponse(rawText) {
+    try {
+      // Strip markdown fences
+      const cleaned = rawText.replace(/```json\s*/g, '').replace(/```\s*/g, '');
+      // Try to extract JSON object
+      const match = cleaned.match(/\{[\s\S]*\}/);
+      if (match) {
+        const parsed = JSON.parse(match[0]);
+        if (parsed.themes) return parsed;
+        // If it has tasks but no themes, it's a legacy response
+        if (parsed.tasks) return null;
+      }
+    } catch {
+      // Try bracket-balancing repair
+      try {
+        let cleaned = rawText.replace(/```json\s*/g, '').replace(/```\s*/g, '');
+        const start = cleaned.indexOf('{');
+        if (start === -1) return null;
+        cleaned = cleaned.slice(start);
+        // Simple depth-based extraction
+        let depth = 0;
+        let inStr = false;
+        let escaped = false;
+        let end = 0;
+        for (let i = 0; i < cleaned.length; i++) {
+          const c = cleaned[i];
+          if (escaped) {
+            escaped = false;
+            continue;
+          }
+          if (c === '\\') {
+            escaped = true;
+            continue;
+          }
+          if (c === '"') {
+            inStr = !inStr;
+            continue;
+          }
+          if (inStr) continue;
+          if (c === '{') depth++;
+          if (c === '}') {
+            depth--;
+            if (depth === 0) {
+              end = i + 1;
+              break;
+            }
+          }
+        }
+        if (end > 0) {
+          const parsed = JSON.parse(cleaned.slice(0, end));
+          if (parsed.themes) return parsed;
+        }
+      } catch {
+        // Give up
+      }
+    }
+    return null;
+  }
+
+  // ── Theme actions (called from actions.js) ────────────────────────────
+  function approveTheme(themeIdx) {
+    const theme = _convThemes[themeIdx];
+    if (!theme) return;
+
+    _convState = 'APPLYING';
+    _refreshConversationUI();
+
+    // Apply this theme's tasks
+    const tasks = theme.tasks || [];
+    _applyThemeTasks(theme, tasks);
+
+    // Add status message
+    _convMessages.push({
+      role: 'status',
+      content: `Created ${tasks.length} task${tasks.length !== 1 ? 's' : ''} for "${theme.name}"`,
+    });
+
+    _advanceToNextThemeOrComplete();
+  }
+
+  function skipTheme(themeIdx) {
+    _convMessages.push({
+      role: 'status',
+      content: `Skipped "${_convThemes[themeIdx]?.name || 'theme'}"`,
+    });
+    _advanceToNextThemeOrComplete();
+  }
+
+  function startThemeClarify(themeIdx) {
+    _convState = 'CLARIFYING';
+    _refreshConversationUI();
+    // Focus first input after render
+    setTimeout(() => {
+      const first = document.querySelector('.conv-clarify-input');
+      if (first) first.focus();
+    }, 100);
+  }
+
+  function submitThemeClarify() {
+    const inputs = document.querySelectorAll('.conv-clarify-input');
+    const answers = [];
+    inputs.forEach((inp) => {
+      if (inp.value.trim()) answers.push(inp.value.trim());
+    });
+
+    if (answers.length > 0) {
+      _convMessages.push({ role: 'user', content: answers.join(' \u2022 ') });
+      // Enrich the current theme's task notes with the answers
+      const theme = _convThemes[_convCurrentTheme];
+      if (theme) {
+        const answerText = answers.join('. ');
+        (theme.tasks || []).forEach((t) => {
+          t.notes = (t.notes || '') + (t.notes ? ' ' : '') + answerText;
+        });
+      }
+    }
+
+    // Now approve the theme with enriched tasks
+    approveTheme(_convCurrentTheme);
+  }
+
+  function skipThemeClarify() {
+    // Approve without answers
+    approveTheme(_convCurrentTheme);
+  }
+
+  function _advanceToNextThemeOrComplete() {
+    _convCurrentTheme++;
+    if (_convCurrentTheme < _convThemes.length) {
+      _convState = 'THEME_REVIEW';
+      _refreshConversationUI();
+    } else {
+      _completeConversation();
+    }
+  }
+
+  function _applyThemeTasks(theme, tasks) {
+    if (!tasks.length) return;
+
+    if (deps.setBatchMode) deps.setBatchMode(true);
+
+    try {
+      const projectMap = {};
+
+      // Create/find the board for this theme
+      if (theme.suggestedBoard) {
+        const existing = findSimilarProject(theme.suggestedBoard);
+        if (existing) {
+          projectMap[theme.suggestedBoard] = existing.id;
+          // Update background if provided
+          if (theme.boardBackground) {
+            updateProject(existing.id, { background: theme.boardBackground });
+          }
+        } else if (theme.isNewBoard !== false) {
+          const desc = enforceShortDesc(theme.boardDescription || '');
+          const p = createProject({
+            name: theme.suggestedBoard,
+            description: desc,
+            background: theme.boardBackground || '',
+          });
+          addProject(p);
+          projectMap[theme.suggestedBoard] = p.id;
+        }
+      }
+
+      tasks.forEach((item) => {
+        if (!item || (!item.title && !item.id)) return;
+
+        // Set the project for this task
+        item.suggestedProject = item.suggestedProject || theme.suggestedBoard;
+
+        // Resolve project
+        if (item.suggestedProject && !projectMap[item.suggestedProject]) {
+          const existing = findSimilarProject(item.suggestedProject);
+          if (existing) {
+            projectMap[item.suggestedProject] = existing.id;
+          } else {
+            projectMap[item.suggestedProject] = getLifeProjectId();
+          }
+        }
+
+        const projId = projectMap[item.suggestedProject] || getLifeProjectId();
+        _applyTaskItem(item, projId);
+        _convAppliedTasks.push(item);
+      });
+    } finally {
+      if (deps.setBatchMode) deps.setBatchMode(false);
+    }
+
+    if (deps.saveData) deps.saveData(getData());
+    render();
+  }
+
+  function _completeConversation() {
+    _convState = 'COMPLETE';
+    _dumpInProgress = false;
+
+    // Add closing narrative
+    const closing = _convParsedFull?.closing;
+    if (closing) {
+      _convMessages.push({ role: 'ai', content: closing });
+    }
+
+    // Build lastDumpResult for the results card
+    const text = _convOriginalInput;
+    const created = _convAppliedTasks.filter((t) => t.action !== 'update' && t.action !== 'complete').length;
+    const boards = {};
+    _convAppliedTasks.forEach((t) => {
+      const b = t.suggestedProject || 'Unsorted';
+      boards[b] = (boards[b] || 0) + 1;
+    });
+
+    lastDumpResult = {
+      wordCount: text.split(/\s+/).filter(Boolean).length,
+      tasksCreated: created,
+      tasksDone: _convAppliedTasks.filter((i) => i.status === 'done' || i.action === 'complete').length,
+      tasksInProgress: _convAppliedTasks.filter((i) => i.status === 'in-progress').length,
+      tasksTodo: _convAppliedTasks.filter((i) => !i.status || i.status === 'todo').length,
+      boardsCreated: Object.keys(boards).length,
+      boardsUpdated: 0,
+      inputSnippet: text.slice(0, 200),
+      summary: _convParsedFull?.opening || '',
+      tasksByBoard: boards,
+    };
+
+    saveDumpHistory({
+      date: new Date().toISOString(),
+      wordCount: lastDumpResult.wordCount,
+      tasksCreated: _convAppliedTasks.length,
+      boardsCreated: lastDumpResult.boardsCreated,
+      summary: lastDumpResult.summary,
+      taskTitles: _convAppliedTasks.map((i) => i.title).slice(0, 20),
+      boards: Object.keys(boards),
+    });
+
+    // Mark onboarding complete
+    if (localStorage.getItem(userKey('wb_onboarding_hint')) === 'true') {
+      localStorage.setItem(userKey('wb_onboarding_done'), 'true');
+      localStorage.removeItem(userKey('wb_onboarding_hint'));
+      localStorage.setItem(userKey('wb_show_tips_after_brainstorm'), '1');
+    }
+
+    if ($('#dumpText')) $('#dumpText').value = '';
+    clearDumpDraft();
+    _dumpAttachments = [];
+
+    showToast(
+      `\u2726 ${_convAppliedTasks.length} tasks organized across ${Object.keys(boards).length} board${Object.keys(boards).length !== 1 ? 's' : ''}`,
+      false,
+      true,
+    );
+    _refreshConversationUI();
+  }
+
+  // ── Input validation ──────────────────────────────────────────────────
+  function _validateDumpInput() {
+    const text =
+      ($('#dumpText')?.value?.trim() || '') + (_dumpAttachments.length ? '\n' + getDumpAttachmentText() : '');
+    if (!text.trim() && !_dumpAttachments.length) {
+      showToast('Write something or attach a file first', true);
+      return null;
+    }
+    const MAX_INPUT_CHARS = MAX_BRAINSTORM_INPUT_CHARS;
+    if (text.length > MAX_INPUT_CHARS) {
+      const overBy = text.length - MAX_INPUT_CHARS;
+      showToast(
+        `Input too long by ~${Math.ceil(overBy / 1000)}K characters. Try splitting into smaller brainstorms.`,
+        true,
+      );
+      return null;
+    }
+    return text;
   }
 
   function cancelDump() {
     if (dumpAbort) dumpAbort.abort();
-    if (window._dumpTimer) {
-      clearInterval(window._dumpTimer);
-      window._dumpTimer = null;
-    }
     _dumpInProgress = false;
+    _resetConvState();
   }
 
-  // ── Review modal ────────────────────────────────────────────────────────
-  function _renderReviewRow(item, i) {
-    const prioColors = {
-      urgent: 'var(--red)',
-      important: 'var(--orange)',
-      normal: 'var(--accent)',
-      low: 'var(--text3)',
-    };
-    const statusLabels = { done: 'Done', 'in-progress': 'In Progress', todo: 'To Do' };
-    const statusColors = { done: 'var(--green)', 'in-progress': 'var(--blue, var(--accent))', todo: 'var(--text3)' };
-
-    const title = esc(item.title || `Update: ${item.id || '?'}`);
-    const project = esc(item.suggestedProject || '');
-    const priority = item.priority || 'normal';
-    const status = item.status || (item.action === 'complete' ? 'done' : item.action === 'update' ? 'update' : 'todo');
-    const action = item.action || 'create';
-    const actionLabel = action === 'update' ? 'Update' : action === 'complete' ? 'Complete' : '';
-    const prioColor = prioColors[priority] || 'var(--text3)';
-    const statColor = statusColors[status] || 'var(--text3)';
-    const statLabel = actionLabel || statusLabels[status] || status;
-
-    return `<label class="dump-review-row" data-idx="${i}">
-      <input type="checkbox" checked data-dump-check="${i}" style="accent-color:var(--accent);width:16px;height:16px;flex-shrink:0;cursor:pointer">
-      <div style="flex:1;min-width:0">
-        <div style="font-size:13px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${title}</div>
-        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px">
-          ${project ? `<span style="font-size:10px;padding:2px 7px;border-radius:4px;background:var(--accent-dim);color:var(--accent)">${project}</span>` : ''}
-          <span style="font-size:10px;padding:2px 7px;border-radius:4px;background:color-mix(in srgb, ${prioColor} 12%, transparent);color:${prioColor}">${priority}</span>
-          <span style="font-size:10px;padding:2px 7px;border-radius:4px;background:color-mix(in srgb, ${statColor} 12%, transparent);color:${statColor}">${statLabel}</span>
-        </div>
-      </div>
-    </label>`;
-  }
-
-  function showDumpReviewModal(parsed, inputText) {
-    const items = parsed.tasks || parsed || [];
-    const taskItems = (Array.isArray(items) ? items : []).filter((item) => item && (item.title || item.id));
-    const totalCount = taskItems.length;
-    const summary = parsed.summary || '';
-
-    const rows = taskItems.map((item, i) => _renderReviewRow(item, i)).join('');
-
-    const updateCheckedCount = () => {
-      const checks = document.querySelectorAll('[data-dump-check]');
-      const checked = Array.from(checks).filter((c) => c.checked).length;
-      const applyBtn = document.getElementById('dumpReviewApplyBtn');
-      if (applyBtn) applyBtn.textContent = `Apply Selected (${checked})`;
-    };
-
-    $('#modalRoot').innerHTML =
-      `<div class="modal-overlay" data-action="dump-review-cancel" data-click-self="true" style="z-index:var(--z-modal)" role="dialog" aria-modal="true" aria-label="Review brainstorm tasks">
-      <div class="modal" style="max-width:560px;max-height:85vh;display:flex;flex-direction:column;padding:0" aria-labelledby="modal-title-review-tasks">
-        <div style="padding:20px 24px 0;flex-shrink:0">
-          <h2 class="modal-title" id="modal-title-review-tasks" style="margin-bottom:4px">Review extracted tasks</h2>
-          ${summary ? `<div style="font-size:13px;color:var(--text2);line-height:1.5;margin-bottom:12px;padding:10px 12px;background:var(--surface2);border-radius:var(--radius-sm);border-left:2px solid var(--accent)">${esc(summary)}</div>` : ''}
-          <div style="font-size:12px;color:var(--text3);margin-bottom:16px">${totalCount} task${totalCount !== 1 ? 's' : ''} found \u00b7 uncheck any you don't want</div>
-        </div>
-        <div style="flex:1;overflow-y:auto;padding:0 24px;display:flex;flex-direction:column;gap:2px" id="dumpReviewList">
-          ${rows || '<div style="color:var(--text3);padding:20px;text-align:center">No tasks extracted</div>'}
-        </div>
-        <div style="padding:16px 24px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:flex-end;flex-shrink:0;align-items:center">
-          <label style="font-size:11px;color:var(--text3);cursor:pointer;margin-right:auto;display:flex;align-items:center;gap:6px;user-select:none">
-            <input type="checkbox" checked id="dumpReviewSelectAll" style="accent-color:var(--accent);cursor:pointer" data-onchange-action="dump-review-select-all">
-            Select all
-          </label>
-          <button class="btn" data-action="dump-review-cancel" style="font-size:12px">Cancel</button>
-          <button class="btn btn-primary" id="dumpReviewApplyBtn" style="font-size:12px" data-action="apply-dump-results">Apply Selected (${totalCount})</button>
-        </div>
-      </div>
-    </div>`;
-
-    document.querySelectorAll('[data-dump-check]').forEach((cb) => {
-      cb.addEventListener('change', () => {
-        updateCheckedCount();
-        const all = document.getElementById('dumpReviewSelectAll');
-        const checks = document.querySelectorAll('[data-dump-check]');
-        const checkedCount = Array.from(checks).filter((c) => c.checked).length;
-        if (all) all.checked = checkedCount === checks.length;
-      });
-    });
-
-    window._dumpReviewData = { parsed, inputText };
-  }
-
-  // ── Apply results helpers ────────────────────────────────────────────────
+  // ── Apply results helpers (shared with legacy flow) ───────────────────
   function _applyProjectUpdates(projectUpdates, projectMap) {
     let projectsUpdated = 0,
       boardsNewCount = 0;
@@ -1090,16 +1242,17 @@ ${text}${getDumpAttachmentText()}`;
           updates.priority = item.priority;
         if (item.estimatedMinutes && !dupe.estimatedMinutes)
           updates.estimatedMinutes = parseInt(item.estimatedMinutes) || 0;
+        if (item.priorityReason) updates.priorityReason = item.priorityReason;
         if (Object.keys(updates).length) updateTask(dupe.id, updates);
         return 'updated';
       } else {
         const taskStatus = item.status || 'todo';
         const st = (item.subtasks || []).map((s) => ({ id: genId('st'), title: s, done: false }));
-        const taskNotes = item.notes || '';
         const t = createTask({
           title: item.title,
-          notes: taskNotes,
+          notes: item.notes || '',
           priority: item.priority || 'normal',
+          priorityReason: item.priorityReason || '',
           horizon: item.horizon || 'short',
           dueDate: item.dueDate || '',
           project: projId,
@@ -1117,7 +1270,7 @@ ${text}${getDumpAttachmentText()}`;
     return null;
   }
 
-  // ── Apply results ───────────────────────────────────────────────────────
+  // ── Legacy apply (for review modal compat if needed) ──────────────────
   function applyDumpResults() {
     const reviewData = window._dumpReviewData;
     if (!reviewData) return;
@@ -1142,10 +1295,7 @@ ${text}${getDumpAttachmentText()}`;
       return;
     }
 
-    // Push ONE undo snapshot before batch processing (not per-task)
     pushUndo('Brainstorm: ' + items.length + ' tasks');
-
-    // Use batch mode to prevent per-task saves and undo snapshots
     if (deps.setBatchMode) deps.setBatchMode(true);
 
     let created = 0,
@@ -1159,40 +1309,28 @@ ${text}${getDumpAttachmentText()}`;
       const projectMap = {};
       ({ projectsUpdated, boardsNewCount } = _applyProjectUpdates(projectUpdates, projectMap));
 
-      // Process selected tasks
       items.forEach((item) => {
         if (!item || (!item.title && !item.id)) return;
-
         _resolveItemProject(item, projectMap, parsed.projectUpdates);
         const projId = projectMap[item.suggestedProject] || '';
-
         const result = _applyTaskItem(item, projId);
         if (result === 'created') created++;
         else if (result === 'updated') updated++;
         else if (result === 'completed') completed++;
       });
     } finally {
-      // ALWAYS end batch mode, even if processing threw
       if (deps.setBatchMode) deps.setBatchMode(false);
     }
 
     if (deps.saveData) deps.saveData(getData());
-    else {
-      // Force a save by calling a trivial update if saveData not available
-      const data = getData();
-      if (data.tasks.length) updateTask(data.tasks[0].id, {});
-    }
-
-    const patterns = parsed.patterns || [];
 
     const parts = [];
     if (created) parts.push(`${created} tasks created`);
     if (updated) parts.push(`${updated} updated`);
     if (completed) parts.push(`${completed} completed`);
     if (projectsUpdated) parts.push(`${projectsUpdated} projects`);
+    const patterns = parsed.patterns || [];
     if (patterns.length) parts.push(`${patterns.length} patterns found`);
-    const doneCount = items.filter((i) => i.status === 'done' || i.action === 'complete').length;
-    if (doneCount) parts.push(`${doneCount} logged as done`);
 
     const text = inputText;
     lastDumpResult = {
@@ -1226,7 +1364,6 @@ ${text}${getDumpAttachmentText()}`;
     });
     showToast(parts.length ? `\u2726 ${parts.join(', ')}` : 'Organized', false, true);
 
-    // Mark onboarding complete after first successful brainstorm
     if (localStorage.getItem(userKey('wb_onboarding_hint')) === 'true') {
       localStorage.setItem(userKey('wb_onboarding_done'), 'true');
       localStorage.removeItem(userKey('wb_onboarding_hint'));
@@ -1258,7 +1395,6 @@ ${text}${getDumpAttachmentText()}`;
       boardsUpdated: 0,
       inputSnippet: text.slice(0, 200),
     };
-    // Mark onboarding complete after first successful brainstorm
     if (localStorage.getItem(userKey('wb_onboarding_hint')) === 'true') {
       localStorage.setItem(userKey('wb_onboarding_done'), 'true');
       localStorage.removeItem(userKey('wb_onboarding_hint'));
@@ -1277,7 +1413,15 @@ ${text}${getDumpAttachmentText()}`;
     render();
   }
 
-  // ── State accessors (for app.js integration) ───────────────────────────
+  // ── Legacy compat wrappers ────────────────────────────────────────────
+  function submitClarify() {
+    submitThemeClarify();
+  }
+  function skipClarify() {
+    skipThemeClarify();
+  }
+
+  // ── State accessors ───────────────────────────────────────────────────
   function isDumpInProgress() {
     return _dumpInProgress;
   }
@@ -1297,6 +1441,7 @@ ${text}${getDumpAttachmentText()}`;
     dumpAbort = null;
     _dumpInProgress = false;
     lastDumpResult = null;
+    _resetConvState();
   }
 
   return {
@@ -1319,5 +1464,11 @@ ${text}${getDumpAttachmentText()}`;
     shouldShowDumpInvite,
     getDumpHistory,
     resetState,
+    approveTheme,
+    skipTheme,
+    submitThemeClarify,
+    skipThemeClarify,
+    startThemeClarify,
+    getConvState,
   };
 }

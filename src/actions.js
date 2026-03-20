@@ -693,6 +693,32 @@ export function createActions(deps) {
       case 'apply-dump-results':
         applyDumpResults();
         break;
+      // Conversational brainstorm actions
+      case 'brainstorm-approve-theme': {
+        const bmc = getBrainstormModule();
+        if (bmc && bmc.approveTheme) bmc.approveTheme(parseInt(actionEl.dataset.themeIdx));
+        break;
+      }
+      case 'brainstorm-skip-theme': {
+        const bms = getBrainstormModule();
+        if (bms && bms.skipTheme) bms.skipTheme(parseInt(actionEl.dataset.themeIdx));
+        break;
+      }
+      case 'brainstorm-clarify-theme': {
+        const bmcl = getBrainstormModule();
+        if (bmcl && bmcl.startThemeClarify) bmcl.startThemeClarify(parseInt(actionEl.dataset.themeIdx));
+        break;
+      }
+      case 'brainstorm-submit-clarify': {
+        const bmsc = getBrainstormModule();
+        if (bmsc && bmsc.submitThemeClarify) bmsc.submitThemeClarify();
+        break;
+      }
+      case 'brainstorm-skip-clarify': {
+        const bmskc = getBrainstormModule();
+        if (bmskc && bmskc.skipThemeClarify) bmskc.skipThemeClarify();
+        break;
+      }
       // Search / Command palette
       case 'cmd-exec':
         cmdExec(actionEl.dataset.cmdKey, actionEl.dataset.cmdLabel);
@@ -1222,6 +1248,12 @@ export function createActions(deps) {
           e.preventDefault();
           submitClarify();
           break;
+        case 'conv-clarify-enter': {
+          e.preventDefault();
+          const bmce = getBrainstormModule();
+          if (bmce && bmce.submitThemeClarify) bmce.submitThemeClarify();
+          break;
+        }
         case 'quick-add-submit':
           e.preventDefault();
           submitQuickAdd();

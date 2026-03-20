@@ -505,7 +505,7 @@ describe('dashboard.js — createDashboard()', () => {
       expect(html).toContain('data-keydown-action="hero-input"');
     });
 
-    it('renders generating state for briefing', () => {
+    it('renders plan generating state', () => {
       const tasks = [{ id: 't1', title: 'Task', status: 'todo', priority: 'normal' }];
       deps.getData.mockReturnValue({ tasks, projects: [{ id: 'p1', name: 'W', color: '#f00' }] });
       deps.urgentTasks.mockReturnValue([]);
@@ -513,7 +513,7 @@ describe('dashboard.js — createDashboard()', () => {
       deps.doneTasks.mockReturnValue([]);
       deps.projectTasks.mockReturnValue(tasks);
       deps.hasAI.mockReturnValue(true);
-      deps.getBriefingGenerating.mockReturnValue(true);
+      deps.getPlanGenerating.mockReturnValue(true);
       deps.getBrainstormModule.mockReturnValue({
         isDumpInProgress: () => false,
         getDumpHistory: () => [],
@@ -522,7 +522,7 @@ describe('dashboard.js — createDashboard()', () => {
       dashboard = createDashboard(deps);
 
       const html = dashboard.renderDashboard();
-      expect(html).toContain('Generating briefing');
+      expect(html).toContain('Planning your day');
     });
 
     it('renders day plan from cached plan', () => {

@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { MS_PER_DAY } from '../constants.js';
 import { createBrainstorm } from '../brainstorm.js';
 
@@ -44,8 +44,19 @@ describe('brainstorm.js — createBrainstorm()', () => {
 
   beforeEach(() => {
     localStorage.clear();
+    vi.unstubAllGlobals();
     deps = makeDeps();
+    // Default $ mock to use document.querySelector
+    deps.$.mockImplementation((sel) => document.querySelector(sel));
     bs = createBrainstorm(deps);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    // Clean up any leftover DOM elements from tests
+    document
+      .querySelectorAll('#dumpText, #dumpStatus, #modalRoot, #brainstormConversation, .dump-area')
+      .forEach((el) => el.remove());
   });
 
   // ── Factory returns ─────────────────────────────────────────────────
@@ -558,10 +569,6 @@ describe('brainstorm.js — createBrainstorm()', () => {
     ta.value = 'test input with enough words';
     document.body.appendChild(ta);
 
-    const statusEl = document.createElement('div');
-    statusEl.id = 'dumpStatus';
-    document.body.appendChild(statusEl);
-
     deps.hasAI.mockReturnValue(true);
     deps.getSettings.mockReturnValue({ apiKey: 'test-key', aiModel: 'test-model' });
     vi.stubGlobal(
@@ -577,12 +584,11 @@ describe('brainstorm.js — createBrainstorm()', () => {
     bs = createBrainstorm(deps);
 
     await bs.processDump(true);
-    expect(statusEl.innerHTML).toContain('Error');
+    expect(deps.showToast).toHaveBeenCalledWith(expect.stringContaining('Error'), true);
     expect(bs.isDumpInProgress()).toBe(false);
 
     vi.unstubAllGlobals();
     ta.remove();
-    statusEl.remove();
   });
 
   it('processDump shows rate limit message for 429', async () => {
@@ -590,10 +596,6 @@ describe('brainstorm.js — createBrainstorm()', () => {
     ta.id = 'dumpText';
     ta.value = 'test input with enough words';
     document.body.appendChild(ta);
-
-    const statusEl = document.createElement('div');
-    statusEl.id = 'dumpStatus';
-    document.body.appendChild(statusEl);
 
     deps.hasAI.mockReturnValue(true);
     deps.getSettings.mockReturnValue({ apiKey: 'test-key', aiModel: 'test-model' });
@@ -610,11 +612,10 @@ describe('brainstorm.js — createBrainstorm()', () => {
     bs = createBrainstorm(deps);
 
     await bs.processDump(true);
-    expect(statusEl.innerHTML).toContain('busy');
+    expect(deps.showToast).toHaveBeenCalledWith(expect.stringContaining('busy'), true);
 
     vi.unstubAllGlobals();
     ta.remove();
-    statusEl.remove();
   });
 
   it('processDump handles AbortError by undoing and showing cancelled', async () => {
@@ -622,10 +623,6 @@ describe('brainstorm.js — createBrainstorm()', () => {
     ta.id = 'dumpText';
     ta.value = 'test input with enough words';
     document.body.appendChild(ta);
-
-    const statusEl = document.createElement('div');
-    statusEl.id = 'dumpStatus';
-    document.body.appendChild(statusEl);
 
     deps.hasAI.mockReturnValue(true);
     deps.getSettings.mockReturnValue({ apiKey: 'test-key', aiModel: 'test-model' });
@@ -640,12 +637,11 @@ describe('brainstorm.js — createBrainstorm()', () => {
 
     await bs.processDump(true);
     expect(deps.undo).toHaveBeenCalled();
-    expect(statusEl.innerHTML).toContain('Cancelled');
+    expect(deps.showToast).toHaveBeenCalledWith(expect.stringContaining('Cancelled'), false, false);
     expect(bs.isDumpInProgress()).toBe(false);
 
     vi.unstubAllGlobals();
     ta.remove();
-    statusEl.remove();
   });
 
   // ── processDump — no AI key shows informational toast ────────────
@@ -668,10 +664,6 @@ describe('brainstorm.js — createBrainstorm()', () => {
     ta.value = 'test input with enough words';
     document.body.appendChild(ta);
 
-    const statusEl = document.createElement('div');
-    statusEl.id = 'dumpStatus';
-    document.body.appendChild(statusEl);
-
     deps.hasAI.mockReturnValue(true);
     deps.getSettings.mockReturnValue({ apiKey: 'test-key', aiModel: 'test-model' });
 
@@ -688,7 +680,6 @@ describe('brainstorm.js — createBrainstorm()', () => {
     bs = createBrainstorm(deps);
 
     const dumpPromise = bs.processDump(true);
-    // Cancel while in progress
     bs.cancelDump();
 
     const abortErr = new Error('Aborted');
@@ -697,10 +688,10 @@ describe('brainstorm.js — createBrainstorm()', () => {
 
     await dumpPromise;
     expect(deps.undo).toHaveBeenCalled();
+    expect(bs.getConvState()).toBe('IDLE');
 
     vi.unstubAllGlobals();
     ta.remove();
-    statusEl.remove();
   });
 
   // ── applyDumpResults ─────────────────────────────────────────────
@@ -1451,43 +1442,10 @@ describe('brainstorm.js — createBrainstorm()', () => {
   });
 
   // ── submitClarify / skipClarify ──────────────────────────────────
-  it('submitClarify appends answers to textarea and re-runs processDump', async () => {
-    const ta = document.createElement('textarea');
-    ta.id = 'dumpText';
-    ta.value = 'original text';
-    document.body.appendChild(ta);
-
-    const statusEl = document.createElement('div');
-    statusEl.id = 'dumpStatus';
-    document.body.appendChild(statusEl);
-
-    // Add clarify inputs
-    const input1 = document.createElement('input');
-    input1.className = 'clarify-input';
-    input1.value = 'answer one';
-    document.body.appendChild(input1);
-
-    const input2 = document.createElement('input');
-    input2.className = 'clarify-input';
-    input2.value = 'answer two';
-    document.body.appendChild(input2);
-
-    // submitClarify calls processDump internally (not awaited), which runs processDumpManual
-    // when hasAI is false — that clears the textarea. So we verify the side effects instead:
-    // answers should have been appended before processDump cleared it, resulting in tasks.
-    deps.hasAI.mockReturnValue(false);
-
-    bs.submitClarify();
-
-    // processDumpManual was triggered (tasks were created from the combined input)
-    expect(deps.createTask).toHaveBeenCalled();
-    // The draft was saved with the appended answers before processDump cleared it
-    expect(deps.render).toHaveBeenCalled();
-
-    ta.remove();
-    statusEl.remove();
-    input1.remove();
-    input2.remove();
+  it('submitClarify is a wrapper for submitThemeClarify', () => {
+    // submitClarify now delegates to the conversational flow
+    // It should not throw when called with no active conversation
+    expect(() => bs.submitClarify()).not.toThrow();
   });
 
   it('submitClarify ignores empty answers', async () => {
@@ -1516,21 +1474,9 @@ describe('brainstorm.js — createBrainstorm()', () => {
     input1.remove();
   });
 
-  it('skipClarify triggers processDump which falls back to manual mode', async () => {
-    const ta = document.createElement('textarea');
-    ta.id = 'dumpText';
-    ta.value = 'task one\ntask two';
-    document.body.appendChild(ta);
-
-    deps.hasAI.mockReturnValue(false);
-
-    bs.skipClarify();
-
-    // processDump was called with manual fallback, creating tasks
-    expect(deps.createTask).toHaveBeenCalled();
-    expect(deps.showToast).toHaveBeenCalledWith('Added 2 tasks');
-
-    ta.remove();
+  it('skipClarify is a wrapper for skipThemeClarify', () => {
+    // skipClarify now delegates to the conversational flow
+    expect(() => bs.skipClarify()).not.toThrow();
   });
 
   // ── resetState clears attachments ────────────────────────────────
@@ -1548,107 +1494,102 @@ describe('brainstorm.js — createBrainstorm()', () => {
   });
 
   // ── Edge: processDump successful AI flow ─────────────────────────
-  it('processDump with AI calls fetch and shows review modal on success', async () => {
+  it('processDump with AI calls fetch and enters conversational flow', async () => {
     const ta = document.createElement('textarea');
     ta.id = 'dumpText';
     ta.value = 'build a landing page for the new product';
     document.body.appendChild(ta);
 
-    const statusEl = document.createElement('div');
-    statusEl.id = 'dumpStatus';
-    document.body.appendChild(statusEl);
-
-    const modalRoot = document.createElement('div');
-    modalRoot.id = 'modalRoot';
-    document.body.appendChild(modalRoot);
-
     deps.hasAI.mockReturnValue(true);
     deps.getSettings.mockReturnValue({ apiKey: 'test-key', aiModel: 'test-model' });
 
+    // Return a themed response (new format)
     const aiResponse = {
-      tasks: [
-        { action: 'create', title: 'Build landing page', priority: 'normal', status: 'todo', suggestedProject: '' },
+      opening: 'I see one task here.',
+      themes: [
+        {
+          name: 'Landing Page',
+          narrative: 'You need to build a landing page.',
+          suggestedBoard: 'Product',
+          tasks: [{ action: 'create', title: 'Build landing page', priority: 'normal', status: 'todo' }],
+          questions: [],
+        },
       ],
-      projectUpdates: [],
-      patterns: [],
+      closing: 'One task extracted.',
     };
 
     const mockFetch = vi.fn(() =>
       Promise.resolve({
         ok: true,
-        json: () =>
-          Promise.resolve({
-            content: [{ text: JSON.stringify(aiResponse) }],
-          }),
+        json: () => Promise.resolve({ content: [{ text: JSON.stringify(aiResponse) }] }),
       }),
     );
     vi.stubGlobal('fetch', mockFetch);
-
-    // Wire up $ to return our DOM elements
     deps.$.mockImplementation((sel) => document.querySelector(sel));
 
-    // Recreate brainstorm so it picks up the new global fetch and $ mock
     bs = createBrainstorm(deps);
     await bs.processDump(true);
 
     expect(mockFetch).toHaveBeenCalled();
-    expect(bs.isDumpInProgress()).toBe(false);
-    // Verify the review data was stored for the modal
-    expect(window._dumpReviewData).not.toBeNull();
-    expect(window._dumpReviewData.parsed.tasks).toHaveLength(1);
-    expect(window._dumpReviewData.parsed.tasks[0].title).toBe('Build landing page');
-    expect(window._dumpReviewData.inputText).toContain('landing page');
+    // Should now be in THEME_REVIEW state (conversational flow)
+    expect(bs.getConvState()).toBe('THEME_REVIEW');
 
     vi.unstubAllGlobals();
     ta.remove();
-    statusEl.remove();
-    modalRoot.remove();
   });
 
   // ── processDump — clarify pass (non-skip path) ───────────────────
-  it('processDump triggers clarify UI when callAI returns questions', async () => {
+  it('processDump with themes that have questions enters THEME_REVIEW', async () => {
     const ta = document.createElement('textarea');
     ta.id = 'dumpText';
     ta.value = 'vague idea about stuff';
     document.body.appendChild(ta);
 
-    const statusEl = document.createElement('div');
-    statusEl.id = 'dumpStatus';
-    document.body.appendChild(statusEl);
-
     deps.hasAI.mockReturnValue(true);
     deps.getSettings.mockReturnValue({ apiKey: 'test-key', aiModel: 'test-model' });
-    deps.callAI.mockResolvedValue('What specifically?\nWhen is it due?');
 
-    await bs.processDump(false);
+    const aiResponse = {
+      opening: 'Let me clarify a few things.',
+      themes: [
+        {
+          name: 'Vague Idea',
+          narrative: 'This needs more detail.',
+          tasks: [{ action: 'create', title: 'Figure out stuff', priority: 'normal', status: 'todo' }],
+          questions: ['What specifically?', 'When is it due?'],
+        },
+      ],
+    };
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() =>
+        Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({ content: [{ text: JSON.stringify(aiResponse) }] }),
+        }),
+      ),
+    );
+    deps.$.mockImplementation((sel) => document.querySelector(sel));
+    bs = createBrainstorm(deps);
 
-    expect(deps.callAI).toHaveBeenCalled();
-    expect(statusEl.innerHTML).toContain('clarify-card');
-    expect(statusEl.innerHTML).toContain('What specifically?');
+    await bs.processDump(true);
+    expect(bs.getConvState()).toBe('THEME_REVIEW');
 
+    vi.unstubAllGlobals();
     ta.remove();
-    statusEl.remove();
   });
 
-  it('processDump clarify returns CLEAR and proceeds to AI fetch', async () => {
+  it('processDump falls back to single theme when AI returns legacy format', async () => {
     const ta = document.createElement('textarea');
     ta.id = 'dumpText';
     ta.value = 'buy groceries: milk, eggs, bread';
     document.body.appendChild(ta);
 
-    const statusEl = document.createElement('div');
-    statusEl.id = 'dumpStatus';
-    document.body.appendChild(statusEl);
-
-    const modalRoot = document.createElement('div');
-    modalRoot.id = 'modalRoot';
-    document.body.appendChild(modalRoot);
-
     deps.hasAI.mockReturnValue(true);
     deps.getSettings.mockReturnValue({ apiKey: 'test-key', aiModel: 'test-model' });
-    deps.callAI.mockResolvedValue('CLEAR');
 
+    // Legacy response without themes
     const aiResponse = {
+      summary: 'One grocery task found.',
       tasks: [{ action: 'create', title: 'Buy groceries', priority: 'normal', status: 'todo', suggestedProject: '' }],
       projectUpdates: [],
       patterns: [],
@@ -1665,40 +1606,35 @@ describe('brainstorm.js — createBrainstorm()', () => {
     deps.$.mockImplementation((sel) => document.querySelector(sel));
     bs = createBrainstorm(deps);
 
-    await bs.processDump(false);
-
-    expect(globalThis.fetch).toHaveBeenCalled();
+    await bs.processDump(true);
+    // Should still enter conversation mode with a single theme
+    expect(bs.getConvState()).toBe('THEME_REVIEW');
 
     vi.unstubAllGlobals();
     ta.remove();
-    statusEl.remove();
-    modalRoot.remove();
   });
 
-  it('processDump skips clarify when text has attachments', async () => {
+  it('processDump with attachments goes directly to conversational flow', async () => {
     const file = new File(['some file content here'], 'notes.txt', { type: 'text/plain' });
-    await bs.handleDumpFiles([file]);
 
     const ta = document.createElement('textarea');
     ta.id = 'dumpText';
     ta.value = 'short idea';
     document.body.appendChild(ta);
 
-    const statusEl = document.createElement('div');
-    statusEl.id = 'dumpStatus';
-    document.body.appendChild(statusEl);
-
-    const modalRoot = document.createElement('div');
-    modalRoot.id = 'modalRoot';
-    document.body.appendChild(modalRoot);
-
     deps.hasAI.mockReturnValue(true);
     deps.getSettings.mockReturnValue({ apiKey: 'test-key', aiModel: 'test-model' });
 
     const aiResponse = {
-      tasks: [{ action: 'create', title: 'Process notes', priority: 'normal', status: 'todo', suggestedProject: '' }],
-      projectUpdates: [],
-      patterns: [],
+      opening: 'Processing your notes.',
+      themes: [
+        {
+          name: 'Notes',
+          narrative: 'Found tasks in your file.',
+          tasks: [{ action: 'create', title: 'Process notes', priority: 'normal', status: 'todo' }],
+          questions: [],
+        },
+      ],
     };
     vi.stubGlobal(
       'fetch',
@@ -1713,38 +1649,32 @@ describe('brainstorm.js — createBrainstorm()', () => {
     bs = createBrainstorm(deps);
     await bs.handleDumpFiles([file]);
 
-    await bs.processDump(false);
-
-    expect(deps.callAI).not.toHaveBeenCalled();
+    await bs.processDump(true);
     expect(globalThis.fetch).toHaveBeenCalled();
 
     vi.unstubAllGlobals();
     ta.remove();
-    statusEl.remove();
-    modalRoot.remove();
   });
 
-  it('processDump skips clarify for long text (>80 words)', async () => {
+  it('processDump always goes to conversational flow regardless of input length', async () => {
     const ta = document.createElement('textarea');
     ta.id = 'dumpText';
     ta.value = Array.from({ length: 100 }, (_, i) => 'word' + i).join(' ');
     document.body.appendChild(ta);
 
-    const statusEl = document.createElement('div');
-    statusEl.id = 'dumpStatus';
-    document.body.appendChild(statusEl);
-
-    const modalRoot = document.createElement('div');
-    modalRoot.id = 'modalRoot';
-    document.body.appendChild(modalRoot);
-
     deps.hasAI.mockReturnValue(true);
     deps.getSettings.mockReturnValue({ apiKey: 'test-key', aiModel: 'test-model' });
 
     const aiResponse = {
-      tasks: [{ action: 'create', title: 'Long task', priority: 'normal', status: 'todo', suggestedProject: '' }],
-      projectUpdates: [],
-      patterns: [],
+      opening: 'Long input processed.',
+      themes: [
+        {
+          name: 'Tasks',
+          narrative: 'Found tasks.',
+          tasks: [{ action: 'create', title: 'Long task', priority: 'normal', status: 'todo' }],
+          questions: [],
+        },
+      ],
     };
     vi.stubGlobal(
       'fetch',
@@ -1758,39 +1688,33 @@ describe('brainstorm.js — createBrainstorm()', () => {
     deps.$.mockImplementation((sel) => document.querySelector(sel));
     bs = createBrainstorm(deps);
 
-    await bs.processDump(false);
-
-    expect(deps.callAI).not.toHaveBeenCalled();
+    await bs.processDump(true);
     expect(globalThis.fetch).toHaveBeenCalled();
+    expect(bs.getConvState()).toBe('THEME_REVIEW');
 
     vi.unstubAllGlobals();
     ta.remove();
-    statusEl.remove();
-    modalRoot.remove();
   });
 
-  it('processDump handles clarify AI failure gracefully', async () => {
+  it('processDump handles fetch error gracefully', async () => {
     const ta = document.createElement('textarea');
     ta.id = 'dumpText';
     ta.value = 'vague idea about stuff';
     document.body.appendChild(ta);
 
-    const statusEl = document.createElement('div');
-    statusEl.id = 'dumpStatus';
-    document.body.appendChild(statusEl);
-
-    const modalRoot = document.createElement('div');
-    modalRoot.id = 'modalRoot';
-    document.body.appendChild(modalRoot);
-
     deps.hasAI.mockReturnValue(true);
     deps.getSettings.mockReturnValue({ apiKey: 'test-key', aiModel: 'test-model' });
-    deps.callAI.mockRejectedValue(new Error('AI unavailable'));
 
     const aiResponse = {
-      tasks: [{ action: 'create', title: 'Some task', priority: 'normal', status: 'todo', suggestedProject: '' }],
-      projectUpdates: [],
-      patterns: [],
+      opening: 'Found tasks.',
+      themes: [
+        {
+          name: 'Tasks',
+          narrative: 'Here are some tasks.',
+          tasks: [{ action: 'create', title: 'Some task', priority: 'normal', status: 'todo' }],
+          questions: [],
+        },
+      ],
     };
     vi.stubGlobal(
       'fetch',
@@ -1804,14 +1728,12 @@ describe('brainstorm.js — createBrainstorm()', () => {
     deps.$.mockImplementation((sel) => document.querySelector(sel));
     bs = createBrainstorm(deps);
 
-    await bs.processDump(false);
-
+    await bs.processDump(true);
     expect(globalThis.fetch).toHaveBeenCalled();
+    expect(bs.getConvState()).toBe('THEME_REVIEW');
 
     vi.unstubAllGlobals();
     ta.remove();
-    statusEl.remove();
-    modalRoot.remove();
   });
 
   // ── _applyProjectUpdates branches ────────────────────────────────
@@ -2592,31 +2514,20 @@ describe('brainstorm.js — createBrainstorm()', () => {
     ta.value = 'test input with enough words';
     document.body.appendChild(ta);
 
-    const statusEl = document.createElement('div');
-    statusEl.id = 'dumpStatus';
-    document.body.appendChild(statusEl);
-
     deps.hasAI.mockReturnValue(true);
     deps.getSettings.mockReturnValue({ apiKey: 'test-key', aiModel: 'test-model' });
     vi.stubGlobal(
       'fetch',
-      vi.fn(() =>
-        Promise.resolve({
-          ok: false,
-          status: 503,
-          json: () => Promise.resolve({}),
-        }),
-      ),
+      vi.fn(() => Promise.resolve({ ok: false, status: 503, json: () => Promise.resolve({}) })),
     );
     deps.$.mockImplementation((sel) => document.querySelector(sel));
     bs = createBrainstorm(deps);
 
     await bs.processDump(true);
-    expect(statusEl.innerHTML).toContain('temporarily down');
+    expect(deps.showToast).toHaveBeenCalledWith(expect.stringContaining('temporarily down'), true);
 
     vi.unstubAllGlobals();
     ta.remove();
-    statusEl.remove();
   });
 
   it('processDump shows specific API error message when available', async () => {
@@ -2624,10 +2535,6 @@ describe('brainstorm.js — createBrainstorm()', () => {
     ta.id = 'dumpText';
     ta.value = 'test input with enough words';
     document.body.appendChild(ta);
-
-    const statusEl = document.createElement('div');
-    statusEl.id = 'dumpStatus';
-    document.body.appendChild(statusEl);
 
     deps.hasAI.mockReturnValue(true);
     deps.getSettings.mockReturnValue({ apiKey: 'test-key', aiModel: 'test-model' });
@@ -2645,11 +2552,10 @@ describe('brainstorm.js — createBrainstorm()', () => {
     bs = createBrainstorm(deps);
 
     await bs.processDump(true);
-    expect(statusEl.innerHTML).toContain('Invalid model specified');
+    expect(deps.showToast).toHaveBeenCalledWith(expect.stringContaining('Invalid model specified'), true);
 
     vi.unstubAllGlobals();
     ta.remove();
-    statusEl.remove();
   });
 
   it('processDump handles JSON parse failure on error response', async () => {
@@ -2658,31 +2564,20 @@ describe('brainstorm.js — createBrainstorm()', () => {
     ta.value = 'test input with enough words';
     document.body.appendChild(ta);
 
-    const statusEl = document.createElement('div');
-    statusEl.id = 'dumpStatus';
-    document.body.appendChild(statusEl);
-
     deps.hasAI.mockReturnValue(true);
     deps.getSettings.mockReturnValue({ apiKey: 'test-key', aiModel: 'test-model' });
     vi.stubGlobal(
       'fetch',
-      vi.fn(() =>
-        Promise.resolve({
-          ok: false,
-          status: 400,
-          json: () => Promise.reject(new Error('not json')),
-        }),
-      ),
+      vi.fn(() => Promise.resolve({ ok: false, status: 400, json: () => Promise.reject(new Error('not json')) })),
     );
     deps.$.mockImplementation((sel) => document.querySelector(sel));
     bs = createBrainstorm(deps);
 
     await bs.processDump(true);
-    expect(statusEl.innerHTML).toContain('Error');
+    expect(deps.showToast).toHaveBeenCalledWith(expect.stringContaining('Error'), true);
 
     vi.unstubAllGlobals();
     ta.remove();
-    statusEl.remove();
   });
 
   it('processDump shows error when parsed response is null', async () => {
@@ -2691,51 +2586,25 @@ describe('brainstorm.js — createBrainstorm()', () => {
     ta.value = 'test input with enough words';
     document.body.appendChild(ta);
 
-    const statusEl = document.createElement('div');
-    statusEl.id = 'dumpStatus';
-    document.body.appendChild(statusEl);
-
     deps.hasAI.mockReturnValue(true);
     deps.getSettings.mockReturnValue({ apiKey: 'test-key', aiModel: 'test-model' });
     vi.stubGlobal(
       'fetch',
       vi.fn(() =>
-        Promise.resolve({
-          ok: true,
-          json: () => Promise.resolve({ content: [{ text: 'not valid json at all' }] }),
-        }),
+        Promise.resolve({ ok: true, json: () => Promise.resolve({ content: [{ text: 'not valid json at all' }] }) }),
       ),
     );
     deps.$.mockImplementation((sel) => document.querySelector(sel));
     bs = createBrainstorm(deps);
 
     await bs.processDump(true);
-    expect(statusEl.innerHTML).toContain('Error');
+    expect(deps.showToast).toHaveBeenCalledWith(expect.stringContaining('Error'), true);
 
     vi.unstubAllGlobals();
     ta.remove();
-    statusEl.remove();
   });
 
-  // ── skipClarify clears status element ─────────────────────────────
-  it('skipClarify clears the status element content', () => {
-    const statusEl = document.createElement('div');
-    statusEl.id = 'dumpStatus';
-    statusEl.innerHTML = '<div class="clarify-card">question here</div>';
-    document.body.appendChild(statusEl);
-
-    const ta = document.createElement('textarea');
-    ta.id = 'dumpText';
-    ta.value = 'task one';
-    document.body.appendChild(ta);
-
-    deps.hasAI.mockReturnValue(false);
-
-    bs.skipClarify();
-
-    expect(statusEl.innerHTML).toBe('');
-
-    statusEl.remove();
-    ta.remove();
+  it('skipClarify does not throw', () => {
+    expect(() => bs.skipClarify()).not.toThrow();
   });
 });

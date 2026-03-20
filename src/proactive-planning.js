@@ -79,15 +79,15 @@ export function createProactivePlanning(deps) {
 
     const prompt = `${AI_PERSONA}
 
-Plan the user's day. Pick 5-8 tasks they should focus on TODAY, in the order they should do them.
+Plan the user's day and write a narrative brief explaining what matters and why.
 ${insightsSection}
 ${ctx}
 ${estNote}
 
-ALL ACTIVE TASKS (id|title|priority|status|due|project|blocked|estimate):
+ALL ACTIVE TASKS (id|title|priority|status|due|project|blocked|estimate|subtask_progress|age):
 ${taskList}
 
-RULES:
+RULES FOR TASK SELECTION:
 - Pick 5-8 tasks. MINIMUM 3, MAXIMUM 8. A day with 1 task is not a plan.
 - ALWAYS include overdue tasks and tasks due today — these are non-negotiable
 - Then add high-impact and quick wins to fill the plan
@@ -98,24 +98,46 @@ RULES:
 - Respect time estimates — aim for 5-7 hours of actual work
 - Use the task IDs EXACTLY as provided — copy them character for character
 
-Return ONLY a JSON array (3-8 items), no other text:
-[
-  { "id": "task_id", "why": "brief reason — 8 words max" },
-  ...
-]`;
+RULES FOR NARRATIVE:
+- Write 2-4 sentences telling the user what matters TODAY and why
+- Lead with the most important/urgent thing and explain why it's urgent (deadline proximity, blocking other work, etc.)
+- Mention what can wait and why
+- If projects are simmering with no urgent tasks, say so
+- Be specific: reference dates, deadlines, dependencies
+- Don't list tasks — explain what matters. The task list is below the narrative.
+- Write in second person ("You have...", "Your...") — warm but direct
+
+Return ONLY this JSON object, no other text:
+{
+  "narrative": "2-4 sentence brief about what matters today and why",
+  "tasks": [
+    { "id": "task_id", "why": "brief reason — 8 words max" }
+  ]
+}`;
 
     try {
       const reply = await callAI(prompt, { maxTokens: 2048, temperature: 0.3 });
-      const json = JSON.parse(
-        reply
-          .replace(/```json?\s*/g, '')
-          .replace(/```/g, '')
-          .trim(),
-      );
-      if (Array.isArray(json) && json.length) {
-        // Validate IDs exist, hard cap at 8 tasks
-        const valid = json.filter((p) => findTask(p.id)).slice(0, 8);
-        // If AI returned too few, auto-add overdue and due-today tasks
+      const cleaned = reply
+        .replace(/```json?\s*/g, '')
+        .replace(/```/g, '')
+        .trim();
+      const parsed = JSON.parse(cleaned);
+
+      // Support both new format {narrative, tasks} and legacy [tasks] format
+      let taskArray, narrative;
+      if (Array.isArray(parsed)) {
+        taskArray = parsed;
+        narrative = '';
+      } else if (parsed && parsed.tasks) {
+        taskArray = parsed.tasks;
+        narrative = parsed.narrative || '';
+      } else {
+        taskArray = [];
+        narrative = '';
+      }
+
+      if (taskArray.length) {
+        const valid = taskArray.filter((p) => findTask(p.id)).slice(0, 8);
         if (valid.length < 3) {
           const today = todayStr();
           const validIds = new Set(valid.map((p) => p.id));
@@ -129,15 +151,13 @@ Return ONLY a JSON array (3-8 items), no other text:
           });
         }
         localStorage.setItem(userKey('whiteboard_plan_' + todayStr()), JSON.stringify(valid));
+        if (narrative) {
+          localStorage.setItem(userKey('whiteboard_narrative_' + todayStr()), narrative);
+        }
         setPlanIndexCache(null, ''); // invalidate sort cache
         render();
         showToast(`Day planned: ${valid.length} tasks`);
         notifyOverdueTasks();
-        // Regenerate briefing to stay in sync with plan
-        if (typeof deps.generateAIBriefing === 'function') {
-          localStorage.removeItem(userKey('whiteboard_briefing_' + todayStr()));
-          deps.generateAIBriefing();
-        }
       }
     } catch (err) {
       console.error('Plan error:', err);

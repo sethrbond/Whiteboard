@@ -906,27 +906,23 @@ export function createDashboard(deps) {
     const planKey = userKey('whiteboard_plan_' + todayStr());
     const cachedPlan = localStorage.getItem(planKey);
     const _planGenerating = getPlanGenerating();
-    const briefingKey = userKey('whiteboard_briefing_' + todayStr());
-    const cachedBriefing = localStorage.getItem(briefingKey);
-    const _briefingGenerating = getBriefingGenerating();
+    const narrativeKey = userKey('whiteboard_narrative_' + todayStr());
+    const cachedNarrative = localStorage.getItem(narrativeKey);
 
     if (cachedPlan) {
+      // Narrative brief above the plan
+      if (cachedNarrative) {
+        html += `<div style="font-size:14px;color:var(--text);line-height:1.7;margin-bottom:20px;padding:16px 20px;background:var(--surface);border-radius:var(--radius);border-left:3px solid var(--accent)">${esc(cachedNarrative)}</div>`;
+      }
       html += _renderDayPlanActive(cachedPlan, planKey);
-      html += _renderBriefingToggle(cachedBriefing, _briefingGenerating);
       return html;
     }
 
     if (_planGenerating) {
       html += `<div class="day-plan-centerpiece" style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:24px;margin-bottom:20px">`;
-      html += `<div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
-        <span style="font-size:16px;color:var(--accent)">\u25ce</span>
-        <span style="font-size:15px;font-weight:600;color:var(--text)">Today's Plan</span>
-        <span style="font-size:11px;color:var(--text3)">${new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</span>
-      </div>`;
       html += `<div class="skeleton-pulse" style="padding:20px;min-height:100px;display:flex;align-items:center;justify-content:center;border-radius:var(--radius-sm)">
         <span style="font-size:13px;color:var(--text3)">Planning your day...</span>
       </div></div>`;
-      html += _renderBriefingToggle(cachedBriefing, _briefingGenerating);
       return html;
     }
 
@@ -934,7 +930,6 @@ export function createDashboard(deps) {
     if (!dismissed) {
       html += _renderNoPlanState();
     }
-    html += _renderBriefingToggle(cachedBriefing, _briefingGenerating);
     return html;
   }
 
