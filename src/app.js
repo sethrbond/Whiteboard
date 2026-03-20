@@ -583,6 +583,7 @@ const openProjectChat = _chat.openProjectChat;
 const chatTimeStr = _chat.chatTimeStr;
 const saveChatHistory = _chat.saveChatHistory;
 const offerStuckHelp = _chat.offerStuckHelp;
+const openTaskWork = _chat.openTaskWork;
 const maybeProactiveChat = _chat.maybeProactiveChat;
 
 // ============================================================
@@ -1574,6 +1575,7 @@ exposeWindowAPI(
     openEditTask,
     openEditProject,
     openProjectChat,
+    openTaskWork,
     openQuickAdd,
     toggleChat,
     toggleSidebar,

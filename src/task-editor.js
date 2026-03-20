@@ -200,7 +200,7 @@ export function createTaskEditor(deps) {
       </div>
     </div>
     <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border)">
-      <div class="task-detail-row"><span class="task-detail-label">Priority</span>${t.priority}</div>
+      <div class="task-detail-row"><span class="task-detail-label">Priority</span>${t.priority}${t.priorityReason ? ` <span style="font-size:11px;color:var(--text3);font-style:italic">\u2014 ${esc(t.priorityReason)}</span>` : ''}</div>
       <div class="task-detail-row"><span class="task-detail-label">Horizon</span>${t.horizon === 'short' ? 'Short-term' : 'Long-term'}</div>
       ${t.phase ? `<div class="task-detail-row"><span class="task-detail-label">Phase</span>${esc(t.phase)}</div>` : ''}
       ${t.dueDate ? `<div class="task-detail-row"><span class="task-detail-label">Due</span>${fmtDate(t.dueDate)}</div>` : ''}
@@ -214,7 +214,10 @@ export function createTaskEditor(deps) {
       <div style="margin-top:6px"><input style="font-size:11px;padding:4px 8px;background:transparent;border:1px dashed var(--border);border-radius:4px;color:var(--text2);width:100%;outline:none;font-family:inherit" placeholder="+ add subtask" aria-label="Add subtask" data-keydown-action="add-subtask" data-task-id="${t.id}"></div>
       ${t.updates && t.updates.length > 0 ? `<div style="margin-top:8px"><div style="font-size:11px;color:var(--text3);margin-bottom:4px;font-weight:600">UPDATES</div>${t.updates.map((u) => `<div style="font-size:12px;color:var(--text2);padding:3px 0"><span style="color:var(--text3)">${u.date}</span> — ${esc(u.text)}</div>`).join('')}</div>` : ''}
     </div>
-    <input class="task-cmd" data-cmd="${t.id}" placeholder="Type: complete, update, deadline friday, move to [board]..." aria-label="Task command input" data-keydown-action="run-task-cmd" data-task-id="${t.id}">
+    <div style="display:flex;gap:8px;margin-top:8px;align-items:center">
+      <input class="task-cmd" data-cmd="${t.id}" placeholder="Type: complete, update, deadline friday, move to [board]..." aria-label="Task command input" data-keydown-action="run-task-cmd" data-task-id="${t.id}" style="flex:1">
+      ${!isDone ? `<button class="btn btn-sm" data-action="task-work" data-task-id="${t.id}" style="white-space:nowrap;color:var(--accent);border-color:var(--accent);flex-shrink:0">\u2726 Work on this</button>` : ''}
+    </div>
   </div>`;
     return html;
   }

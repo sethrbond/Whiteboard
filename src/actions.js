@@ -262,6 +262,9 @@ export function createActions(deps) {
       case 'focus-task':
         openFocusView(actionEl.dataset.taskId);
         break;
+      case 'task-work':
+        if (typeof deps.openTaskWork === 'function') deps.openTaskWork(actionEl.dataset.taskId);
+        break;
       case 'complete-task': {
         const _cTaskId = actionEl.dataset.taskId;
         const _cTask = findTask(_cTaskId);
@@ -455,6 +458,19 @@ export function createActions(deps) {
         aiReorganize(actionEl.dataset.projectId);
         actionEl.closest('.dropdown').classList.remove('open');
         break;
+      case 'reanalyze-board': {
+        const _raPid = actionEl.dataset.projectId;
+        if (actionEl.closest('.dropdown')) actionEl.closest('.dropdown').classList.remove('open');
+        // Open brainstorm modal and pre-fill with board re-analysis request
+        if (typeof deps.openBrainstormModal === 'function') deps.openBrainstormModal();
+        setTimeout(() => {
+          const ta = document.getElementById('dumpText');
+          if (ta) {
+            ta.value = `[RE-ANALYZE BOARD: ${_raPid}] Please re-analyze all tasks in this board. Identify themes, flag vague tasks, suggest breakdowns, add priority reasons, find duplicates, and propose improvements.`;
+          }
+        }, 100);
+        break;
+      }
       case 'open-edit-project':
         openEditProject(actionEl.dataset.projectId);
         if (actionEl.closest('.dropdown')) actionEl.closest('.dropdown').classList.remove('open');

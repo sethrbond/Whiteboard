@@ -441,6 +441,159 @@ Be curious, not prescriptive. 2-3 sentences. Ask a real question.`;
     }
   }
 
+  // ── Agentic task work mode ───────────────────────────────────────────
+  let _taskWorkId = null; // Currently focused task ID for task-work mode
+
+  async function openTaskWork(taskId) {
+    const t = findTask(taskId);
+    if (!t || !hasAI()) return;
+    const data = getData();
+    const proj = data.projects.find((p) => p.id === t.project);
+
+    _taskWorkId = taskId;
+    chatContext = t.project || null;
+
+    // Build rich task context
+    const subtaskInfo = t.subtasks?.length
+      ? '\nSubtasks:\n' +
+        t.subtasks
+          .map((s) => (s.done ? '\u2713' : '\u25CB') + ' ' + s.title + (s.notes ? ' (' + s.notes + ')' : ''))
+          .join('\n')
+      : '';
+    const depInfo = t.blockedBy?.length
+      ? '\nBlocked by: ' +
+        t.blockedBy
+          .map((id) => {
+            const bt = findTask(id);
+            return bt ? bt.title : id;
+          })
+          .join(', ')
+      : '';
+    const projBg = proj?.background ? '\nProject background:\n' + proj.background.slice(0, 500) : '';
+
+    const taskWorkPrompt = `You are helping the user work on a specific task. Your job is to help them actually COMPLETE it, not just organize it.
+
+TASK: "${t.title}"
+Priority: ${t.priority}${t.priorityReason ? ' (' + t.priorityReason + ')' : ''}
+Status: ${t.status}
+${t.dueDate ? 'Due: ' + t.dueDate : 'No deadline'}
+${t.notes ? 'Notes: ' + t.notes : ''}
+${proj ? 'Project: ' + proj.name + (proj.description ? ' - ' + proj.description : '') : ''}${projBg}${subtaskInfo}${depInfo}
+${t.estimatedMinutes ? 'Estimated: ' + t.estimatedMinutes + ' minutes' : ''}
+
+YOUR APPROACH:
+1. Think through what's actually needed to DO this task — not just track it
+2. Research using your knowledge: dates, deadlines, costs, best practices, processes
+3. Create SPECIFIC, actionable next steps. Not "research X" but "Search [specific site] for [specific criteria]"
+4. Draft content if needed: emails, messages, search criteria, checklists
+5. Generate useful links/URLs where possible
+6. Save findings as subtask notes so nothing is lost
+
+Be specific, practical, and proactive. Lead with what you'd do RIGHT NOW if this were your task.
+Use actions to create subtasks, update notes, etc.
+
+${AI_ACTIONS_SPEC}`;
+
+    // Load or start task-work conversation
+    const twKey = userKey('whiteboard_taskwork_' + taskId);
+    let twHistory;
+    try {
+      twHistory = JSON.parse(localStorage.getItem(twKey) || '[]');
+    } catch {
+      twHistory = [];
+    }
+
+    // Set chat to task-work mode
+    chatHistory = twHistory.length
+      ? twHistory
+      : [{ role: 'user', content: `Help me work on: "${t.title}"`, ts: Date.now() }];
+    saveChatHistory();
+
+    // Update UI
+    const titleEl = document.getElementById('chatTitle');
+    if (titleEl) titleEl.textContent = `Working: ${t.title.slice(0, 30)}${t.title.length > 30 ? '...' : ''}`;
+    const panel = document.getElementById('chatPanel');
+    if (panel && !panel.classList.contains('open')) panel.classList.add('open');
+
+    // If this is a fresh start, generate the initial research response
+    if (!twHistory.length) {
+      _chatSending = true;
+      const chatMsgs = document.getElementById('chatMessages');
+      if (chatMsgs) {
+        chatMsgs.innerHTML = `<div class="chat-msg user">Help me work on: "${esc(t.title)}"<span class="chat-ts">${chatTimeStr()}</span></div>`;
+        chatMsgs.innerHTML +=
+          '<div class="chat-msg ai"><div class="chat-bubble ai"><span class="chat-typing"><div class="chat-typing-dots"><span></span><span></span><span></span></div></span></div></div>';
+      }
+
+      try {
+        const reply = await callAI(
+          `${taskWorkPrompt}\n\nHelp me work on this task. Research what's needed, create specific actionable steps, and tell me what to do first.`,
+          { maxTokens: 2048, temperature: 0.3 },
+        );
+
+        chatHistory.push({ role: 'assistant', content: reply, ts: Date.now() });
+        _saveTaskWorkHistory(taskId);
+        saveChatHistory();
+
+        const actions = await executeAIActions(reply);
+        if (actions.applied) render();
+
+        const clean = reply.replace(/```(?:actions|json)[\s\S]*?```/g, '').trim();
+        const formatted = esc(clean)
+          .replace(/\n/g, '<br>')
+          .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+
+        if (chatMsgs) {
+          // Remove typing indicator, show response
+          const lastMsg = chatMsgs.querySelector('.chat-msg.ai:last-child');
+          if (lastMsg)
+            lastMsg.innerHTML = `<div class="chat-bubble ai">${formatted}<span class="chat-ts">${chatTimeStr()}</span>${actions.applied ? `<div style="font-size:11px;color:var(--accent);margin-top:6px">\u2726 ${actions.applied} actions applied</div>` : ''}</div>`;
+          chatMsgs.scrollTop = chatMsgs.scrollHeight;
+        }
+      } catch (err) {
+        console.error('Task work error:', err);
+        const chatMsgs = document.getElementById('chatMessages');
+        if (chatMsgs) {
+          const lastMsg = chatMsgs.querySelector('.chat-msg.ai:last-child');
+          if (lastMsg)
+            lastMsg.innerHTML = `<div class="chat-bubble ai" style="color:var(--red)">Error: ${esc(err.message)}</div>`;
+        }
+      }
+      _chatSending = false;
+    } else {
+      // Restore existing conversation
+      const chatMsgs = document.getElementById('chatMessages');
+      if (chatMsgs) {
+        chatMsgs.innerHTML = twHistory
+          .map((m) => {
+            const clean = m.content.replace(/```(?:actions|json)[\s\S]*?```/g, '').trim();
+            const formatted = esc(clean)
+              .replace(/\n/g, '<br>')
+              .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+            return `<div class="chat-msg ${m.role === 'user' ? 'user' : 'ai'}">${formatted}<span class="chat-ts">${new Date(m.ts).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</span></div>`;
+          })
+          .join('');
+        chatMsgs.scrollTop = chatMsgs.scrollHeight;
+      }
+    }
+
+    const chatInput = document.getElementById('chatInput');
+    if (chatInput) chatInput.focus();
+  }
+
+  function _saveTaskWorkHistory(taskId) {
+    if (!taskId) return;
+    try {
+      localStorage.setItem(userKey('whiteboard_taskwork_' + taskId), JSON.stringify(chatHistory.slice(-20)));
+    } catch {
+      /* quota exceeded — silently fail */
+    }
+  }
+
+  function getTaskWorkId() {
+    return _taskWorkId;
+  }
+
   // State accessors for external code
   function getChatHistory() {
     return chatHistory;
@@ -548,6 +701,8 @@ Be curious, not prescriptive. 2-3 sentences. Ask a real question.`;
     setChatSessionStarted,
     setChatHistory,
     offerStuckHelp,
+    openTaskWork,
+    getTaskWorkId,
     resetChatState,
     reloadChatHistory,
     maybeProactiveChat,
