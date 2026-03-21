@@ -531,6 +531,9 @@ export function createActions(deps) {
       case 'export-data':
         exportData();
         break;
+      case 'sync-calendar':
+        if (typeof deps.syncCalendar === 'function') deps.syncCalendar();
+        break;
       case 'cleanup-storage':
         if (typeof deps.cleanupStorage === 'function') {
           const freed = deps.cleanupStorage();
@@ -816,6 +819,13 @@ export function createActions(deps) {
           const bm = await getBrainstormModule();
           bm.removeDumpAttachment(parseInt(actionEl.dataset.idx));
           render();
+        })();
+        break;
+      }
+      case 'toggle-voice-capture': {
+        (async () => {
+          const bm = await getBrainstormModule();
+          bm.toggleVoiceCapture();
         })();
         break;
       }

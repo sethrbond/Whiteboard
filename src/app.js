@@ -751,8 +751,10 @@ const _settingsMod = createSettings({
   updateTemplate,
   getStorageUsage: () => _dataLayer.getStorageUsage(),
   cleanupStorage: () => _dataLayer.cleanupStorage(),
+  userKey,
 });
 const openSettings = _settingsMod.openSettings;
+const syncCalendar = _settingsMod.syncCalendar;
 const deleteAIMemory = _settingsMod.deleteAIMemory;
 const exportData = _settingsMod.exportData;
 const importData = _settingsMod.importData;
@@ -1452,6 +1454,7 @@ createActions({
   skipClarify: (...args) => skipClarify(...args),
   getBrainstormModule: () => _loadBrainstorm(),
   openSettings,
+  syncCalendar,
   exportData,
   importData,
   exportCalendar,
@@ -1726,6 +1729,51 @@ initAuth();
 // Start escalation engine after auth — if user is already authenticated,
 // the escalation loop begins; the check on every render call acts as backup
 startEscalationLoop();
+
+// ── Share Target & Shortcut handler ─────────────────────────────────────
+// When the PWA receives shared content (via Web Share Target API) or is
+// launched from a shortcut, the manifest routes to / with URL params.
+// We detect those params here and route to the appropriate feature.
+(function _handleShareTarget() {
+  const params = new URLSearchParams(window.location.search);
+  const sharedTitle = params.get('shared_title') || '';
+  const sharedText = params.get('shared_text') || '';
+  const sharedUrl = params.get('shared_url') || '';
+  const action = params.get('action') || '';
+
+  // Clean URL params so they don't persist on refresh
+  if (sharedTitle || sharedText || sharedUrl || action) {
+    window.history.replaceState({}, '', window.location.pathname);
+  }
+
+  if (sharedTitle || sharedText || sharedUrl) {
+    // Build combined text from shared content
+    const parts = [sharedTitle, sharedText, sharedUrl].filter(Boolean);
+    const combined = parts.join('\n');
+    // Wait for DOM to be ready, then open brainstorm with pre-filled text
+    setTimeout(() => {
+      _dashboard.openBrainstormModal();
+      // Give modal time to render, then fill textarea
+      setTimeout(() => {
+        const textarea = document.getElementById('dumpText');
+        if (textarea) {
+          textarea.value = (textarea.value ? textarea.value + '\n' : '') + combined;
+          textarea.focus();
+          // Also save as draft so it persists
+          if (typeof saveDumpDraft === 'function') saveDumpDraft();
+        }
+      }, 200);
+    }, 300);
+  } else if (action === 'brainstorm') {
+    setTimeout(() => {
+      _dashboard.openBrainstormModal();
+    }, 300);
+  } else if (action === 'quick-capture') {
+    setTimeout(() => {
+      if (typeof openQuickAdd === 'function') openQuickAdd();
+    }, 300);
+  }
+})();
 
 // Proactive chat — triggers after 10 minutes of inactivity with stuck tasks
 let _proactiveChatTimer = null;

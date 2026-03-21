@@ -129,6 +129,85 @@ export function createBrainstorm(deps) {
     return Date.now() - new Date(l).getTime() > MS_PER_DAY;
   }
 
+  // ── Voice Capture (Web Speech API) ─────────────────────────────────────
+  let _speechRecognition = null;
+  let _voiceRecording = false;
+
+  function toggleVoiceCapture() {
+    const SpeechAPI = typeof SpeechRecognition !== 'undefined'
+      ? SpeechRecognition
+      : typeof webkitSpeechRecognition !== 'undefined'
+        ? webkitSpeechRecognition
+        : null;
+    if (!SpeechAPI) {
+      showToast('Voice capture is not supported in this browser', true);
+      return;
+    }
+
+    if (_voiceRecording && _speechRecognition) {
+      _speechRecognition.stop();
+      return; // onend handler will clean up state
+    }
+
+    _speechRecognition = new SpeechAPI();
+    _speechRecognition.continuous = true;
+    _speechRecognition.interimResults = false;
+    _speechRecognition.lang = navigator.language || 'en-US';
+
+    _speechRecognition.onstart = () => {
+      _voiceRecording = true;
+      const btn = document.getElementById('voiceCaptureBtn');
+      const label = document.getElementById('voiceCaptureLabel');
+      if (btn) btn.style.cssText = btn.style.cssText.replace('color:var(--text3)', 'color:var(--red, #ef4444)') + ';border-color:var(--red, #ef4444);';
+      if (label) label.innerHTML = '<span style="display:inline-block;width:8px;height:8px;background:var(--red,#ef4444);border-radius:50%;animation:voicePulse 1s infinite;vertical-align:middle;margin-right:4px"></span>Listening...';
+      // Inject pulse animation if not already present
+      if (!document.getElementById('voicePulseStyle')) {
+        const style = document.createElement('style');
+        style.id = 'voicePulseStyle';
+        style.textContent = '@keyframes voicePulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(1.3)}}';
+        document.head.appendChild(style);
+      }
+    };
+
+    _speechRecognition.onresult = (event) => {
+      const textarea = document.getElementById('dumpText');
+      if (!textarea) return;
+      let transcript = '';
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        if (event.results[i].isFinal) {
+          transcript += event.results[i][0].transcript;
+        }
+      }
+      if (transcript) {
+        const current = textarea.value;
+        textarea.value = current + (current && !current.endsWith(' ') && !current.endsWith('\n') ? ' ' : '') + transcript.trim();
+        textarea.focus();
+        saveDumpDraft();
+      }
+    };
+
+    _speechRecognition.onerror = (event) => {
+      if (event.error !== 'aborted') {
+        showToast('Voice capture error: ' + event.error, true);
+      }
+    };
+
+    _speechRecognition.onend = () => {
+      _voiceRecording = false;
+      _speechRecognition = null;
+      const btn = document.getElementById('voiceCaptureBtn');
+      const label = document.getElementById('voiceCaptureLabel');
+      if (btn) {
+        btn.style.cssText = btn.style.cssText
+          .replace('color:var(--red, #ef4444)', 'color:var(--text3)')
+          .replace('border-color:var(--red, #ef4444);', '');
+      }
+      if (label) label.textContent = 'Voice';
+    };
+
+    _speechRecognition.start();
+  }
+
   // ── Render ──────────────────────────────────────────────────────────────
   function renderDump() {
     // Show results card if brainstorm just completed
@@ -229,6 +308,9 @@ export function createBrainstorm(deps) {
           <span style="font-size:14px">\u{1F4CE}</span> Attach file
           <input type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,.md,.json,.log,.xml,.html,.rtf,.pages,.numbers" multiple style="display:none" data-onchange-action="dump-files">
         </label>
+        ${typeof webkitSpeechRecognition !== 'undefined' || typeof SpeechRecognition !== 'undefined' ? `<button id="voiceCaptureBtn" data-action="toggle-voice-capture" style="cursor:pointer;display:flex;align-items:center;gap:4px;font-size:11px;color:var(--text3);padding:4px 8px;border:1px solid var(--border);border-radius:6px;white-space:nowrap;background:none" title="Voice capture">
+          <span style="font-size:14px">&#127908;</span> <span id="voiceCaptureLabel">Voice</span>
+        </button>` : ''}
       </div>
       <div class="dump-bar">
         <button class="btn btn-primary" data-action="process-dump">${hasKey ? '\u2726 Analyze & Organize' : '+ Add Tasks'}</button>
@@ -1539,5 +1621,6 @@ ${text}${getDumpAttachmentText()}`;
     skipThemeClarify,
     startThemeClarify,
     getConvState,
+    toggleVoiceCapture,
   };
 }
