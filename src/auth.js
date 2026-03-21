@@ -753,7 +753,7 @@ export function createAuth(deps) {
     sidebarEl.style.display = '';
     document.querySelector('.main').style.display = '';
     // Hide chat toggle in guest mode (no AI chat without auth)
-    document.getElementById('chatToggle').style.display = '';
+    document.getElementById('chatToggle').style.display = 'none';
     ensureLifeProject();
     // Default to dashboard — the onboarding hero will show since there are no tasks
     setCurrentView('dashboard');

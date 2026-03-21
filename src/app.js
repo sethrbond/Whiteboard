@@ -107,6 +107,7 @@ let _proactiveRunning = false;
 let proactiveLog = [];
 let _showTagFilter = false;
 let sidebarCollapsed = localStorage.getItem(userKey('wb_sidebar_collapsed')) === 'true';
+let guestMode = false;
 let bulkMode = false;
 let bulkSelected = new Set();
 const showCompleted = {};
