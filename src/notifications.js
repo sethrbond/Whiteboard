@@ -92,6 +92,63 @@ export function createNotifications(deps) {
     }
   }
 
+  // -- Push subscription (v8) ---------------------------------------------
+  async function subscribeToPush() {
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) return null;
+    try {
+      const reg = await navigator.serviceWorker.ready;
+      const existing = await reg.pushManager.getSubscription();
+      if (existing) return existing;
+
+      // Generate VAPID public key — stored in env, fallback to localStorage
+      const vapidKey = localStorage.getItem('wb_vapid_public_key');
+      if (!vapidKey) return null;
+
+      const sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: _urlBase64ToUint8Array(vapidKey),
+      });
+      return sub;
+    } catch (err) {
+      console.warn('Push subscription failed:', err);
+      return null;
+    }
+  }
+
+  function _urlBase64ToUint8Array(base64String) {
+    const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+    const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+    const rawData = atob(base64);
+    const outputArray = new Uint8Array(rawData.length);
+    for (let i = 0; i < rawData.length; ++i) outputArray[i] = rawData.charCodeAt(i);
+    return outputArray;
+  }
+
+  async function savePushSubscription(subscription) {
+    if (!subscription || !deps.sb || !deps.getCurrentUser) return;
+    const user = deps.getCurrentUser();
+    if (!user) return;
+    try {
+      await deps.sb.from('push_subscriptions').upsert(
+        {
+          user_id: user.id,
+          endpoint: subscription.endpoint,
+          subscription: JSON.stringify(subscription),
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: 'user_id,endpoint' },
+      );
+    } catch (err) {
+      console.warn('Failed to save push subscription:', err);
+    }
+  }
+
+  async function setupPush() {
+    if (_permissionState !== 'granted') return;
+    const sub = await subscribeToPush();
+    if (sub) await savePushSubscription(sub);
+  }
+
   // -- Send notification -------------------------------------------------
   function sendNotification(title, body, options = {}) {
     if (!isSupported() || _permissionState !== 'granted') return null;
@@ -343,6 +400,8 @@ export function createNotifications(deps) {
     savePrefs,
     renderNotificationSettings,
     isSupported,
+    setupPush,
+    subscribeToPush,
     // Exposed for testing
     _getPermissionState: () => _permissionState,
     _setPermissionState: (s) => {
