@@ -724,7 +724,7 @@ RULES:
         suggestions.push({
           type: 'unblocked',
           taskId: t.id,
-          text: ' + t.title +  is no longer blocked — ready to start?',
+          text: `${t.title} is no longer blocked — ready to start?`,
         });
       });
     // 2. Related tasks in same project

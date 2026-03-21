@@ -1370,8 +1370,10 @@ export function createActions(deps) {
           break;
         case 'conv-clarify-enter': {
           e.preventDefault();
-          const bmce = getBrainstormModule();
-          if (bmce && bmce.submitThemeClarify) bmce.submitThemeClarify();
+          (async () => {
+            const bmce = await getBrainstormModule();
+            if (bmce && bmce.submitThemeClarify) bmce.submitThemeClarify();
+          })();
           break;
         }
         case 'narrative-reply': {

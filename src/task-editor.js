@@ -441,11 +441,11 @@ export function createTaskEditor(deps) {
     // "deadline X" or "due X" — parse natural date
     const deadlineMatch = lower.match(/^(?:deadline|due)\s+(.+)/);
     if (deadlineMatch) {
-      const parsedDate = parseNaturalDate(deadlineMatch[1]);
-      if (parsedDate) {
-        updateTask(taskId, { dueDate: parsedDate });
+      const parsed = parseNaturalDate(deadlineMatch[1]);
+      if (parsed && parsed.dueDate) {
+        updateTask(taskId, { dueDate: parsed.dueDate });
         render();
-        showToast(`Due date set to ${parsedDate}`);
+        showToast(`Due date set to ${parsed.dueDate}`);
         return;
       }
     }
