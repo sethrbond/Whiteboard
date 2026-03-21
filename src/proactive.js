@@ -1004,6 +1004,135 @@ RULES:
     }
   }
 
+  // ── Focus Card: "What should I do right now?" ─────────────────────
+
+  function getNextRecommendation(skippedIds = []) {
+    const data = getData();
+    const today = todayStr();
+    const hour = new Date().getHours();
+    const active = data.tasks.filter((t) => t.status !== 'done' && !t.archived && !skippedIds.includes(t.id));
+    if (!active.length) return null;
+
+    // Check if there's an active day plan — prefer plan tasks
+    const planKey = userKey('whiteboard_plan_' + today);
+    let planTaskIds = new Set();
+    try {
+      const raw = JSON.parse(localStorage.getItem(planKey) || '[]');
+      if (raw && raw.blocks) {
+        raw.blocks.forEach((b) => (b.tasks || []).forEach((p) => planTaskIds.add(p.id)));
+      } else if (Array.isArray(raw)) {
+        raw.forEach((p) => planTaskIds.add(p.id));
+      }
+    } catch { /* */ }
+
+    // Score each task
+    const scored = active
+      .filter((t) => !isBlocked(t.id))
+      .map((t) => {
+        let score = 0;
+        let reasons = [];
+        const proj = data.projects.find((p) => p.id === t.project);
+
+        // Overdue — highest priority
+        if (t.dueDate && t.dueDate < today) {
+          const daysOverdue = Math.floor((Date.now() - new Date(t.dueDate).getTime()) / 86400000);
+          score += 100 + daysOverdue * 10;
+          reasons.push(`${daysOverdue} day${daysOverdue > 1 ? 's' : ''} overdue`);
+        }
+
+        // Due today
+        if (t.dueDate === today) {
+          score += 80;
+          reasons.push('due today');
+        }
+
+        // Due this week
+        if (t.dueDate && t.dueDate > today) {
+          const daysUntil = Math.floor((new Date(t.dueDate).getTime() - Date.now()) / 86400000);
+          if (daysUntil <= 3) {
+            score += 50 - daysUntil * 10;
+            reasons.push(`due in ${daysUntil} day${daysUntil > 1 ? 's' : ''}`);
+          }
+        }
+
+        // In today's plan
+        if (planTaskIds.has(t.id)) {
+          score += 40;
+          reasons.push("in today's plan");
+        }
+
+        // Priority
+        if (t.priority === 'urgent') { score += 35; reasons.push('urgent'); }
+        else if (t.priority === 'important') { score += 20; reasons.push('important'); }
+
+        // In-progress tasks get a momentum boost
+        if (t.status === 'in-progress') {
+          score += 25;
+          reasons.push('already in progress');
+        }
+
+        // Quick wins in afternoon (energy management)
+        if (hour >= 14 && t.estimatedMinutes && t.estimatedMinutes <= 20) {
+          score += 15;
+          reasons.push('quick win for the afternoon');
+        }
+
+        // Harder tasks in morning
+        if (hour < 12 && t.estimatedMinutes && t.estimatedMinutes >= 60) {
+          score += 10;
+          reasons.push('good time for deep work');
+        }
+
+        // Tasks with subtask progress — invested work
+        if (t.subtasks && t.subtasks.length) {
+          const done = t.subtasks.filter((s) => s.done).length;
+          if (done > 0 && done < t.subtasks.length) {
+            score += 15;
+            reasons.push(`${done}/${t.subtasks.length} subtasks done`);
+          }
+        }
+
+        // Age penalty — old tasks that haven't been touched
+        if (t.createdAt) {
+          const ageDays = Math.floor((Date.now() - new Date(t.createdAt).getTime()) / 86400000);
+          if (ageDays > 7) {
+            score += Math.min(ageDays, 20);
+            if (!reasons.some((r) => r.includes('overdue'))) {
+              reasons.push(`${ageDays} days old`);
+            }
+          }
+        }
+
+        return { task: t, project: proj, score, reasons };
+      });
+
+    if (!scored.length) return null;
+
+    // Sort by score descending, take the top one
+    scored.sort((a, b) => b.score - a.score);
+    const pick = scored[0];
+
+    // Build the recommendation reason — pick top 2 reasons
+    const topReasons = pick.reasons.slice(0, 2).join(' and ');
+
+    // Build time estimate string
+    const estStr = pick.task.estimatedMinutes
+      ? `~${pick.task.estimatedMinutes} minutes`
+      : '';
+
+    // Peek at what's next
+    const nextUp = scored[1] ? scored[1].task.title : null;
+
+    return {
+      task: pick.task,
+      project: pick.project,
+      reason: topReasons,
+      estimate: estStr,
+      nextUp,
+      score: pick.score,
+    };
+  }
+
   // ── Return the exact same public API ────────────────────────────────
 
   return {
@@ -1049,6 +1178,7 @@ RULES:
     trackNudgeInteraction: nudges.trackNudgeInteraction,
     generateBoardNarrative,
     sendBoardReply,
+    getNextRecommendation,
     PROACTIVE_PATTERNS,
   };
 }

@@ -111,6 +111,7 @@ export function createActions(deps) {
     aiReorganize,
     generateBoardNarrative,
     sendBoardReply,
+    getNextRecommendation,
     generateWeeklyReview,
     discussReview,
     // UI helpers
@@ -261,6 +262,33 @@ export function createActions(deps) {
         render();
         break;
       }
+      // Focus Card actions
+      case 'focus-start': {
+        const _fsTaskId = actionEl.dataset.taskId;
+        if (typeof openTaskWork === 'function') {
+          showToast('Starting AI task assistant...');
+          openTaskWork(_fsTaskId);
+        }
+        break;
+      }
+      case 'focus-skip': {
+        const _fkTaskId = actionEl.dataset.taskId;
+        // Add to dashboard's skip list and re-render
+        if (typeof deps._addFocusSkip === 'function') deps._addFocusSkip(_fkTaskId);
+        render();
+        break;
+      }
+      case 'focus-talk': {
+        const _ftTaskId = actionEl.dataset.taskId;
+        if (typeof openTaskWork === 'function') {
+          openTaskWork(_ftTaskId);
+        }
+        break;
+      }
+      case 'reset-focus-skips':
+        if (typeof deps._resetFocusSkips === 'function') deps._resetFocusSkips();
+        render();
+        break;
       // Task actions
       case 'edit-task':
         openEditTask(actionEl.dataset.taskId);

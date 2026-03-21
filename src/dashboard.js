@@ -61,6 +61,7 @@ export function createDashboard(deps) {
     nudgeFilterUnassigned,
     startFocus,
     offerStuckHelp,
+    getNextRecommendation,
     generateAIBriefing,
     planMyDay,
     runProactiveWorker,
@@ -1300,6 +1301,74 @@ export function createDashboard(deps) {
     return html;
   }
 
+  // ── Focus Card: "What should I do right now?" ────────────────────
+  let _focusSkippedIds = [];
+
+  function _renderFocusCard() {
+    if (!hasAI()) return '';
+    if (typeof getNextRecommendation !== 'function') return '';
+
+    const rec = getNextRecommendation(_focusSkippedIds);
+    if (!rec) {
+      if (_focusSkippedIds.length > 0) {
+        // User skipped everything — show reset
+        return `<div style="text-align:center;padding:24px;margin-bottom:20px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius)">
+          <div style="font-size:14px;color:var(--text2);margin-bottom:12px">You've skipped all recommendations for now.</div>
+          <button class="btn btn-sm" data-action="reset-focus-skips" style="color:var(--accent)">Show recommendations again</button>
+        </div>`;
+      }
+      return '';
+    }
+
+    const t = rec.task;
+    const projName = rec.project ? rec.project.name : '';
+    const borderColor =
+      t.priority === 'urgent' ? 'var(--red)' : t.priority === 'important' ? 'var(--orange)' : 'var(--accent)';
+
+    let html = `<div class="focus-card" style="position:relative;padding:28px 24px;margin-bottom:24px;background:var(--surface);border:1px solid var(--border);border-left:4px solid ${borderColor};border-radius:var(--radius);box-shadow:0 1px 3px rgba(0,0,0,0.04)">`;
+
+    // Top line — subtle context
+    html += `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <span style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;color:var(--accent)">Up next</span>
+      ${projName ? `<span style="font-size:11px;color:var(--text3)">${esc(projName)}</span>` : ''}
+    </div>`;
+
+    // Task title — big, clear, decisive
+    html += `<div style="font-size:18px;font-weight:600;color:var(--text);line-height:1.4;margin-bottom:8px">${esc(t.title)}</div>`;
+
+    // Reason + estimate — the "why"
+    const meta = [rec.reason, rec.estimate].filter(Boolean).join(' \u00b7 ');
+    if (meta) {
+      html += `<div style="font-size:13px;color:var(--text2);line-height:1.5;margin-bottom:16px">${esc(meta)}</div>`;
+    }
+
+    // Notes preview if task has notes
+    if (t.notes) {
+      html += `<div style="font-size:12px;color:var(--text3);line-height:1.5;margin-bottom:16px;padding:8px 12px;background:var(--surface2);border-radius:6px">${esc(t.notes.slice(0, 120))}${t.notes.length > 120 ? '...' : ''}</div>`;
+    }
+
+    // Subtask progress if applicable
+    if (t.subtasks && t.subtasks.length) {
+      const done = t.subtasks.filter((s) => s.done).length;
+      html += `<div style="font-size:11px;color:var(--text3);margin-bottom:16px">${done}/${t.subtasks.length} subtasks complete</div>`;
+    }
+
+    // Action buttons — decisive, clear
+    html += `<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+      <button class="btn btn-primary btn-sm" data-action="focus-start" data-task-id="${t.id}" style="padding:8px 20px;font-size:13px">Let's do it</button>
+      <button class="btn btn-sm" data-action="focus-skip" data-task-id="${t.id}" style="color:var(--text3);font-size:13px">Not now</button>
+      <button class="btn btn-sm" data-action="focus-talk" data-task-id="${t.id}" style="color:var(--accent);font-size:13px">\u2726 Talk to me about this</button>
+    </div>`;
+
+    // "After this" peek
+    if (rec.nextUp) {
+      html += `<div style="margin-top:16px;padding-top:12px;border-top:1px solid var(--border);font-size:11px;color:var(--text3)">After this \u2192 ${esc(rec.nextUp)}</div>`;
+    }
+
+    html += `</div>`;
+    return html;
+  }
+
   function renderDashboard() {
     const data = getData();
     const active = activeTasks();
@@ -1323,6 +1392,9 @@ export function createDashboard(deps) {
     const dueToday = active.filter((t) => t.dueDate === todayStr());
 
     let html = '';
+
+    // FOCUS CARD — "What should I do right now?"
+    html += _renderFocusCard();
 
     // Clean greeting — no badge noise
     html += `<div style="margin-bottom:20px">
@@ -1416,5 +1488,7 @@ export function createDashboard(deps) {
     renderMemoryInsightsCard,
     invalidateRenderMemo,
     openBrainstormModal,
+    _addFocusSkip: (id) => { _focusSkippedIds.push(id); },
+    _resetFocusSkips: () => { _focusSkippedIds = []; },
   };
 }

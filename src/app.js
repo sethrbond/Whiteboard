@@ -1187,6 +1187,7 @@ const replanDay = _proactive.replanDay;
 let generateAIBriefing = _proactive.generateAIBriefing;
 const generateBoardNarrative = _proactive.generateBoardNarrative;
 const sendBoardReply = _proactive.sendBoardReply;
+const getNextRecommendation = _proactive.getNextRecommendation;
 let submitEndOfDay = _proactive.submitEndOfDay;
 const getSmartNudges = _proactive.getSmartNudges;
 const nudgeFilterOverdue = _proactive.nudgeFilterOverdue;
@@ -1306,6 +1307,7 @@ const _dashboard = createDashboard({
   nudgeFilterUnassigned,
   startFocus: (...args) => startFocus(...args),
   offerStuckHelp,
+  getNextRecommendation,
   generateAIBriefing: (...args) => generateAIBriefing(...args),
   planMyDay: (...args) => planMyDay(...args),
   runProactiveWorker: (...args) => runProactiveWorker(...args),
@@ -1498,6 +1500,8 @@ createActions({
   guardedCloseEditModal,
   heroInputHandler,
   openBrainstormModal: () => _dashboard.openBrainstormModal(),
+  _addFocusSkip: (id) => _dashboard._addFocusSkip(id),
+  _resetFocusSkips: () => _dashboard._resetFocusSkips(),
   showFeatureTips,
   showOnboardingExperience,
   openProjectChat,
@@ -1505,6 +1509,7 @@ createActions({
   sendNarrativeReply,
   generateBoardNarrative,
   sendBoardReply,
+  getNextRecommendation,
   handleDumpFiles: (...args) => handleDumpFiles(...args),
   handleEscalationAction,
   trackNudgeInteraction,
@@ -1637,6 +1642,7 @@ exposeWindowAPI(
     generateBoardNarrative,
     sendNarrativeReply,
     sendBoardReply,
+    getNextRecommendation,
     startFocus: (...args) => startFocus(...args),
     closeFocus: (...args) => closeFocus(...args),
     openFocusView: (...args) => openFocusView(...args),
