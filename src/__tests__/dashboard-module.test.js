@@ -62,6 +62,9 @@ function makeDeps(overrides = {}) {
     nudgeFilterUnassigned: vi.fn(),
     startFocus: vi.fn(),
     offerStuckHelp: vi.fn(),
+    getNextRecommendation: vi.fn(() => null),
+    getWeeklyLearnings: vi.fn(() => ({ tasksCompleted: 0 })),
+    openBrainstormModal: vi.fn(),
     generateAIBriefing: vi.fn(() => Promise.resolve()),
     planMyDay: vi.fn(() => Promise.resolve()),
     runProactiveWorker: vi.fn(),
@@ -804,11 +807,12 @@ describe('dashboard.js — createDashboard()', () => {
       dashboard = createDashboard(deps);
 
       dashboard._renderNow();
-      expect(document.getElementById('viewTitle').textContent).toBe('Dashboard');
+      // Focus view has no title — Focus Card speaks for itself
+      expect(document.getElementById('viewTitle').textContent).toBe('');
       expect(document.getElementById('viewSub').textContent).toBe('');
     });
 
-    it('renders header actions with Ask AI and New Board buttons', () => {
+    it('renders clean header for Focus view (no action buttons)', () => {
       setupDomForRenderNow();
       deps.getData.mockReturnValue({ tasks: [{ id: 't1', status: 'todo', priority: 'normal' }], projects: [] });
       deps.getCurrentView.mockReturnValue('dashboard');
@@ -827,8 +831,9 @@ describe('dashboard.js — createDashboard()', () => {
 
       dashboard._renderNow();
       const ha = document.getElementById('headerActions');
-      expect(ha.innerHTML).toContain('data-action="toggle-chat"');
-      expect(ha.innerHTML).toContain('data-action="new-project"');
+      // Focus view has no board/chat buttons — only the global search shortcut
+      expect(ha.innerHTML).not.toContain('data-action="new-project"');
+      expect(ha.innerHTML).not.toContain('data-action="toggle-chat"');
     });
 
     it('dashboard always renders plan (not calendar) regardless of dashViewMode', () => {
@@ -892,8 +897,12 @@ describe('dashboard.js — createDashboard()', () => {
       expect(deps.setView).toHaveBeenCalledWith('dashboard');
     });
 
-    it('renders dump view as modal redirect', () => {
+    it('renders dump view as brainstorm modal', () => {
       setupDomForRenderNow();
+      // Add modalRoot for brainstorm modal
+      const modalRoot = document.createElement('div');
+      modalRoot.id = 'modalRoot';
+      document.body.appendChild(modalRoot);
       deps.getData.mockReturnValue({ tasks: [], projects: [] });
       deps.getCurrentView.mockReturnValue('dump');
       deps.activeTasks.mockReturnValue([]);
@@ -903,11 +912,12 @@ describe('dashboard.js — createDashboard()', () => {
         getDumpHistory: () => [],
         shouldShowDumpInvite: () => false,
       });
+      deps.renderDump.mockReturnValue('<div>brainstorm</div>');
       dashboard = createDashboard(deps);
 
       dashboard._renderNow();
-      // Dump view now redirects to dashboard and opens brainstorm as modal
-      expect(deps.setView).toHaveBeenCalledWith('dashboard');
+      // Dump view opens brainstorm modal (local function)
+      expect(modalRoot.innerHTML).toContain('Brainstorm');
     });
 
     it('renders review view', () => {
@@ -1569,6 +1579,9 @@ describe('dashboard.js — additional coverage', () => {
       nudgeFilterUnassigned: vi.fn(),
       startFocus: vi.fn(),
       offerStuckHelp: vi.fn(),
+      getNextRecommendation: vi.fn(() => null),
+      getWeeklyLearnings: vi.fn(() => ({ tasksCompleted: 0 })),
+      openBrainstormModal: vi.fn(),
       generateAIBriefing: vi.fn(() => Promise.resolve()),
       planMyDay: vi.fn(() => Promise.resolve()),
       runProactiveWorker: vi.fn(),
@@ -2180,9 +2193,11 @@ describe('dashboard.js — additional coverage', () => {
       });
       dashboard = createDashboard(deps);
 
+      deps.renderDump.mockReturnValue('<div>brainstorm</div>');
       dashboard._renderNow();
-      // Dump view now redirects to dashboard
-      expect(deps.setView).toHaveBeenCalledWith('dashboard');
+      // Dump view opens brainstorm modal (local function)
+      const modal = document.getElementById('modalRoot');
+      expect(modal.innerHTML).toContain('Brainstorm');
     });
   });
 

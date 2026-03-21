@@ -193,10 +193,21 @@ export function createDashboard(deps) {
     if (sidebarState === _lastSidebarState) return;
     _lastSidebarState = sidebarState;
 
-    // Active states
+    // Active states — sidebar
     $$('.nav-item[data-view]').forEach((n) =>
       n.classList.toggle('active', n.dataset.view === getCurrentView() && !getCurrentProject()),
     );
+    // Active states — bottom tabs
+    const _cv = getCurrentView();
+    const _cp = getCurrentProject();
+    $$('.bottom-tab[data-view]').forEach((t) => {
+      const tabView = t.dataset.view;
+      const isActive =
+        (tabView === 'dashboard' && _cv === 'dashboard' && !_cp) ||
+        (tabView === 'boards' && (_cv === 'boards' || _cv === 'project' || _cp)) ||
+        (tabView === 'dump' && _cv === 'dump');
+      t.classList.toggle('active', isActive);
+    });
 
     // Brainstorm processing indicator
     const dumpNav = $('.nav-item[data-view="dump"]');
@@ -508,8 +519,45 @@ export function createDashboard(deps) {
 
   function _renderNowDashboardView(c, ha, _data, _bulkMode, _dashViewMode) {
     $('#viewSub').textContent = '';
-    ha.innerHTML = `<button class="btn btn-sm" data-action="toggle-chat"><span class="ai-badge" style="margin-right:4px" aria-hidden="true">ai</span>Ask</button><button class="btn btn-primary btn-sm" data-action="new-project">+ Board</button>`;
+    ha.innerHTML = '';
     c.innerHTML = renderDashboard();
+  }
+
+  function _renderNowBoardsView(c, ha, data) {
+    $('#viewSub').textContent = `${data.projects.length} boards`;
+    ha.innerHTML = `<button class="btn btn-sm" data-action="toggle-chat"><span class="ai-badge" style="margin-right:4px" aria-hidden="true">ai</span>Ask</button><button class="btn btn-primary btn-sm" data-action="new-project">+ Board</button>`;
+    c.innerHTML = renderBoardsGrid(data);
+  }
+
+  function renderBoardsGrid(data) {
+    const active = activeTasks();
+    const projects = data.projects || [];
+    if (projects.length === 0) {
+      return `<div class="empty" style="padding:40px 0;text-align:center">
+        <div style="font-size:48px;margin-bottom:16px">&#9638;</div>
+        <div style="font-size:16px;font-weight:600;color:var(--text);margin-bottom:8px">No boards yet</div>
+        <div style="font-size:13px;color:var(--text3);margin-bottom:20px">Start a brainstorm and AI will create boards for you, or add one manually.</div>
+        <div style="display:flex;gap:10px;justify-content:center">
+          <button class="btn btn-primary" data-action="go-dump">Brainstorm</button>
+          <button class="btn" data-action="new-project">+ New Board</button>
+        </div>
+      </div>`;
+    }
+    let html = '<div class="project-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px">';
+    projects.forEach((p) => {
+      const pTasks = active.filter((t) => t.project === p.id);
+      const overdue = pTasks.filter((t) => t.dueDate && t.dueDate < todayStr());
+      const done = data.tasks.filter((t) => t.project === p.id && t.status === 'done' && !t.archived);
+      html += `<div class="project-grid-card" data-project="${esc(p.id)}" style="padding:20px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);cursor:pointer;transition:all 0.15s;border-left:3px solid ${p.color || 'var(--accent)'}">
+        <div style="font-size:15px;font-weight:600;color:var(--text);margin-bottom:4px">${esc(p.name)}</div>
+        ${p.description ? `<div style="font-size:12px;color:var(--text3);margin-bottom:8px">${esc(p.description)}</div>` : ''}
+        <div style="font-size:11px;color:var(--text3)">
+          ${pTasks.length} active${done.length ? ' \u00b7 ' + done.length + ' done' : ''}${overdue.length ? ' \u00b7 <span style="color:var(--red)">' + overdue.length + ' overdue</span>' : ''}
+        </div>
+      </div>`;
+    });
+    html += '</div>';
+    return html;
   }
 
   function _renderNowProjectView(c, ha, data) {
@@ -624,15 +672,18 @@ export function createDashboard(deps) {
 
       switch (currentView) {
         case 'dashboard':
-          $('#viewTitle').textContent = 'Dashboard';
+          $('#viewTitle').textContent = '';
           _renderNowDashboardView(c, ha, data, bulkMode, dashViewMode);
+          break;
+        case 'boards':
+          $('#viewTitle').textContent = 'Boards';
+          _renderNowBoardsView(c, ha, data);
           break;
         case 'project':
           _renderNowProjectView(c, ha, data);
           break;
         case 'dump':
-          // Brainstorm opens as modal — redirect back to dashboard
-          setView('dashboard');
+          // Brainstorm opens as modal — redirect back to current view
           openBrainstormModal();
           return;
         case 'calendar':

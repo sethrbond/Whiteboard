@@ -147,13 +147,13 @@
 
   <nav class="nav-section" aria-label="Main navigation">
     <div class="nav-item" data-view="dashboard" data-testid="nav-dashboard" role="button" tabindex="0">
-      <span class="nav-icon" aria-hidden="true">◉</span> Dashboard
+      <span class="nav-icon" aria-hidden="true">◎</span> Focus
     </div>
-    <div class="nav-item" data-view="calendar" data-testid="nav-calendar" role="button" tabindex="0">
-      <span class="nav-icon" aria-hidden="true">▦</span> Calendar
+    <div class="nav-item" data-view="boards" data-testid="nav-boards" role="button" tabindex="0">
+      <span class="nav-icon" aria-hidden="true">▦</span> Boards
     </div>
     <div class="nav-item" data-view="dump" data-testid="nav-brainstorm" role="button" tabindex="0">
-      <span class="nav-icon" aria-hidden="true">↯</span> Brainstorm
+      <span class="nav-icon" aria-hidden="true">↯</span> Capture
     </div>
   </nav>
 
@@ -166,12 +166,12 @@
   </nav>
   <div class="project-list" id="projectList" data-testid="project-list" role="list" aria-label="Board list" style="display:none"></div>
 
-  <div class="nav-section" style="padding-top:4px">
+  <div class="nav-section nav-secondary" style="padding-top:4px">
     <div class="nav-item" data-view="all-tasks" role="button" tabindex="0">
       <span class="nav-icon" aria-hidden="true">&#9776;</span> <span>All Tasks</span>
     </div>
-    <div class="nav-item" data-view="completed" role="button" tabindex="0">
-      <span class="nav-icon" aria-hidden="true">&#10003;</span> <span>Completed</span>
+    <div class="nav-item" data-view="calendar" data-testid="nav-calendar" role="button" tabindex="0">
+      <span class="nav-icon" aria-hidden="true">&#128197;</span> Calendar
     </div>
     <div class="nav-item" data-view="archive" role="button" tabindex="0">
       <span class="nav-icon" aria-hidden="true">&#128451;</span> <span>Archive</span> <span class="nav-badge" id="archiveBadge" style="display:none;background:var(--surface3);color:var(--text3)"></span>
@@ -183,19 +183,36 @@
       <span class="nav-icon" aria-hidden="true">+</span> New Board
     </div>
     <div class="nav-item" data-action="settings" data-testid="nav-settings" role="button" tabindex="0">
-      <span class="nav-icon" aria-hidden="true">⚙</span> Settings
-    </div>
-    <div style="padding:8px 12px;margin-top:6px;display:flex;align-items:center;gap:6px;font-size:10px;color:var(--text3);cursor:pointer;border-radius:var(--radius-sm);transition:background 0.1s" data-action="open-search" role="button" tabindex="0" aria-label="Search and commands (Command+K)">
-      <span aria-hidden="true">⌘K</span><span style="opacity:0.5">Search & commands</span>
+      <span class="nav-icon" aria-hidden="true">&#9881;</span> Settings
     </div>
     <div id="syncBar" style="padding:8px 12px;display:flex;align-items:center;justify-content:space-between;font-size:10px;color:var(--text3)">
       <span><span class="sync-dot synced" id="syncDot"></span><span id="syncLabel">Synced</span></span>
       <a role="button" tabindex="0" style="color:var(--text3);cursor:pointer;font-size:10px" data-action="sign-out">Sign Out</a>
     </div>
   </div>
-  <button class="sidebar-collapse-btn" data-action="toggle-sidebar" data-testid="sidebar-collapse" title="Collapse sidebar" aria-label="Collapse sidebar"><span aria-hidden="true">«</span></button>
+  <button class="sidebar-collapse-btn" data-action="toggle-sidebar" data-testid="sidebar-collapse" title="Collapse sidebar" aria-label="Collapse sidebar"><span aria-hidden="true">&laquo;</span></button>
 </aside>
 <div class="mobile-overlay" id="mobileOverlay" style="display:none" data-action="close-mobile-sidebar"></div>
+
+<!-- Bottom Tab Bar (mobile) -->
+<nav class="bottom-tabs" id="bottomTabs" aria-label="Main navigation">
+  <button class="bottom-tab active" data-view="dashboard" aria-label="Focus">
+    <span class="bottom-tab-icon">&#9678;</span>
+    <span class="bottom-tab-label">Focus</span>
+  </button>
+  <button class="bottom-tab" data-view="boards" aria-label="Boards">
+    <span class="bottom-tab-icon">&#9638;</span>
+    <span class="bottom-tab-label">Boards</span>
+  </button>
+  <button class="bottom-tab capture-tab" data-view="dump" aria-label="Capture">
+    <span class="bottom-tab-icon">+</span>
+    <span class="bottom-tab-label">Capture</span>
+  </button>
+  <button class="bottom-tab" data-action="toggle-chat" aria-label="AI Chat">
+    <span class="bottom-tab-icon"><span class="ai-badge" style="font-size:9px;width:20px;height:20px;display:inline-flex">ai</span></span>
+    <span class="bottom-tab-label">Chat</span>
+  </button>
+</nav>
 
 <main class="main" aria-label="Main application">
   <header class="header" aria-label="View header">

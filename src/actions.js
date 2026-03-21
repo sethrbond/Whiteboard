@@ -173,7 +173,8 @@ export function createActions(deps) {
 
   // ---- click: nav items + data-action dispatch ----
   document.addEventListener('click', (e) => {
-    const navView = e.target.closest('.nav-item[data-view]');
+    // Handle nav items (sidebar) and bottom tabs
+    const navView = e.target.closest('.nav-item[data-view]') || e.target.closest('.bottom-tab[data-view]');
     if (navView) {
       if (navView.dataset.view === 'dump' && typeof deps.openBrainstormModal === 'function') {
         deps.openBrainstormModal();
