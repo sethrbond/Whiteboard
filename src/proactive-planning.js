@@ -139,7 +139,7 @@ Return ONLY this JSON object, no other text:
 }`;
 
     try {
-      const reply = await callAI(prompt, { maxTokens: 2048, temperature: 0.3 });
+      const reply = await callAI(prompt, { maxTokens: 16384, temperature: 0.3 });
       const cleaned = reply
         .replace(/```json?\s*/g, '')
         .replace(/```/g, '')
@@ -304,7 +304,7 @@ Leave null if no block restructuring needed.`;
 
     try {
       showToast('Updating...');
-      const reply = await callAI(prompt, { maxTokens: 4096, temperature: 0.3 });
+      const reply = await callAI(prompt, { maxTokens: 16384, temperature: 0.3 });
       const cleaned = reply
         .replace(/```json?\s*/g, '')
         .replace(/```/g, '')
@@ -505,7 +505,7 @@ Leave null if no block restructuring needed.`;
         Math.ceil(workload.avgCapacity) +
         ' tasks per day)\n- Urgent tasks should be moved to sooner days (tomorrow or day after)\n- Important tasks within 3 days, normal/low tasks can go further out\n- Keep estimated time per day reasonable\n- Give a brief reason for each suggestion (8 words max)\n\nReturn ONLY a JSON array:\n[{ "id": "task_id", "suggestedDate": "YYYY-MM-DD", "reason": "brief reason" }]';
       try {
-        const reply = await callAI(prompt, { maxTokens: 2048, temperature: 0.3 });
+        const reply = await callAI(prompt, { maxTokens: 16384, temperature: 0.3 });
         const json = JSON.parse(
           reply
             .replace(/```json?\s*/g, '')

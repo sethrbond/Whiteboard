@@ -545,7 +545,7 @@ ${AI_ACTIONS_SPEC}`;
       try {
         const reply = await callAI(
           `${taskWorkPrompt}\n\nHelp me work on this task. Research what's needed, create specific actionable steps, and tell me what to do first.`,
-          { maxTokens: 8192, temperature: 0.3 },
+          { maxTokens: 16384, temperature: 0.3 },
         );
 
         chatHistory.push({ role: 'assistant', content: reply, ts: Date.now() });

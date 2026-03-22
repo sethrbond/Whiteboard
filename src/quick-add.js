@@ -182,7 +182,7 @@ If this seems like it needs more detail (e.g., the user asked to "email someone"
 
 If the task is simple and doesn't need enhancement, return: { "notes": "", "subtasks": [] }
 Keep notes concise and actionable. Today is ${todayStr()}.`,
-      { maxTokens: 4096, temperature: 0.3 },
+      { maxTokens: 16384, temperature: 0.3 },
     )
       .then((reply) => {
         try {
@@ -503,7 +503,7 @@ Rules:
 - 3-10 changes max, only high-confidence ones`;
 
     try {
-      const content = await callAI(prompt, { maxTokens: 2048, temperature: 0.3 });
+      const content = await callAI(prompt, { maxTokens: 16384, temperature: 0.3 });
 
       let changes;
       try {

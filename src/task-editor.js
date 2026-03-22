@@ -153,7 +153,7 @@ export function createTaskEditor(deps) {
   </div>`;
   }
 
-  const MAX_SUBTASK_DEPTH = 5;
+  const MAX_SUBTASK_DEPTH = 20;
 
   function _renderSubtasksRecursive(subtasks, taskId, depth) {
     let html = '';
@@ -596,7 +596,7 @@ ONLY return JSON.`;
     const prompt = _buildTaskCmdPrompt(t, input);
 
     try {
-      const content = await callAI(prompt, { maxTokens: 4096, temperature: 0.3 });
+      const content = await callAI(prompt, { maxTokens: 16384, temperature: 0.3 });
       const cmd = JSON.parse(content.match(/\{[\s\S]*\}/)?.[0] || '{}');
       _applyTaskCmd(cmd, taskId, t, input);
       render();

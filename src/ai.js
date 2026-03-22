@@ -45,7 +45,7 @@ export function createAICaller(config) {
     _activeCalls++;
     _lastCallTime = Date.now();
 
-    const { system, maxTokens = 8192, messages, temperature, signal: externalSignal } = opts;
+    const { system, maxTokens = 16384, messages, temperature, signal: externalSignal } = opts;
     const s = getSettings();
     const ep = getAIEndpoint();
 

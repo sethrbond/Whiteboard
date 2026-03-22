@@ -336,7 +336,7 @@ export function createAIContext(deps) {
           '\n\nCURRENT MEMORIES:\n' +
           memDump +
           '\n\nRULES:\n1. Merge related memories into single, denser entries\n2. Remove truly outdated entries (old context that is clearly stale - but keep preferences and corrections forever)\n3. Elevate repeated observations into "pattern" or "rhythm" type\n4. Keep corrections and preferences as-is\n5. Cap the result at 25 memories max\n6. Valid types: preference, pattern, context, correction, rhythm, reflection, note\n7. If a memory references a board/project NOT in the current active boards, mark it "archive": true\n8. Preferences, corrections, rhythms are NEVER archived\n\nReturn ONLY a JSON array: [{ "text": "...", "type": "...", "strength": 1-3, "archive": false }]\nStrength: 1=single observation, 2=confirmed by multiple signals, 3=strong established pattern',
-        { maxTokens: 2048, temperature: 0.3 },
+        { maxTokens: 16384, temperature: 0.3 },
       );
       const jsonMatch = reply.match(/\[[\s\S]*\]/);
       if (!jsonMatch) return;
