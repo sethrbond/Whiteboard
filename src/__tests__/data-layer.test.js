@@ -589,11 +589,14 @@ describe('data.js — createDataLayer()', () => {
 
   // ── deleteTask ────────────────────────────────────────────────────
   describe('deleteTask', () => {
-    it('removes a task from data', () => {
+    it('archives a task instead of removing', () => {
       const t = dl.createTask({ title: 'Delete me' });
       dl.addTask(t);
       dl.deleteTask(t.id, true);
-      expect(dl.findTask(t.id)).toBeUndefined();
+      const found = dl.findTask(t.id);
+      expect(found).toBeDefined();
+      expect(found.archived).toBe(true);
+      expect(found.status).toBe('done');
     });
 
     it('cleans up blockedBy references', () => {
