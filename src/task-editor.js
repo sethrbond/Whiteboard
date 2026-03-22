@@ -481,24 +481,31 @@ export function createTaskEditor(deps) {
     const projects = data.projects.map((p) => ({ id: p.id, name: p.name }));
     const proj = data.projects.find((p) => p.id === t.project);
 
-    return `${AI_PERSONA_SHORT}\n\nYou are a task command interpreter. The user typed a natural language command about this task.
+    const subtaskList = (t.subtasks || []).map((s, i) => `${i}: ${s.done ? '[x]' : '[ ]'} ${s.title}`).join('\n');
 
-TASK: "${t.title}" (priority: ${t.priority}, status: ${t.status}, project: ${proj ? proj.name : 'none'}, due: ${t.dueDate || 'none'}, notes: ${(t.notes || '').slice(0, 200) || 'none'}, subtasks: ${t.subtasks?.length || 0})
+    return `${AI_PERSONA_SHORT}\n\nYou are a task command interpreter. The user typed a natural language command about this task. ALWAYS make changes when the user describes updates — never just log information when you can update fields instead.
+
+TASK: "${t.title}" (priority: ${t.priority}, status: ${t.status}, project: ${proj ? proj.name : 'none'}, due: ${t.dueDate || 'none'}, notes: ${(t.notes || '').slice(0, 200) || 'none'})
+${subtaskList ? `SUBTASKS:\n${subtaskList}` : 'SUBTASKS: none'}
 
 COMMAND: "${input}"
 
 AVAILABLE PROJECTS: ${JSON.stringify(projects)}
 
-Interpret the command and return a JSON object:
-- { "action": "update", "fields": { ...fields to update... } } — update task fields (status, priority, dueDate, notes, project, title)
-- { "action": "log", "text": "..." } — add an update log entry
-- { "action": "both", "fields": {...}, "text": "..." } — update fields AND log
-- { "action": "subtasks", "add": ["step 1", "step 2"] } — add subtasks
-- { "action": "break", "into": [{"title": "...", "priority": "normal"}, ...] } — break task into multiple tasks
+Interpret the command and return a JSON object. PREFER "update" or "both" over "log" — if the user mentions a date, priority, status, or subtask change, UPDATE the task, don't just log it.
+
+Actions:
+- { "action": "update", "fields": { ...fields to change... } } — update task fields. Fields: status, priority, dueDate, notes, project, title, subtasks (full replacement array)
+- { "action": "log", "text": "..." } — ONLY for pure notes/context with no actionable changes
+- { "action": "both", "fields": {...}, "text": "..." } — update fields AND log context
+- { "action": "subtasks", "add": ["step 1", "step 2"] } — add NEW subtasks
+- { "action": "break", "into": [{"title": "...", "priority": "normal"}, ...] } — split into multiple tasks
+
+For subtask updates: use "update" with fields.subtasks — provide the FULL subtasks array with changes applied:
+  [{"title": "new title", "done": false}, {"title": "existing", "done": true}]
 
 For dates: today is ${todayStr()}. "Friday" = next upcoming Friday. Return dates as YYYY-MM-DD.
 For "move to [board]": match to closest project name and set project field to that project's id.
-Commands like "break this down" or "plan this out" → use "subtasks" action.
 
 ONLY return JSON.`;
   }
@@ -524,6 +531,15 @@ ONLY return JSON.`;
         const safe = {};
         for (const k of allowed) {
           if (k in cmd.fields) safe[k] = cmd.fields[k];
+        }
+        // Ensure subtasks have proper IDs
+        if (safe.subtasks && Array.isArray(safe.subtasks)) {
+          safe.subtasks = safe.subtasks.map((s) => ({
+            id: s.id || genId('st'),
+            title: s.title || '',
+            done: !!s.done,
+            notes: s.notes || '',
+          }));
         }
         updateTask(taskId, safe);
       }
