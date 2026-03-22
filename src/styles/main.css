@@ -2301,6 +2301,34 @@ h3.section-title {
   color: var(--accent);
   background: var(--accent-dim);
 }
+.chat-msg {
+  position: relative;
+}
+.chat-copy-btn {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  color: var(--text3);
+  cursor: pointer;
+  font-size: 11px;
+  border-radius: 4px;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.chat-msg:hover .chat-copy-btn {
+  opacity: 1;
+}
+.chat-copy-btn:hover {
+  background: var(--surface3);
+  color: var(--text);
+}
 
 .chat-input-row {
   padding: 12px 16px;

@@ -60,6 +60,26 @@ export function createChat(deps) {
       .trim();
   }
 
+  function _addCopyButtons() {
+    const msgs = document.querySelectorAll('.chat-msg:not([data-copy-ready])');
+    msgs.forEach((m) => {
+      m.setAttribute('data-copy-ready', '1');
+      if (m.classList.contains('chat-welcome-msg')) return;
+      const btn = document.createElement('button');
+      btn.className = 'chat-copy-btn';
+      btn.title = 'Copy';
+      btn.textContent = '\u2398';
+      btn.onclick = () => {
+        const text = m.innerText.replace(/\u2398/g, '').replace(/\d{1,2}:\d{2}\s*[AP]M/g, '').trim();
+        navigator.clipboard.writeText(text).then(() => {
+          btn.textContent = '\u2713';
+          setTimeout(() => { btn.textContent = '\u2398'; }, 1500);
+        });
+      };
+      m.appendChild(btn);
+    });
+  }
+
   function chatTimeStr(date) {
     if (!date) date = new Date();
     return date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
@@ -129,6 +149,7 @@ export function createChat(deps) {
           '</span></div>';
       }
     }
+    _addCopyButtons();
   }
 
   function _isFirstTimeUser() {
@@ -237,7 +258,7 @@ export function createChat(deps) {
       chatMsgs.innerHTML += `<div class="chat-msg user">${esc(msg)}<span class="chat-ts">${chatTimeStr()}</span></div>`;
       input.value = '';
       chatMsgs.innerHTML += `<div class="chat-msg ai">I need a Claude API key to chat. Set one up in <strong>Settings</strong> (30 seconds) and I'll be ready to help.<span class="chat-ts">${chatTimeStr()}</span></div>`;
-      chatMsgs.scrollTop = chatMsgs.scrollHeight;
+      chatMsgs.scrollTop = chatMsgs.scrollHeight; _addCopyButtons();
       _chatSending = false;
       return;
     }
@@ -288,7 +309,7 @@ RULES:
     typingEl.innerHTML =
       '<div class="chat-bubble ai"><span class="chat-typing"><div class="chat-typing-dots"><span></span><span></span><span></span></div></span></div>';
     chatMsgs.appendChild(typingEl);
-    chatMsgs.scrollTop = chatMsgs.scrollHeight;
+    chatMsgs.scrollTop = chatMsgs.scrollHeight; _addCopyButtons();
 
     const chatAbort = new AbortController();
     const chatTimeout = setTimeout(() => chatAbort.abort(), 60000);
@@ -356,7 +377,7 @@ RULES:
                 // Strip action blocks from display
                 const display = stripActionBlocks(fullText);
                 bubble.innerHTML = esc(display).replace(/\n/g, '<br>');
-                chatMsgs.scrollTop = chatMsgs.scrollHeight;
+                chatMsgs.scrollTop = chatMsgs.scrollHeight; _addCopyButtons();
               }
             } catch (_parseErr) {
               /* SSE parse error — non-fatal, skip chunk */
@@ -391,7 +412,7 @@ RULES:
       } else if (applied) {
         typingEl.innerHTML = `Done. <span style="font-size:10px;color:var(--text3)">\u2726 ${applied} action${applied > 1 ? 's' : ''} applied</span>${insightHtml}<span class="chat-ts">${chatTimeStr()}</span>`;
       }
-      chatMsgs.scrollTop = chatMsgs.scrollHeight;
+      chatMsgs.scrollTop = chatMsgs.scrollHeight; _addCopyButtons();
     } catch (err) {
       const errMsg =
         err.name === 'AbortError'
@@ -567,7 +588,7 @@ ${AI_ACTIONS_SPEC}`;
           const lastMsg = chatMsgs.querySelector('.chat-msg.ai:last-child');
           if (lastMsg)
             lastMsg.innerHTML = `<div class="chat-bubble ai">${formatted}<span class="chat-ts">${chatTimeStr()}</span>${actions.applied ? `<div style="font-size:11px;color:var(--accent);margin-top:6px">\u2726 ${actions.applied} actions applied</div>` : ''}</div>`;
-          chatMsgs.scrollTop = chatMsgs.scrollHeight;
+          chatMsgs.scrollTop = chatMsgs.scrollHeight; _addCopyButtons();
         }
       } catch (err) {
         console.error('Task work error:', err);
@@ -592,7 +613,7 @@ ${AI_ACTIONS_SPEC}`;
             return `<div class="chat-msg ${m.role === 'user' ? 'user' : 'ai'}">${formatted}<span class="chat-ts">${new Date(m.ts).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</span></div>`;
           })
           .join('');
-        chatMsgs.scrollTop = chatMsgs.scrollHeight;
+        chatMsgs.scrollTop = chatMsgs.scrollHeight; _addCopyButtons();
       }
     }
 
