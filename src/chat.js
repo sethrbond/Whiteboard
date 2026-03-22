@@ -247,6 +247,8 @@ export function createChat(deps) {
     const chatMsgs = document.getElementById('chatMessages');
     chatMsgs.innerHTML += `<div class="chat-msg user">${esc(msg)}<span class="chat-ts">${chatTimeStr()}</span></div>`;
     input.value = '';
+    input.style.height = '40px';
+    input.style.overflowY = 'hidden';
     updateChatChips();
 
     const context = chatContext
