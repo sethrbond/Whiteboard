@@ -60,7 +60,7 @@ export const AI_PERSONA_SHORT =
 // --- Action Definitions (shared across all AI touchpoints) ---
 export const AI_ACTIONS_SPEC = `
 ACTIONS — include a JSON block in your response to take action:
-CRITICAL: NEVER set dueDate unless the user explicitly states a specific deadline. Leave dueDate as "" if no date was mentioned. "Apply now", "ASAP", "soon" are NOT deadlines.
+CRITICAL: NEVER set dueDate unless the user explicitly states a specific deadline. Leave dueDate as "" if no date was mentioned. "Apply now", "ASAP", "soon" are NOT deadlines. When creating tasks without deadlines, ASK the user: "Do any of these have specific deadlines?"
 \`\`\`actions
 [
   { "action": "create_task", "title": "...", "project": "Board Name", "priority": "normal|urgent|important|low", "dueDate": "", "notes": "...", "subtasks": ["step 1", "step 2"], "recurrence": "daily|weekly|monthly|", "phase": "...", "tags": ["tag1", "tag2"] },
@@ -636,8 +636,8 @@ export function createAIContext(deps) {
         if (typeof fields.notes === 'string' && fields.notes.length > 5000) {
           fields.notes = fields.notes.slice(0, 5000);
         }
-        if (Array.isArray(fields.subtasks) && fields.subtasks.length > 200) {
-          fields.subtasks = fields.subtasks.slice(0, 200);
+        if (Array.isArray(fields.subtasks) && fields.subtasks.length > 500) {
+          fields.subtasks = fields.subtasks.slice(0, 500);
         }
         if (Array.isArray(fields.subtasks)) {
           fields.subtasks = fields.subtasks.map((s) => {

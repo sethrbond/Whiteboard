@@ -153,7 +153,7 @@ export function createTaskEditor(deps) {
   </div>`;
   }
 
-  const MAX_SUBTASK_DEPTH = 20;
+  const MAX_SUBTASK_DEPTH = 50;
 
   function _renderSubtasksRecursive(subtasks, taskId, depth) {
     let html = '';
