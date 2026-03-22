@@ -15,7 +15,6 @@ import {
 import { esc } from './utils.js';
 import { todayStr } from './dates.js';
 import { parseDumpResponse, enforceShortDesc } from './parsers.js';
-import { chunkText } from './utils.js';
 
 /**
  * Factory function to create brainstorm functions.

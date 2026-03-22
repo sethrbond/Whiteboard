@@ -456,15 +456,14 @@ export function createDataLayer(deps) {
 
   function deleteTask(id, silent) {
     const t = findTask(id);
-    pushUndo('Delete task' + (t ? ': ' + t.title : ''));
     if (getExpandedTask && getExpandedTask() === id && setExpandedTask) setExpandedTask(null);
+    if (!t) return;
+    pushUndo('Delete task: ' + t.title);
     // Archive instead of permanently deleting — user can recover from archive
-    if (t) {
-      t.archived = true;
-      t.archivedAt = new Date().toISOString();
-      t.status = 'done';
-      if (!t.completedAt) t.completedAt = t.archivedAt;
-    }
+    t.archived = true;
+    t.archivedAt = new Date().toISOString();
+    t.status = 'done';
+    if (!t.completedAt) t.completedAt = t.archivedAt;
     // Clean up orphaned blockedBy references
     data.tasks.forEach((x) => {
       if (x.blockedBy) x.blockedBy = x.blockedBy.filter((bid) => bid !== id);

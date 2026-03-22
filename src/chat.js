@@ -77,7 +77,7 @@ export function createChat(deps) {
         navigator.clipboard.writeText(text).then(() => {
           btn.textContent = 'Copied!';
           setTimeout(() => { btn.textContent = 'Copy'; }, 1500);
-        });
+        }).catch(() => { btn.textContent = 'Failed'; setTimeout(() => { btn.textContent = 'Copy'; }, 1500); });
       };
       m.style.position = 'relative';
       m.appendChild(btn);
@@ -261,6 +261,8 @@ export function createChat(deps) {
       const chatMsgs = document.getElementById('chatMessages');
       chatMsgs.innerHTML += `<div class="chat-msg user">${esc(msg)}<span class="chat-ts">${chatTimeStr()}</span></div>`;
       input.value = '';
+      input.style.height = '40px';
+      input.style.overflowY = 'hidden';
       chatMsgs.innerHTML += `<div class="chat-msg ai">I need a Claude API key to chat. Set one up in <strong>Settings</strong> (30 seconds) and I'll be ready to help.<span class="chat-ts">${chatTimeStr()}</span></div>`;
       chatMsgs.scrollTop = chatMsgs.scrollHeight; _addCopyButtons();
       _chatSending = false;

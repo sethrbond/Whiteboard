@@ -1780,13 +1780,7 @@ if ('serviceWorker' in navigator) {
     console.warn('service worker registration failed:', _e.message || _e);
   });
 }
-// Auto-expand chat input textarea as user types
-document.addEventListener('input', (e) => {
-  if (e.target.id === 'chatInput' || e.target.classList.contains('chat-input')) {
-    e.target.style.height = 'auto';
-    e.target.style.height = Math.min(e.target.scrollHeight, window.innerHeight * 0.33) + 'px';
-  }
-});
+// Chat input auto-expand handled by inline oninput in index.html
 
 initAuth();
 
@@ -1823,8 +1817,6 @@ startEscalationLoop();
         if (textarea) {
           textarea.value = (textarea.value ? textarea.value + '\n' : '') + combined;
           textarea.focus();
-          // Also save as draft so it persists
-          if (typeof saveDumpDraft === 'function') saveDumpDraft();
         }
       }, 200);
     }, 300);
