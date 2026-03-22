@@ -472,25 +472,46 @@ export function createDashboard(deps) {
       html += `</div>`;
     }
 
+    // Whiteboard card renderer
+    function _wbCard(t) {
+      const _exp = getExpandedTask();
+      if (_exp === t.id) return renderTaskExpanded(t, true);
+      const isDone = t.status === 'done';
+      const borderColor =
+        t.priority === 'urgent' ? 'var(--red)' : t.priority === 'important' ? 'var(--orange)' : 'var(--border2)';
+      const dueDateStr = t.dueDate ? `<span class="wb-card-due${!isDone && t.dueDate < today ? ' overdue' : ''}">${fmtDate(t.dueDate)}</span>` : '';
+      const estStr = t.estimatedMinutes ? `<span class="wb-card-est">~${t.estimatedMinutes}m</span>` : '';
+      const subtaskStr = t.subtasks && t.subtasks.length
+        ? `<span class="wb-card-est">${t.subtasks.filter((s) => s.done).length}/${t.subtasks.length}</span>`
+        : '';
+      return `<div class="wb-card${isDone ? ' done' : ''}" data-task="${t.id}" data-expandable="true" role="listitem" style="border-top:3px solid ${borderColor}">
+        <div class="wb-card-actions">
+          ${!isDone ? `<button class="task-action-btn" title="Defer" data-action="defer-task" data-task-id="${t.id}">\u21b7</button>` : ''}
+          <button class="task-action-btn" title="Edit" data-action="edit-task" data-task-id="${t.id}">\u270e</button>
+          ${!isDone ? `<button class="task-action-btn" title="Done" data-action="complete-task" data-task-id="${t.id}">\u2713</button>` : ''}
+        </div>
+        <div class="wb-card-title${isDone ? ' done-text' : ''}">${esc(t.title)}</div>
+        ${t.notes ? `<div class="wb-card-notes">${esc(t.notes.slice(0, 80))}${t.notes.length > 80 ? '...' : ''}</div>` : ''}
+        <div class="wb-card-meta">${dueDateStr}${estStr}${subtaskStr}</div>
+      </div>`;
+    }
+
     // Do Now
     if (doNow.length > 0) {
-      html += `<div class="section"><div class="section-header"><h3 class="section-title">Do Now</h3><div class="section-count">${doNow.length}</div><div class="section-line"></div></div>`;
-      html += renderTaskSlice(sortTasks(doNow), 'donow_' + p.id, (t) => renderTaskRow(t));
-      html += `</div>`;
+      html += `<div class="wb-section"><div class="section-header"><h3 class="section-title">Do Now</h3><div class="section-count">${doNow.length}</div><div class="section-line"></div></div>`;
+      html += `<div class="wb-grid">${sortTasks(doNow).map(_wbCard).join('')}</div></div>`;
     }
 
     // This Week
     if (thisWeek.length > 0) {
-      html += `<div class="section"><div class="section-header"><h3 class="section-title">This Week</h3><div class="section-count">${thisWeek.length}</div><div class="section-line"></div></div>`;
-      html += renderTaskSlice(sortTasks(thisWeek), 'week_' + p.id, (t) => renderTaskRow(t));
-      html += `</div>`;
+      html += `<div class="wb-section"><div class="section-header"><h3 class="section-title">This Week</h3><div class="section-count">${thisWeek.length}</div><div class="section-line"></div></div>`;
+      html += `<div class="wb-grid">${sortTasks(thisWeek).map(_wbCard).join('')}</div></div>`;
     }
 
     // Later
     if (later.length > 0) {
-      html += `<div class="section"><div class="section-header"><h3 class="section-title" style="color:var(--text3)">Later</h3><div class="section-count">${later.length}</div><div class="section-line"></div></div>`;
-      html += renderTaskSlice(sortTasks(later), 'later_' + p.id, (t) => renderTaskRow(t));
-      html += `</div>`;
+      html += `<div class="wb-section"><div class="section-header"><h3 class="section-title" style="color:var(--text3)">Later</h3><div class="section-count">${later.length}</div><div class="section-line"></div></div>`;
+      html += `<div class="wb-grid">${sortTasks(later).map(_wbCard).join('')}</div></div>`;
     }
 
     if (active.length === 0 && done.length === 0) {
@@ -500,11 +521,11 @@ export function createDashboard(deps) {
     // Completed
     if (done.length > 0) {
       const key = p.id;
-      html += `<div class="section"><div class="completed-toggle" data-action="toggle-completed" data-key="${key}">
+      html += `<div class="wb-section"><div class="completed-toggle" data-action="toggle-completed" data-key="${key}">
         ${getShowCompleted(key) ? '\u25be' : '\u25b8'} Done <span class="section-count" style="margin-left:4px">${done.length}</span>
       </div>`;
       if (getShowCompleted(key)) {
-        html += renderTaskSlice([...done].reverse(), 'done_' + p.id, (t) => renderTaskRow(t));
+        html += `<div class="wb-grid">${[...done].reverse().map(_wbCard).join('')}</div>`;
       }
       html += `</div>`;
     }

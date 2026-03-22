@@ -666,18 +666,37 @@ ${AI_ACTIONS_SPEC}`;
   }
 
   // Open chat with brainstorm completion context (follows maybeProactiveChat pattern)
-  function openChatWithBrainstormContext(taskCount, boardNames) {
+  function openChatWithBrainstormContext(taskCount, boardNames, tasksByBoard) {
     const panel = document.getElementById('chatPanel');
     if (panel && panel.classList.contains('open')) return;
 
-    const msg = `I organized ${taskCount} task${taskCount !== 1 ? 's' : ''} across ${boardNames.length} board${boardNames.length !== 1 ? 's' : ''}: ${boardNames.join(', ')}.\n\nWant me to help prioritize, set deadlines, or break down any tasks?`;
+    // Build detailed review message with every task listed
+    let msg = `I organized ${taskCount} task${taskCount !== 1 ? 's' : ''} across ${boardNames.length} board${boardNames.length !== 1 ? 's' : ''}. Here's everything:\n\n`;
+
+    if (tasksByBoard && Object.keys(tasksByBoard).length) {
+      Object.entries(tasksByBoard).forEach(([board, tasks]) => {
+        msg += `**${board}** (${tasks.length})\n`;
+        tasks.forEach((t) => {
+          const statusIcon = t.status === 'done' ? '\u2713' : t.status === 'in-progress' ? '\u25b6' : '\u25cb';
+          const due = t.dueDate ? ` \u00b7 due ${t.dueDate}` : '';
+          msg += `${statusIcon} ${t.title}${due}\n`;
+        });
+        msg += '\n';
+      });
+    }
+
+    msg += 'Anything I got wrong? Tell me what to fix, or say "looks good" to move on.';
 
     chatContext = null;
     const messagesEl = document.getElementById('chatMessages');
     if (messagesEl) {
+      // Render with markdown-like formatting
+      const formatted = esc(msg)
+        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+        .replace(/\n/g, '<br>');
       messagesEl.innerHTML =
         '<div class="chat-msg ai stagger chat-welcome-msg">' +
-        esc(msg).replace(/\n/g, '<br>') +
+        formatted +
         '<span class="chat-ts">' +
         chatTimeStr() +
         '</span></div>';

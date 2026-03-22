@@ -122,6 +122,7 @@ describe('expand flow — end-to-end', () => {
       addTask: vi.fn(),
       createTask: vi.fn((o) => ({ id: 't_new', status: 'todo', priority: 'normal', ...o })),
       renderTaskRow: editor.renderTaskRow,
+      renderTaskExpanded: editor.renderTaskExpanded,
       renderPriorityTag: editor.renderPriorityTag,
       priorityColor: editor.priorityColor,
       renderCalendar: vi.fn(() => '<div>calendar</div>'),
@@ -195,8 +196,7 @@ describe('expand flow — end-to-end', () => {
     // Step 1: Render project view — task should be in collapsed state
     const collapsedHtml = dashboard.renderProject(PROJECT);
 
-    expect(collapsedHtml).toContain('task-row');
-    expect(collapsedHtml).toContain('aria-expanded="false"');
+    expect(collapsedHtml).toContain('wb-card');
     expect(collapsedHtml).toContain('Buy groceries');
     expect(collapsedHtml).not.toContain('task-expanded');
 
@@ -205,7 +205,6 @@ describe('expand flow — end-to-end', () => {
     const expandedHtml = dashboard.renderProject(PROJECT);
 
     expect(expandedHtml).toContain('task-expanded');
-    expect(expandedHtml).toContain('aria-expanded="true"');
     expect(expandedHtml).toContain('Buy groceries');
     expect(expandedHtml).not.toContain('aria-expanded="false"');
     // Expanded view shows detail rows
@@ -216,8 +215,7 @@ describe('expand flow — end-to-end', () => {
     expandedTask = null;
     const collapsedAgainHtml = dashboard.renderProject(PROJECT);
 
-    expect(collapsedAgainHtml).toContain('task-row');
-    expect(collapsedAgainHtml).toContain('aria-expanded="false"');
+    expect(collapsedAgainHtml).toContain('wb-card');
     expect(collapsedAgainHtml).not.toContain('task-expanded');
   });
 });

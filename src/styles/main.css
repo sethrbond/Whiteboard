@@ -6084,6 +6084,91 @@ h3.section-title {
   }
 }
 
+/* ── Whiteboard Cards ──────────────────────────────────────────────── */
+.wb-section {
+  margin-bottom: 24px;
+}
+.wb-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 12px;
+}
+.wb-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  cursor: pointer;
+  transition: all 0.15s;
+  position: relative;
+  min-height: 80px;
+  display: flex;
+  flex-direction: column;
+}
+.wb-card:hover {
+  border-color: var(--border2);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lg);
+}
+.wb-card.done {
+  opacity: 0.5;
+}
+.wb-card-actions {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  display: flex;
+  gap: 2px;
+  opacity: 0;
+  transition: opacity 0.15s;
+  background: var(--surface2);
+  border-radius: 6px;
+  padding: 0 2px;
+}
+.wb-card:hover .wb-card-actions {
+  opacity: 1;
+}
+.wb-card-title {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text);
+  line-height: 1.4;
+  margin-bottom: 6px;
+}
+.wb-card-notes {
+  font-size: 11px;
+  color: var(--text3);
+  line-height: 1.4;
+  margin-bottom: 8px;
+  flex: 1;
+}
+.wb-card-meta {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-top: auto;
+}
+.wb-card-due {
+  font-size: 10px;
+  color: var(--text3);
+  background: var(--surface2);
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+.wb-card-due.overdue {
+  color: var(--red);
+  background: rgba(239, 68, 68, 0.08);
+}
+.wb-card-est {
+  font-size: 10px;
+  color: var(--text3);
+}
+@media (max-width: 768px) {
+  .wb-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* ── Bottom Tab Bar (v11 simplified navigation) ────────────────────── */
 .bottom-tabs {
   display: none;

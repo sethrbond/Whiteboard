@@ -1252,10 +1252,25 @@ ${text}${getDumpAttachmentText()}`;
     );
     _refreshConversationUI();
 
-    // Open chat with brainstorm follow-up context
+    // Open chat with full task review for user to scan and correct
     if (typeof deps.openChatWithBrainstormContext === 'function') {
       const boardNames = Object.keys(boards);
-      setTimeout(() => deps.openChatWithBrainstormContext(_convAppliedTasks.length, boardNames), 300);
+      // Build detailed task list grouped by board for review
+      const tasksByBoard = {};
+      _convAppliedTasks.forEach((t) => {
+        const board = t.suggestedProject || 'Unsorted';
+        if (!tasksByBoard[board]) tasksByBoard[board] = [];
+        tasksByBoard[board].push({
+          title: t.title,
+          status: t.status || 'todo',
+          priority: t.priority || 'normal',
+          dueDate: t.dueDate || '',
+        });
+      });
+      setTimeout(
+        () => deps.openChatWithBrainstormContext(_convAppliedTasks.length, boardNames, tasksByBoard),
+        300,
+      );
     }
   }
 
