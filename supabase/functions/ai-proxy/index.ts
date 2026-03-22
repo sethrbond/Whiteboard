@@ -16,6 +16,8 @@ const ALLOWED_MODELS = new Set([
   'claude-sonnet-4-5-20241022',
   'claude-sonnet-4-5-20250514',
   'claude-sonnet-4-6-20250627',
+  'claude-sonnet-4-6',
+  'claude-haiku-4-5',
 ])
 
 const RATE_LIMIT_HOUR = 60     // max requests per IP per rolling hour
