@@ -422,6 +422,42 @@ const highlightKbRow = _events.highlightKbRow;
 const attachListeners = _events.attachListeners;
 
 // ============================================================
+// TASK ATTACHMENTS
+// ============================================================
+async function uploadTaskAttachment(taskId, file) {
+  if (!sb || !currentUser) {
+    showToast('Sign in to attach files', true);
+    return;
+  }
+  const t = findTask(taskId);
+  if (!t) return;
+  const path = `${currentUser.id}/${taskId}/${file.name}`;
+  const { error } = await sb.storage.from('task-attachments').upload(path, file, { upsert: true });
+  if (error) {
+    showToast('Upload failed: ' + error.message, true);
+    return;
+  }
+  const { data: urlData } = sb.storage.from('task-attachments').getPublicUrl(path);
+  const attachments = [...(t.attachments || []), { name: file.name, url: urlData.publicUrl, size: file.size, type: file.type }];
+  updateTask(taskId, { attachments });
+  render();
+  showToast('File attached', false, true);
+}
+
+async function removeTaskAttachment(taskId, idx) {
+  if (!sb || !currentUser) return;
+  const t = findTask(taskId);
+  if (!t || !t.attachments || !t.attachments[idx]) return;
+  const a = t.attachments[idx];
+  const path = `${currentUser.id}/${taskId}/${a.name}`;
+  await sb.storage.from('task-attachments').remove([path]);
+  const attachments = t.attachments.filter((_, i) => i !== idx);
+  updateTask(taskId, { attachments });
+  render();
+  showToast('Attachment removed', false, true);
+}
+
+// ============================================================
 // TASK EDITOR
 // ============================================================
 const _taskEditor = createTaskEditor({
@@ -477,6 +513,8 @@ const _taskEditor = createTaskEditor({
   getSmartDefaults: (...args) => getSmartDefaults(...args),
   predictCompletion: (...args) => predictCompletion(...args),
   saveAsTemplate,
+  uploadTaskAttachment: (...args) => uploadTaskAttachment(...args),
+  removeTaskAttachment: (...args) => removeTaskAttachment(...args),
 });
 const renderTaskRow = _taskEditor.renderTaskRow;
 const renderTaskExpanded = _taskEditor.renderTaskExpanded;
@@ -1528,6 +1566,8 @@ createActions({
   trackFocusSkip,
   getWeeklyLearnings,
   handleDumpFiles: (...args) => handleDumpFiles(...args),
+  uploadTaskAttachment: (...args) => uploadTaskAttachment(...args),
+  removeTaskAttachment: (...args) => removeTaskAttachment(...args),
   handleEscalationAction,
   trackNudgeInteraction,
   autoRebalanceWeek: (...args) => autoRebalanceWeek(...args),

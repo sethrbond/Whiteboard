@@ -56,7 +56,15 @@ export function createTaskEditor(deps) {
     maybeProactiveEnhance,
     getSmartDefaults,
     saveAsTemplate: _saveAsTemplate,
+    uploadTaskAttachment,
+    removeTaskAttachment,
   } = deps;
+
+  function _fmtFileSize(bytes) {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+  }
 
   // Track original values when edit modal opens for unsaved-changes detection
   let _editSnapshot = null;
@@ -216,8 +224,11 @@ export function createTaskEditor(deps) {
       <div style="margin-top:6px"><input style="font-size:11px;padding:4px 8px;background:transparent;border:1px dashed var(--border);border-radius:4px;color:var(--text2);width:100%;outline:none;font-family:inherit" placeholder="+ add subtask" aria-label="Add subtask" data-keydown-action="add-subtask" data-task-id="${t.id}"></div>
       ${t.updates && t.updates.length > 0 ? `<div style="margin-top:8px"><div style="font-size:11px;color:var(--text3);margin-bottom:4px;font-weight:600">UPDATES</div>${t.updates.map((u) => `<div style="font-size:12px;color:var(--text2);padding:3px 0"><span style="color:var(--text3)">${u.date}</span> — ${esc(u.text)}</div>`).join('')}</div>` : ''}
     </div>
+    ${t.attachments && t.attachments.length > 0 ? `<div style="margin-top:8px"><div style="font-size:11px;color:var(--text3);margin-bottom:4px;font-weight:600">ATTACHMENTS</div><div style="display:flex;flex-wrap:wrap;gap:6px">${t.attachments.map((a, idx) => `<div class="task-attachment"><a href="${esc(a.url)}" target="_blank" rel="noopener" title="${esc(a.name)}">📎 ${esc(a.name)} (${_fmtFileSize(a.size)})</a><button data-action="remove-attachment" data-task-id="${t.id}" data-attach-idx="${idx}" title="Remove attachment">&times;</button></div>`).join('')}</div></div>` : ''}
     <div style="display:flex;gap:8px;margin-top:8px;align-items:center">
       <input class="task-cmd" data-cmd="${t.id}" placeholder="done, defer, urgent, due friday, move to [board], or ask anything..." aria-label="Task command input" data-keydown-action="run-task-cmd" data-task-id="${t.id}" style="flex:1">
+      <button class="btn btn-sm btn-ghost" data-action="attach-task-file" data-task-id="${t.id}" style="white-space:nowrap;flex-shrink:0" title="Attach file">📎 Attach</button>
+      <input type="file" data-onchange-action="task-file-selected" data-task-id="${t.id}" accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,.md,.jpg,.jpeg,.png,.gif,.zip" style="display:none" class="task-file-input">
       ${!isDone ? `<button class="btn btn-sm" data-action="task-work" data-task-id="${t.id}" style="white-space:nowrap;color:var(--accent);border-color:var(--accent);flex-shrink:0">\u2726 Help me work on this</button>` : ''}
     </div>
   </div>`;

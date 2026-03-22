@@ -6243,3 +6243,46 @@ h3.section-title {
     padding-bottom: 72px;
   }
 }
+
+/* Task Attachments */
+.task-attachment {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xs);
+  padding: 3px 8px;
+  font-size: 12px;
+  transition: background 0.15s, border-color 0.15s;
+}
+.task-attachment:hover {
+  background: var(--surface3);
+  border-color: var(--border2);
+}
+.task-attachment a {
+  color: var(--text2);
+  text-decoration: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 200px;
+}
+.task-attachment a:hover {
+  color: var(--accent);
+}
+.task-attachment button {
+  background: none;
+  border: none;
+  color: var(--text3);
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  padding: 0 2px;
+  opacity: 0.6;
+  transition: opacity 0.15s, color 0.15s;
+}
+.task-attachment button:hover {
+  opacity: 1;
+  color: var(--red);
+}

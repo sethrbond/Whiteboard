@@ -130,6 +130,8 @@ export function createActions(deps) {
     runTaskCmd,
     heroInputHandler,
     handleEscalationAction,
+    uploadTaskAttachment,
+    removeTaskAttachment,
     autoRebalanceWeek,
     acceptReschedule,
     skipReschedule,
@@ -361,6 +363,22 @@ export function createActions(deps) {
           });
         } else {
           showToast('Task work not available', true);
+        }
+        break;
+      }
+      case 'attach-task-file': {
+        const _afEl = actionEl.closest('.task-expanded');
+        if (_afEl) {
+          const fileInput = _afEl.querySelector('.task-file-input');
+          if (fileInput) fileInput.click();
+        }
+        break;
+      }
+      case 'remove-attachment': {
+        const _raTaskId = actionEl.dataset.taskId;
+        const _raIdx = parseInt(actionEl.dataset.attachIdx, 10);
+        if (_raTaskId && !isNaN(_raIdx) && typeof removeTaskAttachment === 'function') {
+          removeTaskAttachment(_raTaskId, _raIdx);
         }
         break;
       }
@@ -1553,6 +1571,15 @@ export function createActions(deps) {
           el.value = '';
         }
         break;
+      case 'task-file-selected': {
+        const _tfTaskId = el.dataset.taskId;
+        const _tfFile = el.files && el.files[0];
+        if (_tfTaskId && _tfFile && typeof uploadTaskAttachment === 'function') {
+          uploadTaskAttachment(_tfTaskId, _tfFile);
+        }
+        el.value = ''; // reset so same file can be re-selected
+        break;
+      }
       case 'dump-review-select-all':
         document.querySelectorAll('[data-dump-check]').forEach((c) => {
           c.checked = el.checked;
