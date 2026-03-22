@@ -2314,19 +2314,23 @@ h3.section-title {
   align-items: center;
   justify-content: center;
   border: none;
-  background: transparent;
-  color: var(--text3);
+  background: rgba(255,255,255,0.15);
+  color: rgba(255,255,255,0.7);
   cursor: pointer;
   font-size: 11px;
   border-radius: 4px;
-  opacity: 0;
+  opacity: 0.6;
   transition: opacity 0.15s;
+}
+.chat-msg.user .chat-copy-btn {
+  color: rgba(0,0,0,0.5);
+  background: rgba(0,0,0,0.08);
 }
 .chat-msg:hover .chat-copy-btn {
   opacity: 1;
 }
 .chat-copy-btn:hover {
-  background: var(--surface3);
+  background: rgba(255,255,255,0.25);
   color: var(--text);
 }
 
