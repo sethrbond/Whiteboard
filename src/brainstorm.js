@@ -649,23 +649,37 @@ export function createBrainstorm(deps) {
 
   function approveAllThemes() {
     // Collect all clarify answers and enrich tasks before applying
+    // Collect clarify answers and check for "already tracked" / "skip" signals
+    const skipPatterns = /already track|already have|already covered|don't need|dont need|skip|remove|not needed|duplicate/i;
     const inputs = document.querySelectorAll('.conv-clarify-input');
+    const themeSkipSignals = {};
     inputs.forEach((inp) => {
       if (!inp.value.trim()) return;
       const themeIdx = parseInt(inp.dataset.themeIdx, 10);
+      const answer = inp.value.trim();
+      if (skipPatterns.test(answer)) {
+        themeSkipSignals[themeIdx] = true;
+      }
       const theme = _convThemes[themeIdx];
-      if (theme) {
+      if (theme && !themeSkipSignals[themeIdx]) {
         (theme.tasks || []).forEach((t) => {
-          t.notes = (t.notes || '') + (t.notes ? ' ' : '') + inp.value.trim();
+          t.notes = (t.notes || '') + (t.notes ? ' ' : '') + answer;
         });
       }
     });
 
-    // Apply all themes at once
+    // Apply all themes at once (skip themes the user said are already tracked)
     _convState = 'APPLYING';
     _refreshConversationUI();
 
     _convThemes.forEach((theme, idx) => {
+      if (themeSkipSignals[idx]) {
+        _convMessages.push({
+          role: 'status',
+          content: `Skipped "${theme.name}" — already tracked`,
+        });
+        return;
+      }
       const tasks = theme.tasks || [];
       _applyThemeTasks(theme, tasks);
       _convMessages.push({
@@ -870,6 +884,7 @@ ${_getTaskExtractionRules()}
 - A 1-page dump = 3-10 tasks. A 10-page doc = 15-40 tasks.
 - boardDescription is REQUIRED for every theme — write a real subtitle, not a template.
 - boardBackground is REQUIRED for every theme — fill in ALL sections with REAL content from the input, not placeholders.
+- DUPLICATE DETECTION: Check the existing tasks list carefully. If a task already exists with a similar title or purpose, DO NOT create a new one. If the user says "I already track this" or "this is covered by [existing task]", DO NOT create a task for it — skip it entirely. Never create a task with a note saying "might already be tracked" — either it's new (create it) or it's not (skip it).
 
 STATUS DETECTION — GET THIS RIGHT:
 DONE/COMPLETED: [x], "completed", "done", "finished", "submitted", "signed", "applied", "APPLIED", "SUBMITTED", "sent", "filed", "approved", "received", "confirmed", "secured", "decided", "locked", "locked in", past tense verbs = status "done". Items under headers like "COMPLETED", "DONE", "IN PROGRESS" with status labels = use that status. AGGRESSIVELY detect completed work. If a document describes something as already accomplished, it is DONE.
