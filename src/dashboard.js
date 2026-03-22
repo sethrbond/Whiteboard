@@ -1136,7 +1136,10 @@ export function createDashboard(deps) {
           <span style="font-size:15px;font-weight:600;color:var(--text)">Today's Plan</span>
           <span style="font-size:11px;color:var(--text3)">${new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</span>
         </div>
-        <span style="font-size:12px;color:${allDone ? 'var(--green)' : 'var(--text3)'}">${doneCount}/${totalCount}${remainingStr}</span>
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="font-size:12px;color:${allDone ? 'var(--green)' : 'var(--text3)'}">${doneCount}/${totalCount}${remainingStr}</span>
+          <button data-action="replan-day" style="font-size:11px;color:var(--accent);background:none;border:1px solid var(--border);border-radius:var(--radius-xs);padding:2px 8px;cursor:pointer" title="Reassess and update plan">↻ Refresh</button>
+        </div>
       </div>`;
 
       html += `<div role="list" aria-label="Today's plan tasks">`;
@@ -1194,7 +1197,10 @@ export function createDashboard(deps) {
         <span style="font-size:15px;font-weight:600;color:var(--text)">Today's Plan</span>
         <span style="font-size:11px;color:var(--text3)">${new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</span>
       </div>
-      <span style="font-size:12px;color:${allDone ? 'var(--green)' : 'var(--text3)'}">${doneTasks}/${totalTasks}${remainingStr}</span>
+      <div style="display:flex;align-items:center;gap:8px">
+        <span style="font-size:12px;color:${allDone ? 'var(--green)' : 'var(--text3)'}">${doneTasks}/${totalTasks}${remainingStr}</span>
+        <button data-action="replan-day" style="font-size:11px;color:var(--accent);background:none;border:1px solid var(--border);border-radius:var(--radius-xs);padding:2px 8px;cursor:pointer" title="Reassess and update plan">↻ Refresh</button>
+      </div>
     </div>`;
 
     // Render each time block
