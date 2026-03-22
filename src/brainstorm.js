@@ -923,11 +923,12 @@ PRIORITY (correlate with time \u2014 today is ${new Date().toISOString().slice(0
 - Due in 15+ days \u2192 normal
 - Due in 60+ days \u2192 low
 
-DEADLINES — CRITICAL:
-- Only set dueDate if the input mentions a SPECIFIC date or deadline ("by Friday", "due March 25", "opens late April", "deadline Apr 23").
-- NEVER invent or guess deadlines. If no date is mentioned, leave dueDate empty ("").
-- If the input is vague about timing ("soon", "this month", "ASAP"), do NOT set a dueDate. Instead, add a question asking the user when it's actually due.
-- For tasks without explicit deadlines, include a question in the theme's "questions" array: "When do you need [task] done by?"
+DEADLINES — CRITICAL (READ THIS TWICE):
+- Only set dueDate if the input contains a SPECIFIC calendar date ("by Friday", "due March 25", "deadline Apr 23").
+- NEVER EVER invent, guess, or infer deadlines. "Apply now", "ASAP", "soon", "this week", "this month" are NOT deadlines — leave dueDate as "".
+- When in doubt, leave dueDate EMPTY. A missing deadline is always better than a wrong one.
+- If many tasks lack deadlines, ask ONE question: "Do any of these have specific deadlines I should know about?"
+- The DEFAULT dueDate is "" (empty string). You must have an extremely good reason to set anything else.
 
 TIME ESTIMATES: ALWAYS estimate. Every task MUST have estimatedMinutes > 0.
 - Quick tasks (email, call, form, lookup): 15 minutes

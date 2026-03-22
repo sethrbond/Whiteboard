@@ -516,6 +516,7 @@ For subtask updates: use "update" with fields.subtasks — provide the FULL subt
   [{"title": "new title", "done": false}, {"title": "existing", "done": true}]
 
 For dates: today is ${todayStr()}. "Friday" = next upcoming Friday. Return dates as YYYY-MM-DD.
+CRITICAL: NEVER invent or guess due dates. Only set dueDate if the user explicitly states a deadline. If no date mentioned, leave dueDate as "" or don't include it. "Apply now" or "ASAP" is NOT a deadline — leave dueDate empty.
 For "move to [board]": match to closest project name and set project field to that project's id.
 
 ONLY return JSON.`;
@@ -543,14 +544,22 @@ ONLY return JSON.`;
         for (const k of allowed) {
           if (k in cmd.fields) safe[k] = cmd.fields[k];
         }
-        // Ensure subtasks have proper IDs
+        // Ensure subtasks have proper IDs — flatten any nested subtasks
         if (safe.subtasks && Array.isArray(safe.subtasks)) {
-          safe.subtasks = safe.subtasks.map((s) => ({
-            id: s.id || genId('st'),
-            title: s.title || '',
-            done: !!s.done,
-            notes: s.notes || '',
-          }));
+          const _flattenSubs = (arr, prefix) => {
+            const result = [];
+            arr.forEach((s) => {
+              const title = prefix ? `${prefix}: ${s.title || ''}` : (s.title || '');
+              if (s.subtasks && Array.isArray(s.subtasks) && s.subtasks.length) {
+                // This is a category — flatten its children with prefix
+                result.push(..._flattenSubs(s.subtasks, s.title || prefix));
+              } else {
+                result.push({ id: s.id || genId('st'), title, done: !!s.done, notes: s.notes || '' });
+              }
+            });
+            return result;
+          };
+          safe.subtasks = _flattenSubs(safe.subtasks, '');
         }
         updateTask(taskId, safe);
       }

@@ -1775,6 +1775,14 @@ if ('serviceWorker' in navigator) {
     console.warn('service worker registration failed:', _e.message || _e);
   });
 }
+// Auto-expand chat input textarea as user types
+document.addEventListener('input', (e) => {
+  if (e.target.id === 'chatInput' || e.target.classList.contains('chat-input')) {
+    e.target.style.height = 'auto';
+    e.target.style.height = Math.min(e.target.scrollHeight, window.innerHeight * 0.33) + 'px';
+  }
+});
+
 initAuth();
 
 // Start escalation engine after auth — if user is already authenticated,
