@@ -580,6 +580,7 @@ export function createBrainstorm(deps) {
       html += `<div style="display:flex;align-items:center;gap:8px;padding:16px 0">
         <div class="spinner"></div>
         <span style="font-size:13px;color:var(--text2)">Reading your input and identifying themes... <span data-dump-elapsed style="color:var(--text3);font-size:11px"></span></span>
+        <div style="font-size:11px;color:var(--text3);margin-top:4px" data-dump-status></div>
         <button class="btn btn-sm" style="margin-left:auto;font-size:10px;color:var(--red);border-color:var(--red)" data-action="cancel-dump">Cancel</button>
       </div>`;
     } else if (_convState === 'THEME_REVIEW' || _convState === 'CLARIFYING') {
@@ -1005,7 +1006,9 @@ For updates: { "action": "update", "id": "existing_task_id", "updateFields": { "
 
     pushUndo('Brainstorm');
     dumpAbort = new AbortController();
-    const dumpTimeout = setTimeout(() => dumpAbort.abort(), AI_REQUEST_TIMEOUT_MS);
+    const isLargeInput = text.length > 5000;
+    const dumpTimeoutMs = isLargeInput ? 300000 : AI_REQUEST_TIMEOUT_MS; // 5min for large inputs
+    const dumpTimeout = setTimeout(() => dumpAbort.abort(), dumpTimeoutMs);
 
     // Switch to conversation view — update the modal directly
     _refreshConversationUI();
@@ -1013,11 +1016,20 @@ For updates: { "action": "update", "id": "existing_task_id", "updateFields": { "
     // Elapsed timer so user knows it's still working
     const _startTime = Date.now();
     const _timerEl = () => document.querySelector('[data-dump-elapsed]');
+    const _statusEl = () => document.querySelector('[data-dump-status]');
     const _elapsedInterval = setInterval(() => {
       const el = _timerEl();
       if (el) {
         const secs = Math.floor((Date.now() - _startTime) / 1000);
         el.textContent = secs < 60 ? `${secs}s` : `${Math.floor(secs / 60)}m ${secs % 60}s`;
+      }
+      const status = _statusEl();
+      if (status) {
+        const secs = Math.floor((Date.now() - _startTime) / 1000);
+        if (secs < 10) status.textContent = isLargeInput ? 'Large input — this may take 2-4 minutes' : '';
+        else if (secs < 60) status.textContent = 'Still working...';
+        else if (secs < 120) status.textContent = 'Processing — large inputs take longer';
+        else status.textContent = 'Almost there — still waiting for AI response';
       }
     }, 1000);
 
