@@ -1056,6 +1056,7 @@ ${text}${getDumpAttachmentText()}`;
           model: settings.aiModel || 'claude-haiku-4-5-20251001',
           max_tokens: 16384,
           temperature: 0.3,
+          stream: true,
           system: systemPrompt,
           messages: [{ role: 'user', content: userPrompt }],
         }),
@@ -1073,8 +1074,37 @@ ${text}${getDumpAttachmentText()}`;
         );
       }
 
-      const result = await resp.json();
-      const rawText = result.content[0].text;
+      // Stream the response to prevent edge function timeout on large inputs
+      let rawText = '';
+      const contentType = (resp.headers && resp.headers.get ? resp.headers.get('content-type') : '') || '';
+      if (contentType.includes('text/event-stream')) {
+        const reader = resp.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n');
+          buffer = lines.pop() || '';
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              const jsonStr = line.slice(6).trim();
+              if (jsonStr === '[DONE]') continue;
+              try {
+                const event = JSON.parse(jsonStr);
+                if (event.type === 'content_block_delta' && event.delta?.text) {
+                  rawText += event.delta.text;
+                }
+              } catch (_) { /* skip malformed SSE chunks */ }
+            }
+          }
+        }
+      } else {
+        // Fallback: non-streaming response
+        const result = await resp.json();
+        rawText = result.content[0].text;
+      }
 
       // Try to parse as themed response
       const parsed = _parseThemeResponse(rawText);
@@ -1121,15 +1151,13 @@ ${text}${getDumpAttachmentText()}`;
       if (err.name === 'AbortError') {
         showToast('Timed out or cancelled. Your data was not changed.', false, false);
         undo();
-        _resetConvState();
-        _dumpInProgress = false;
-        render();
-        return;
+      } else {
+        console.error('AI error:', err);
+        showToast('Error: ' + err.message, true);
       }
-      console.error('AI error:', err);
-      showToast('Error: ' + err.message, true);
       _resetConvState();
       _dumpInProgress = false;
+      _refreshConversationUI();
       render();
     } finally {
       clearInterval(_elapsedInterval);
