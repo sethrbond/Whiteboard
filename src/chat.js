@@ -66,16 +66,20 @@ export function createChat(deps) {
       m.setAttribute('data-copy-ready', '1');
       if (m.classList.contains('chat-welcome-msg')) return;
       const btn = document.createElement('button');
-      btn.className = 'chat-copy-btn';
-      btn.title = 'Copy';
-      btn.textContent = '\u2398';
-      btn.onclick = () => {
-        const text = m.innerText.replace(/\u2398/g, '').replace(/\d{1,2}:\d{2}\s*[AP]M/g, '').trim();
+      btn.title = 'Copy text';
+      btn.textContent = 'Copy';
+      btn.style.cssText = 'position:absolute;top:6px;right:6px;font-size:10px;padding:2px 8px;border-radius:4px;border:1px solid rgba(255,255,255,0.3);background:rgba(0,0,0,0.2);color:#fff;cursor:pointer;opacity:0.7;z-index:10';
+      btn.onmouseenter = () => { btn.style.opacity = '1'; };
+      btn.onmouseleave = () => { btn.style.opacity = '0.7'; };
+      btn.onclick = (e) => {
+        e.stopPropagation();
+        const text = m.innerText.replace(/^Copy$/gm, '').replace(/\d{1,2}:\d{2}\s*[AP]M/g, '').trim();
         navigator.clipboard.writeText(text).then(() => {
-          btn.textContent = '\u2713';
-          setTimeout(() => { btn.textContent = '\u2398'; }, 1500);
+          btn.textContent = 'Copied!';
+          setTimeout(() => { btn.textContent = 'Copy'; }, 1500);
         });
       };
+      m.style.position = 'relative';
       m.appendChild(btn);
     });
   }
