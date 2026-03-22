@@ -718,6 +718,8 @@ export function createBrainstorm(deps) {
   function _buildThemeExtractionPrompt() {
     return `You are a sharp, direct productivity partner. You've been handed a brainstorm dump. Your job: identify the distinct THEMES in this input, then for each theme, extract the tasks.
 
+CRITICAL: Only create themes from the USER'S INPUT below. The existing tasks and projects are provided ONLY so you can avoid duplicates and assign tasks to the right boards. Do NOT generate new themes, tasks, or questions about existing boards that the user didn't mention in their input.
+
 ## WHAT IS A THEME?
 A theme is a distinct topic, project, or area of life. Examples:
 - "Morocco trip planning" = one theme
