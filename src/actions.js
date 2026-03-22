@@ -902,6 +902,13 @@ export function createActions(deps) {
         }
         break;
       // Conversational brainstorm actions
+      case 'brainstorm-approve-all': {
+        (async () => {
+          const bma = await getBrainstormModule();
+          if (bma && bma.approveAllThemes) bma.approveAllThemes();
+        })();
+        break;
+      }
       case 'brainstorm-approve-theme': {
         // getBrainstormModule() returns a Promise — must await
         (async () => {

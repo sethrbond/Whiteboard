@@ -581,12 +581,16 @@ export function createBrainstorm(deps) {
         <span style="font-size:13px;color:var(--text2)">Reading your input and identifying themes...</span>
         <button class="btn btn-sm" style="margin-left:auto;font-size:10px;color:var(--red);border-color:var(--red)" data-action="cancel-dump">Cancel</button>
       </div>`;
-    } else if (_convState === 'THEME_REVIEW') {
-      const theme = _convThemes[_convCurrentTheme];
-      if (theme) html += _renderThemeCard(theme, _convCurrentTheme, _convThemes.length);
-    } else if (_convState === 'CLARIFYING') {
-      const theme = _convThemes[_convCurrentTheme];
-      if (theme) html += _renderClarifyCard(theme);
+    } else if (_convState === 'THEME_REVIEW' || _convState === 'CLARIFYING') {
+      // Show ALL themes at once with inline questions
+      html += `<div style="margin-bottom:12px;font-size:12px;color:var(--text3)">${_convThemes.length} theme${_convThemes.length !== 1 ? 's' : ''} found</div>`;
+      _convThemes.forEach((theme, idx) => {
+        html += _renderThemeCardWithQuestions(theme, idx, _convThemes.length);
+      });
+      html += `<div style="display:flex;gap:8px;margin-top:16px;padding-top:16px;border-top:1px solid var(--border)">
+        <button class="btn btn-primary btn-sm" data-action="brainstorm-approve-all">\u2713 Create all tasks</button>
+        <button class="btn btn-sm" data-action="cancel-dump" style="color:var(--text3)">Cancel</button>
+      </div>`;
     } else if (_convState === 'APPLYING') {
       html += `<div style="display:flex;align-items:center;gap:8px;padding:16px 0">
         <div class="spinner"></div>
@@ -597,6 +601,80 @@ export function createBrainstorm(deps) {
     }
 
     return html;
+  }
+
+  function _renderThemeCardWithQuestions(theme, idx, total) {
+    const tasks = theme.tasks || [];
+    const tasksPreview = tasks
+      .slice(0, 6)
+      .map((t) => {
+        const prioBadge =
+          t.priority === 'urgent'
+            ? ' <span style="color:var(--red);font-size:10px;font-weight:600">Urgent</span>'
+            : t.priority === 'important'
+              ? ' <span style="color:var(--orange);font-size:10px;font-weight:600">Important</span>'
+              : '';
+        return `<div style="display:flex;gap:6px;align-items:start;padding:3px 0">
+        <span style="color:var(--text3);flex-shrink:0;font-size:11px">\u2022</span>
+        <span style="font-size:12px;color:var(--text2)">${esc(t.title)}${prioBadge}</span>
+      </div>`;
+      })
+      .join('');
+    const moreCount = tasks.length - 6;
+    const hasQuestions = theme.questions && theme.questions.length > 0;
+
+    let html = `<div style="background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius);padding:20px;margin:8px 0;animation:fadeIn .3s ease">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <div style="font-size:15px;font-weight:600;color:var(--text)">${esc(theme.name)}</div>
+        <div style="font-size:11px;color:var(--text3)">${tasks.length} task${tasks.length !== 1 ? 's' : ''}</div>
+      </div>
+      <div style="font-size:13px;color:var(--text2);line-height:1.6;margin-bottom:14px">${esc(theme.narrative)}</div>
+      ${tasksPreview ? `<div style="margin-bottom:14px;padding:10px 12px;background:var(--surface3);border-radius:var(--radius-sm)">${tasksPreview}${moreCount > 0 ? `<div style="font-size:11px;color:var(--text3);padding:4px 0">+${moreCount} more</div>` : ''}</div>` : ''}`;
+
+    // Inline questions if any
+    if (hasQuestions) {
+      html += `<div style="border-top:1px solid var(--border);padding-top:12px;margin-top:4px">
+        <div style="font-size:11px;color:var(--accent);margin-bottom:8px;font-weight:500">\u2726 Quick questions (optional)</div>`;
+      theme.questions.forEach((q, qi) => {
+        html += `<div style="margin-bottom:8px">
+          <div style="font-size:12px;color:var(--text2);margin-bottom:4px">${esc(q)}</div>
+          <input class="conv-clarify-input" data-theme-idx="${idx}" data-q-idx="${qi}" placeholder="Your answer..." style="width:100%;padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:12px;color:var(--text);background:var(--surface);outline:none;font-family:inherit;box-sizing:border-box">
+        </div>`;
+      });
+      html += `</div>`;
+    }
+    html += `</div>`;
+    return html;
+  }
+
+  function approveAllThemes() {
+    // Collect all clarify answers and enrich tasks before applying
+    const inputs = document.querySelectorAll('.conv-clarify-input');
+    inputs.forEach((inp) => {
+      if (!inp.value.trim()) return;
+      const themeIdx = parseInt(inp.dataset.themeIdx, 10);
+      const theme = _convThemes[themeIdx];
+      if (theme) {
+        (theme.tasks || []).forEach((t) => {
+          t.notes = (t.notes || '') + (t.notes ? ' ' : '') + inp.value.trim();
+        });
+      }
+    });
+
+    // Apply all themes at once
+    _convState = 'APPLYING';
+    _refreshConversationUI();
+
+    _convThemes.forEach((theme, idx) => {
+      const tasks = theme.tasks || [];
+      _applyThemeTasks(theme, tasks);
+      _convMessages.push({
+        role: 'status',
+        content: `Created ${tasks.length} task${tasks.length !== 1 ? 's' : ''} for "${theme.name}"`,
+      });
+    });
+
+    _completeConversation();
   }
 
   function _renderThemeCard(theme, idx, total) {
@@ -1633,6 +1711,7 @@ ${text}${getDumpAttachmentText()}`;
     getDumpHistory,
     resetState,
     approveTheme,
+    approveAllThemes,
     skipTheme,
     submitThemeClarify,
     skipThemeClarify,
