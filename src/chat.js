@@ -312,7 +312,7 @@ RULES:
     chatMsgs.scrollTop = chatMsgs.scrollHeight; _addCopyButtons();
 
     const chatAbort = new AbortController();
-    const chatTimeout = setTimeout(() => chatAbort.abort(), 60000);
+    const chatTimeout = setTimeout(() => chatAbort.abort(), 180000);
     try {
       const _chatEp = getAIEndpoint();
       const resp = await fetch(_chatEp.url, {
@@ -323,7 +323,7 @@ RULES:
           ..._chatEp.headers,
         },
         body: JSON.stringify({
-          model: settings.aiModel || 'claude-haiku-4-5-20251001',
+          model: settings.aiModel || 'claude-haiku-4-5',
           max_tokens: 16384,
           system: systemPrompt,
           messages: chatHistory.slice(-MAX_CHAT_HISTORY).map((m) => ({ role: m.role, content: m.content })),
