@@ -38,7 +38,7 @@ export function createProactivePlanning(deps) {
   async function planMyDay() {
     if (!hasAI()) return;
     const data = getData();
-    const active = data.tasks.filter((t) => t.status !== 'done' && !t.archived);
+    const active = data.tasks.filter((t) => t.status !== 'done' && t.status !== 'waiting' && !t.archived);
     if (active.length === 0) {
       showToast('No active tasks to plan — add some tasks first');
       return;
@@ -62,10 +62,15 @@ export function createProactivePlanning(deps) {
       .join('\n');
 
     const totalEstimated = active.reduce((sum, t) => sum + (t.estimatedMinutes || 0), 0);
+    const dayOfWeek = new Date().getDay();
+    const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
     const estNote =
       totalEstimated > 0
-        ? `\nTIME ESTIMATES: ${Math.round((totalEstimated / 60) * 10) / 10} hours of estimated work across all active tasks. Assume 6-8 productive hours available today — don't overload the plan.`
+        ? `\nTIME ESTIMATES: ${Math.round((totalEstimated / 60) * 10) / 10} hours of estimated work across all active tasks. Assume ${isWeekend ? '3-4' : '6-8'} productive hours available today — don't overload the plan.`
         : '';
+    const weekendNote = isWeekend
+      ? '\nWEEKEND MODE: This is a weekend — plan lighter, focus on personal tasks and rest unless the user has urgent deadlines.'
+      : '';
 
     const memInsights =
       typeof deps.getAIMemory === 'function' ? extractMemoryInsights(deps.getAIMemory()) : extractMemoryInsights([]);
@@ -82,7 +87,7 @@ export function createProactivePlanning(deps) {
 Plan the user's day and write a narrative brief explaining what matters and why.
 ${insightsSection}
 ${ctx}
-${estNote}
+${estNote}${weekendNote}
 
 ALL ACTIVE TASKS (id|title|priority|status|due|project|blocked|estimate|subtask_progress|age):
 ${taskList}
@@ -95,7 +100,7 @@ RULES FOR TASK SELECTION:
 - Include in-progress tasks (momentum matters)
 - Skip BLOCKED tasks only
 - TRIAGE RULE: If more than 3 tasks are marked "urgent", you MUST triage. Only 1-3 things can truly be urgent. The rest get downgraded to "important" with an explanation in the why field.
-- REALITY CHECK: If total estimated time for selected tasks exceeds 6 hours, cut tasks. If estimates are mostly 0 or missing, note this in the narrative and suggest rough estimates.
+- REALITY CHECK: If total estimated time for selected tasks exceeds ${isWeekend ? '4' : '6'} hours, cut tasks. If estimates are mostly 0 or missing, note this in the narrative and suggest rough estimates.
 - Use the task IDs EXACTLY as provided — copy them character for character
 
 RULES FOR NARRATIVE:
@@ -139,7 +144,7 @@ Return ONLY this JSON object, no other text:
 }`;
 
     try {
-      const reply = await callAI(prompt, { maxTokens: 16384, temperature: 0.3 });
+      const reply = await callAI(prompt, { maxTokens: 4096, temperature: 0.3 });
       const cleaned = reply
         .replace(/```json?\s*/g, '')
         .replace(/```/g, '')
@@ -304,7 +309,7 @@ Leave null if no block restructuring needed.`;
 
     try {
       showToast('Updating...');
-      const reply = await callAI(prompt, { maxTokens: 16384, temperature: 0.3 });
+      const reply = await callAI(prompt, { maxTokens: 4096, temperature: 0.3 });
       const cleaned = reply
         .replace(/```json?\s*/g, '')
         .replace(/```/g, '')
@@ -428,8 +433,9 @@ Leave null if no block restructuring needed.`;
     const dailyTasks = {};
     const overloadedDays = [];
     const emptyDays = [];
+    const baseDate = new Date(todayStr() + 'T00:00:00');
     for (let i = 0; i < 7; i++) {
-      const d = new Date();
+      const d = new Date(baseDate);
       d.setDate(d.getDate() + i);
       const ds =
         d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
@@ -443,7 +449,7 @@ Leave null if no block restructuring needed.`;
     const done = data.tasks.filter(function (t) {
       return t.status === 'done' && t.completedAt;
     });
-    const twoWeeksAgo = new Date(Date.now() - 14 * MS_PER_DAY).toISOString().slice(0, 10);
+    const twoWeeksAgo = new Date(baseDate.getTime() - 14 * MS_PER_DAY).toISOString().slice(0, 10);
     const recentDone = done.filter(function (t) {
       return t.completedAt.slice(0, 10) >= twoWeeksAgo;
     });
@@ -505,7 +511,7 @@ Leave null if no block restructuring needed.`;
         Math.ceil(workload.avgCapacity) +
         ' tasks per day)\n- Urgent tasks should be moved to sooner days (tomorrow or day after)\n- Important tasks within 3 days, normal/low tasks can go further out\n- Keep estimated time per day reasonable\n- Give a brief reason for each suggestion (8 words max)\n\nReturn ONLY a JSON array:\n[{ "id": "task_id", "suggestedDate": "YYYY-MM-DD", "reason": "brief reason" }]';
       try {
-        const reply = await callAI(prompt, { maxTokens: 16384, temperature: 0.3 });
+        const reply = await callAI(prompt, { maxTokens: 4096, temperature: 0.3 });
         const json = JSON.parse(
           reply
             .replace(/```json?\s*/g, '')

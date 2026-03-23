@@ -886,14 +886,18 @@ describe('data.js — createDataLayer()', () => {
       expect(dl.getData().projects.find((x) => x.id === p.id).name).toBe('New');
     });
 
-    it('deleteProject removes project and its tasks', () => {
+    it('deleteProject removes project and archives its tasks', () => {
       const p = dl.createProject({ name: 'Doomed' });
       dl.addProject(p);
       const t = dl.createTask({ title: 'Project task', project: p.id });
       dl.addTask(t);
       dl.deleteProject(p.id);
       expect(dl.getData().projects.find((x) => x.id === p.id)).toBeUndefined();
-      expect(dl.getData().tasks.find((x) => x.project === p.id)).toBeUndefined();
+      const archivedTask = dl.getData().tasks.find((x) => x.project === p.id);
+      expect(archivedTask).toBeDefined();
+      expect(archivedTask.archived).toBe(true);
+      expect(archivedTask.archivedAt).toBeTruthy();
+      expect(archivedTask.status).toBe('done');
     });
   });
 

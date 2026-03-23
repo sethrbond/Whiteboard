@@ -928,7 +928,8 @@ ${_getTaskExtractionRules()}
 STATUS DETECTION — GET THIS RIGHT:
 DONE/COMPLETED: [x], "completed", "done", "finished", "submitted", "signed", "applied", "APPLIED", "SUBMITTED", "sent", "filed", "approved", "received", "confirmed", "secured", "decided", "locked", "locked in", past tense verbs = status "done". Items under headers like "COMPLETED", "DONE", "IN PROGRESS" with status labels = use that status. AGGRESSIVELY detect completed work. If a document describes something as already accomplished, it is DONE.
 TODO: [ ], "pending", "needs to", "will", "check", "verify", "apply", future tense = status "todo".
-IN-PROGRESS: "working on", "currently", "started", "PENDING", "waiting" = status "in-progress".
+WAITING: "waiting on", "on hold", "blocked by external", "pending response" = status "waiting".
+IN-PROGRESS: "working on", "currently", "started", "PENDING" = status "in-progress".
 CRITICAL: If a document has 20+ items and ZERO are marked "done", you are almost certainly misreading it. Re-check for past-tense accomplishments.
 
 PRIORITY (correlate with time \u2014 today is ${new Date().toISOString().slice(0, 10)}):
@@ -1178,10 +1179,18 @@ ${text}${getDumpAttachmentText()}`;
         console.error('AI error:', err);
         showToast('Error: ' + err.message, true);
       }
+      const savedInput = _convOriginalInput;
       _resetConvState();
       _dumpInProgress = false;
       _refreshConversationUI();
       render();
+      // Restore the user's original input so it's not lost after error
+      if (savedInput) {
+        setTimeout(() => {
+          const ta = document.getElementById('dumpText');
+          if (ta) ta.value = savedInput;
+        }, 0);
+      }
     } finally {
       clearInterval(_elapsedInterval);
       clearTimeout(dumpTimeout);

@@ -214,7 +214,7 @@ export function createNotifications(deps) {
     if (!data || !data.tasks) return;
 
     const now = Date.now();
-    const activeTasks = data.tasks.filter((t) => t.status !== 'done' && !t.archived);
+    const activeTasks = data.tasks.filter((t) => t.status !== 'done' && t.status !== 'waiting' && !t.archived);
 
     // -- Due soon & overdue notifications --------------------------------
     if (prefs.dueSoon || prefs.overdue) {

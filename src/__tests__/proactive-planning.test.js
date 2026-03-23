@@ -218,9 +218,7 @@ describe('proactive-planning.js — createProactivePlanning()', () => {
   });
 
   it('analyzeWorkload detects overloaded days (>5 tasks)', () => {
-    const d = new Date();
-    const today =
-      d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+    const today = deps.todayStr();
     const tasks = Array.from({ length: 7 }, (_, i) => ({
       id: `t${i}`,
       title: `Task ${i}`,
@@ -440,9 +438,7 @@ describe('proactive-planning.js — createProactivePlanning()', () => {
   });
 
   it('isWeekOverloaded returns true when days are overloaded', () => {
-    const d = new Date();
-    const today =
-      d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+    const today = deps.todayStr();
     const tasks = Array.from({ length: 7 }, (_, i) => ({
       id: `t${i}`,
       status: 'todo',

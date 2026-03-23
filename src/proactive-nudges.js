@@ -96,6 +96,7 @@ export function createProactiveNudges(deps) {
     const done = data.tasks.filter((t) => t.status === 'done');
     const overdue = active.filter((t) => t.dueDate && t.dueDate < today);
     const inProgress = active.filter((t) => t.status === 'in-progress');
+    const waiting = active.filter((t) => t.status === 'waiting');
     const stale = active.filter((t) => {
       const lastTouch = t.updates?.length ? t.updates[t.updates.length - 1].date : t.createdAt;
       return lastTouch && Date.now() - new Date(lastTouch).getTime() > STALE_TASK_DAYS * MS_PER_DAY;
@@ -142,6 +143,14 @@ export function createProactiveNudges(deps) {
         text: `${inProgress.length} tasks in progress at once. Try finishing some before starting more.`,
         actionLabel: 'Focus on one',
         actionFn: `startFocus()`,
+      });
+
+    // Waiting tasks reminder
+    if (waiting.length >= 3)
+      nudges.push({
+        type: 'info',
+        icon: '\u23f8',
+        text: `${waiting.length} tasks on hold. Check if any are unblocked and ready to resume.`,
       });
 
     // Overdue pileup
@@ -419,7 +428,7 @@ ONE sentence max. Be genuine, not performative. No "Great job!" energy.`;
         '"' +
         (task.notes ? '\nNotes: ' + task.notes : '') +
         '\n\nReturn ONLY a JSON array of strings, no other text:\n["subtask 1", "subtask 2", ...]';
-      const reply = await callAI(prompt, { maxTokens: 16384, temperature: 0.3 });
+      const reply = await callAI(prompt, { maxTokens: 500, temperature: 0.3 });
       const subtasks = JSON.parse(
         reply
           .replace(/```json?\s*/g, '')

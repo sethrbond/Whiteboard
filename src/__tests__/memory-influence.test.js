@@ -424,6 +424,7 @@ describe('Memory Insights Card — renderMemoryInsightsCard', () => {
       todayStr: vi.fn(() => '2026-03-16'),
       PRIORITY_ORDER: { urgent: 0, important: 1, normal: 2, low: 3 },
       getData: vi.fn(() => ({ tasks: [], projects: [{ id: 'p1', name: 'Life' }] })),
+      saveData: vi.fn(),
       userKey: vi.fn((k) => `user1_${k}`),
       findTask: vi.fn(() => null),
       activeTasks: vi.fn(() => []),

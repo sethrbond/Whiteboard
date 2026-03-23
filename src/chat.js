@@ -41,12 +41,13 @@ export function createChat(deps) {
   let chatContext = null;
   let _chatSessionStarted = false;
   let _chatSending = false;
+  let _chatAbort = null; // hoisted so cancelChat can access it
   let _proactiveChatTriggered = false;
 
   function saveChatHistory() {
     try {
       chatHistory = chatHistory.slice(-100);
-      localStorage.setItem(userKey(CHAT_HISTORY_KEY), JSON.stringify(chatHistory.slice(-MAX_CHAT_HISTORY)));
+      localStorage.setItem(userKey(CHAT_HISTORY_KEY), JSON.stringify(chatHistory.slice(-100)));
     } catch (e) {
       console.warn('saveChatHistory failed:', e);
     }
@@ -309,16 +310,18 @@ RULES:
     chatHistory.push({ role: 'user', content: msg, ts: Date.now() });
     saveChatHistory();
 
-    // Show typing indicator
+    // Show typing indicator with stop button
     const typingEl = document.createElement('div');
     typingEl.className = 'chat-msg ai';
     typingEl.innerHTML =
-      '<div class="chat-bubble ai"><span class="chat-typing"><div class="chat-typing-dots"><span></span><span></span><span></span></div></span></div>';
+      '<div class="chat-bubble ai"><span class="chat-typing"><div class="chat-typing-dots"><span></span><span></span><span></span></div></span>' +
+      '<button data-action="cancel-chat" style="display:inline-block;margin-left:8px;font-size:11px;padding:2px 10px;border-radius:4px;border:1px solid rgba(255,255,255,0.3);background:rgba(239,68,68,0.15);color:var(--red,#ef4444);cursor:pointer;vertical-align:middle">Stop</button></div>';
     typingEl.setAttribute('data-copy-ready', '1'); // skip until final content
     chatMsgs.appendChild(typingEl);
     chatMsgs.scrollTop = chatMsgs.scrollHeight;
 
-    const chatAbort = new AbortController();
+    _chatAbort = new AbortController();
+    const chatAbort = _chatAbort;
     const chatTimeout = setTimeout(() => chatAbort.abort(), 180000);
     try {
       const _chatEp = getAIEndpoint();
@@ -385,6 +388,17 @@ RULES:
                 const display = stripActionBlocks(fullText);
                 bubble.innerHTML = esc(display).replace(/\n/g, '<br>');
                 chatMsgs.scrollTop = chatMsgs.scrollHeight; _addCopyButtons();
+              } else if (event.type === 'error') {
+                const errText = event.error?.message || 'Unknown streaming error';
+                fullText += `\n[Error: ${errText}]`;
+                const display = stripActionBlocks(fullText);
+                bubble.innerHTML = esc(display).replace(/\n/g, '<br>');
+                chatMsgs.scrollTop = chatMsgs.scrollHeight;
+              } else if (event.type === 'message_delta' && event.delta?.stop_reason === 'max_tokens') {
+                fullText += '\n(response was truncated)';
+                const display = stripActionBlocks(fullText);
+                bubble.innerHTML = esc(display).replace(/\n/g, '<br>');
+                chatMsgs.scrollTop = chatMsgs.scrollHeight;
               }
             } catch (_parseErr) {
               /* SSE parse error — non-fatal, skip chunk */
@@ -423,22 +437,32 @@ RULES:
       }
       chatMsgs.scrollTop = chatMsgs.scrollHeight; _addCopyButtons();
     } catch (err) {
-      const errMsg =
-        err.name === 'AbortError'
+      const wasCancelled = err.name === 'AbortError' && chatAbort._cancelledByUser;
+      const errMsg = wasCancelled
+        ? 'Stopped'
+        : err.name === 'AbortError'
           ? 'Request timed out — try a shorter input'
           : err instanceof TypeError && !err.status
             ? 'No internet connection — AI features unavailable'
             : err.message;
       typingEl.removeAttribute('data-copy-ready');
-      typingEl.innerHTML = `<span style="color:var(--red)">Error: ${esc(errMsg)}</span>`;
+      typingEl.innerHTML = `<span style="color:var(--red)">${wasCancelled ? 'Stopped' : 'Error: ' + esc(errMsg)}</span>`;
       _addCopyButtons();
     } finally {
       clearTimeout(chatTimeout);
       _chatSending = false;
+      _chatAbort = null;
       const _sendBtn = document.querySelector('.chat-send');
       if (_sendBtn) _sendBtn.disabled = false;
       const _chatInp = document.getElementById('chatInput');
       if (_chatInp) _chatInp.focus();
+    }
+  }
+
+  function cancelChat() {
+    if (_chatAbort) {
+      _chatAbort._cancelledByUser = true;
+      _chatAbort.abort();
     }
   }
 
@@ -711,7 +735,7 @@ ${AI_ACTIONS_SPEC}`;
       Object.entries(tasksByBoard).forEach(([board, tasks]) => {
         msg += `**${board}** (${tasks.length})\n`;
         tasks.forEach((t) => {
-          const statusIcon = t.status === 'done' ? '\u2713' : t.status === 'in-progress' ? '\u25b6' : '\u25cb';
+          const statusIcon = t.status === 'done' ? '\u2713' : t.status === 'in-progress' ? '\u25b6' : t.status === 'waiting' ? '\u23f8' : '\u25cb';
           const due = t.dueDate ? ` \u00b7 due ${t.dueDate}` : '';
           msg += `${statusIcon} ${t.title}${due}\n`;
         });
@@ -787,6 +811,7 @@ ${AI_ACTIONS_SPEC}`;
   return {
     toggleChat,
     sendChat,
+    cancelChat,
     sendChatChip,
     updateChatChips,
     openProjectChat,

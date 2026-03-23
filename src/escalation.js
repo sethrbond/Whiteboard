@@ -90,7 +90,7 @@ export function createEscalation(deps) {
     const thresholdMs = DEADLINE_IMMINENT_HOURS * 3600_000;
     const data = getData();
     const tasks = data.tasks.filter((t) => {
-      if (t.status === 'done' || t.archived) return false;
+      if (t.status === 'done' || t.status === 'waiting' || t.archived) return false;
       if (!t.dueDate) return false;
       if (_isDismissed('imminent_' + t.id)) return false;
       // Parse due date as end-of-day local time
@@ -118,7 +118,7 @@ export function createEscalation(deps) {
   function _checkOverduePileup() {
     const today = todayStr();
     const data = getData();
-    const overdue = data.tasks.filter((t) => t.status !== 'done' && !t.archived && t.dueDate && t.dueDate < today);
+    const overdue = data.tasks.filter((t) => t.status !== 'done' && t.status !== 'waiting' && !t.archived && t.dueDate && t.dueDate < today);
 
     if (overdue.length < OVERDUE_PILEUP_THRESHOLD) return null;
     if (_isDismissed('overdue_pileup')) return null;

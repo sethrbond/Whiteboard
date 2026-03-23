@@ -101,6 +101,7 @@ describe('expand flow — end-to-end', () => {
       todayStr: () => '2026-03-15',
       PRIORITY_ORDER,
       getData: () => data,
+      saveData: vi.fn(),
       userKey: (k) => `user1_${k}`,
       findTask: (id) => data.tasks.find((t) => t.id === id) || null,
       activeTasks: () => data.tasks.filter((t) => t.status !== 'done'),

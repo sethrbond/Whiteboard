@@ -630,6 +630,7 @@ const _chat = createChat({
 });
 const toggleChat = _chat.toggleChat;
 const sendChat = _chat.sendChat;
+const cancelChat = _chat.cancelChat;
 const sendChatChip = _chat.sendChatChip;
 const updateChatChips = _chat.updateChatChips;
 const openProjectChat = _chat.openProjectChat;
@@ -864,8 +865,9 @@ async function _loadWeeklyReview() {
     throw err;
   }
 }
-async function renderWeeklyReview() {
-  return (await _loadWeeklyReview()).renderWeeklyReview();
+function renderWeeklyReview() {
+  if (_weeklyReviewMod) return _weeklyReviewMod.renderWeeklyReview();
+  return _loadWeeklyReview().then((mod) => mod.renderWeeklyReview());
 }
 async function discussReview(...args) {
   return (await _loadWeeklyReview()).discussReview(...args);
@@ -1321,6 +1323,7 @@ const _dashboard = createDashboard({
   todayStr,
   PRIORITY_ORDER,
   getData: () => data,
+  saveData: (d) => saveData(d),
   userKey,
   findTask,
   activeTasks,
@@ -1457,6 +1460,7 @@ createActions({
   toggleSidebar,
   toggleChat,
   sendChat,
+  cancelChat,
   sendChatChip,
   updateChatChips,
   openEditTask,
@@ -1527,6 +1531,7 @@ createActions({
   applyTemplateToQuickAdd,
   showAuthFromLanding,
   enterGuestMode,
+  isGuestMode: () => guestMode,
   showSignUpNudge,
   handleAuth,
   toggleAuthMode,

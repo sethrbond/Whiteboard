@@ -279,6 +279,7 @@ export function createFocusMode(deps) {
 
   async function _startFocusInternal(projectId) {
     let active = projectId ? activeTasks(projectId) : activeTasks();
+    active = active.filter((t) => t.status !== 'waiting');
     if (_focusSkipped.length) active = active.filter((t) => !_focusSkipped.includes(t.id));
     if (!active.length) {
       _focusSkipped = [];
@@ -329,7 +330,7 @@ export function createFocusMode(deps) {
         .map((t) => {
           const p = data.projects.find((x) => x.id === t.project);
           const wasSkipped = skippedTitles.includes(t.title);
-          return `- "${t.title}" [${t.priority}]${t.dueDate ? ' due:' + t.dueDate : ''}${t.status === 'in-progress' ? ' [WIP]' : ''} ${p ? '(' + p.name + ')' : ''}${wasSkipped ? ' [PREVIOUSLY SKIPPED]' : ''}`;
+          return `- "${t.title}" [${t.priority}]${t.dueDate ? ' due:' + t.dueDate : ''}${t.status === 'waiting' ? ' [WAITING]' : ''}${t.status === 'in-progress' ? ' [WIP]' : ''} ${p ? '(' + p.name + ')' : ''}${wasSkipped ? ' [PREVIOUSLY SKIPPED]' : ''}`;
         })
         .join('\n');
 

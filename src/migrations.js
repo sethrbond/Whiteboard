@@ -1,7 +1,7 @@
 // Schema versioning and data migration system
 // Each migration transforms data from version N to N+1
 
-export const CURRENT_SCHEMA_VERSION = 1;
+export const CURRENT_SCHEMA_VERSION = 2;
 
 const TASK_DEFAULTS = {
   title: '',
@@ -19,6 +19,7 @@ const TASK_DEFAULTS = {
   subtasks: [],
   createdAt: null, // filled dynamically per-task during migration
   completedAt: null,
+  updatedAt: null, // filled dynamically — tracks last modification for sync conflict resolution
   archived: false,
   updates: [],
 };
@@ -57,8 +58,24 @@ function migrateToV1(data) {
   return data;
 }
 
+// Migration from version 1 to version 2:
+// - Add `updatedAt` field to all tasks for sync conflict resolution
+function migrateToV2(data) {
+  if (Array.isArray(data.tasks)) {
+    data.tasks = data.tasks.map((task) => {
+      if (!task.updatedAt) {
+        // Use createdAt as initial updatedAt, or now if missing
+        task.updatedAt = task.createdAt || new Date().toISOString();
+      }
+      return task;
+    });
+  }
+  data._schemaVersion = 2;
+  return data;
+}
+
 // Ordered list of migrations. Index 0 = migration from v0 to v1, etc.
-const migrations = [migrateToV1];
+const migrations = [migrateToV1, migrateToV2];
 
 /**
  * Check data._schemaVersion and run any needed migrations sequentially.

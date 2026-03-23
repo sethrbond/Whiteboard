@@ -2,8 +2,8 @@ import { describe, it, expect } from 'vitest';
 import { migrateData, CURRENT_SCHEMA_VERSION } from '../migrations.js';
 
 describe('migrations.js', () => {
-  it('CURRENT_SCHEMA_VERSION is 1', () => {
-    expect(CURRENT_SCHEMA_VERSION).toBe(1);
+  it('CURRENT_SCHEMA_VERSION is 2', () => {
+    expect(CURRENT_SCHEMA_VERSION).toBe(2);
   });
 
   it('returns falsy input unchanged', () => {
@@ -11,15 +11,17 @@ describe('migrations.js', () => {
     expect(migrateData(undefined)).toBe(undefined);
   });
 
-  it('migrates unversioned data to v1', () => {
+  it('migrates unversioned data through all versions', () => {
     const data = {
       tasks: [{ id: 't1', title: 'Test' }],
       projects: [],
       goals: ['old goal'],
     };
     const result = migrateData(data);
-    expect(result._schemaVersion).toBe(1);
+    expect(result._schemaVersion).toBe(2);
     expect(result.goals).toBeUndefined();
+    // v2 migration should add updatedAt
+    expect(result.tasks[0].updatedAt).toBeTruthy();
   });
 
   it('fills missing task fields with defaults', () => {
@@ -55,12 +57,12 @@ describe('migrations.js', () => {
 
   it('skips migration if already at current version', () => {
     const data = {
-      _schemaVersion: 1,
+      _schemaVersion: 2,
       tasks: [{ id: 't1', title: 'Already migrated' }],
       projects: [],
     };
     const result = migrateData(data);
-    expect(result._schemaVersion).toBe(1);
+    expect(result._schemaVersion).toBe(2);
     // Task should NOT get defaults filled since migration didn't run
     expect(result.tasks[0].status).toBeUndefined();
   });
@@ -68,7 +70,7 @@ describe('migrations.js', () => {
   it('handles empty tasks array', () => {
     const data = { tasks: [], projects: [] };
     const result = migrateData(data);
-    expect(result._schemaVersion).toBe(1);
+    expect(result._schemaVersion).toBe(2);
     expect(result.tasks).toEqual([]);
   });
 
@@ -84,7 +86,7 @@ describe('migrations.js', () => {
   it('handles data with no tasks array', () => {
     const data = { projects: [] };
     const result = migrateData(data);
-    expect(result._schemaVersion).toBe(1);
+    expect(result._schemaVersion).toBe(2);
   });
 
   it('fills arrays with fresh empty arrays (no shared refs)', () => {

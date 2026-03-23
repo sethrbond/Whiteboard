@@ -20,6 +20,7 @@ export function createActions(deps) {
     toggleSidebar,
     toggleChat,
     sendChat,
+    cancelChat,
     sendChatChip,
     updateChatChips,
     // Task CRUD
@@ -169,6 +170,8 @@ export function createActions(deps) {
     userKey,
     todayStr,
     getNotifications,
+    // Guest mode
+    isGuestMode,
     // Templates
     saveAsTemplate,
     deleteTemplate,
@@ -255,7 +258,11 @@ export function createActions(deps) {
         break;
       // Chat
       case 'toggle-chat':
-        toggleChat();
+        if (typeof isGuestMode === 'function' && isGuestMode()) {
+          showToast('Sign up to use AI chat');
+        } else {
+          toggleChat();
+        }
         break;
       case 'toggle-ai-insights': {
         const cur = localStorage.getItem(userKey('wb_ai_insights_expanded'));
@@ -265,6 +272,9 @@ export function createActions(deps) {
       }
       case 'send-chat':
         sendChat();
+        break;
+      case 'cancel-chat':
+        cancelChat();
         break;
       case 'chat-chip':
         sendChatChip(actionEl.dataset.text);
@@ -649,7 +659,7 @@ export function createActions(deps) {
         // Use the chat panel — open project chat and send analysis request
         const _raSummary = _raTasks
           .map((t) => {
-            const status = t.status === 'done' ? '[DONE]' : t.status === 'in-progress' ? '[WIP]' : '';
+            const status = t.status === 'done' ? '[DONE]' : t.status === 'waiting' ? '[WAITING]' : t.status === 'in-progress' ? '[WIP]' : '';
             const due = t.dueDate ? `due ${t.dueDate}` : '';
             const notes = t.notes ? `(${t.notes.slice(0, 50)})` : '';
             return `- ${status} ${t.title} [${t.priority}] ${due} ${notes}`.trim();
@@ -1659,17 +1669,21 @@ export function createActions(deps) {
       if (e.shiftKey && redo) { redo(); } else { undo(); }
       return;
     }
-    if ((e.metaKey || e.ctrlKey) && e.key === 'd') {
+    if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === 'd') {
       if (_inFormField) return;
       e.preventDefault();
       if (typeof deps.openBrainstormModal === 'function') deps.openBrainstormModal();
       else setView('dump');
       return;
     }
-    if ((e.metaKey || e.ctrlKey) && e.key === 'j') {
+    if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === 'j') {
       if (_inFormField) return;
       e.preventDefault();
-      toggleChat();
+      if (typeof isGuestMode === 'function' && isGuestMode()) {
+        showToast('Sign up to use AI chat');
+      } else {
+        toggleChat();
+      }
       return;
     }
     if ((e.metaKey || e.ctrlKey) && e.key === ',') {

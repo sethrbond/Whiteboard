@@ -318,7 +318,7 @@ export function createProactive(deps) {
         const t = data.tasks.find((x) => x.id === tk.id);
         if (!t || t.status === 'done' || (t.notes && t.notes.length > 50)) return;
         const r = await callAI('Draft:' + t.title + ' Type:' + m.type, {
-          maxTokens: 16384,
+          maxTokens: 1000,
           system:
             AI_PERSONA_SHORT +
             '\n\nDraft a brief, actionable expansion of this task. 2-3 bullet points max. No preamble.',
@@ -429,7 +429,7 @@ RULES:
 - Use markdown formatting (headers, bullets, bold) for readability
 - Do NOT wrap in code fences`;
 
-      const reply = await callAI(prompt, { maxTokens: 16384, temperature: 0.3 });
+      const reply = await callAI(prompt, { maxTokens: 4096, temperature: 0.3 });
       const json = JSON.parse(
         reply
           .replace(/```json?\s*/g, '')
@@ -867,7 +867,7 @@ RULES:
 
     const taskSummary = active
       .map((t) => {
-        const status = t.status === 'in-progress' ? '[WIP]' : '';
+        const status = t.status === 'waiting' ? '[WAITING]' : t.status === 'in-progress' ? '[WIP]' : '';
         const due = t.dueDate ? `due ${t.dueDate}` : '';
         const overdue = t.dueDate && t.dueDate < today ? '[OVERDUE]' : '';
         return `- ${status}${overdue} ${t.title} [${t.priority}] ${due} (id: ${t.id})`.trim();
@@ -912,7 +912,7 @@ Leave changes empty [] if just answering a question.`;
 
     try {
       showToast('Thinking...');
-      const reply = await callAI(prompt, { maxTokens: 16384, temperature: 0.3 });
+      const reply = await callAI(prompt, { maxTokens: 2048, temperature: 0.3 });
       const cleaned = reply
         .replace(/```json?\s*/g, '')
         .replace(/```/g, '')
@@ -995,7 +995,7 @@ RULES:
 
     try {
       showToast('Generating board summary...');
-      const reply = await callAI(prompt, { maxTokens: 16384, temperature: 0.3 });
+      const reply = await callAI(prompt, { maxTokens: 500, temperature: 0.3 });
       const narrative = reply.trim();
       localStorage.setItem(userKey('whiteboard_board_narrative_' + projectId), narrative);
       render();

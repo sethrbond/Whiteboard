@@ -340,7 +340,7 @@ export function createUIHelpers(deps) {
   function notifyOverdueTasks() {
     if (!('Notification' in window) || Notification.permission !== 'granted') return;
     const overdue = getData().tasks.filter(function (t) {
-      return t.status !== 'done' && !t.archived && t.dueDate && t.dueDate < todayStr();
+      return t.status !== 'done' && t.status !== 'waiting' && !t.archived && t.dueDate && t.dueDate < todayStr();
     });
     if (!overdue.length) return;
     const n = new Notification('You have ' + overdue.length + ' overdue task' + (overdue.length > 1 ? 's' : ''), {

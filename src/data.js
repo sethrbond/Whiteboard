@@ -21,7 +21,7 @@ import { titleSimilarity, genId } from './utils.js';
 import { todayStr } from './dates.js';
 import { migrateData, CURRENT_SCHEMA_VERSION } from './migrations.js';
 
-const VALID_STATUSES = ['todo', 'in-progress', 'done'];
+const VALID_STATUSES = ['todo', 'waiting', 'in-progress', 'done'];
 const VALID_PRIORITIES = ['urgent', 'important', 'normal', 'low'];
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const VALID_HORIZONS = ['short', 'long', ''];
@@ -348,6 +348,7 @@ export function createDataLayer(deps) {
       subtasks: [],
       createdAt: new Date().toISOString(),
       completedAt: null,
+      updatedAt: new Date().toISOString(),
       archived: false,
       updates: [],
       ...o,
@@ -386,6 +387,7 @@ export function createDataLayer(deps) {
     }
     const wasNotDone = t.status !== 'done';
     Object.assign(t, u);
+    t.updatedAt = new Date().toISOString();
     if (t.title && t.title.length > 500) t.title = t.title.slice(0, 500);
     if (t.notes && t.notes.length > MAX_NOTES_LENGTH) t.notes = t.notes.slice(0, MAX_NOTES_LENGTH);
     if (u.status === 'done' && !t.completedAt) t.completedAt = new Date().toISOString();
@@ -469,6 +471,7 @@ export function createDataLayer(deps) {
     t._preArchiveStatus = t.status;
     t.archived = true;
     t.archivedAt = new Date().toISOString();
+    t.updatedAt = new Date().toISOString();
     t.status = 'done';
     if (!t.completedAt) t.completedAt = t.archivedAt;
     // Kill recurrence — deleted means user doesn't want it coming back
@@ -597,12 +600,21 @@ export function createDataLayer(deps) {
   function deleteProject(id) {
     const p = data.projects.find((x) => x.id === id);
     pushUndo('Delete project' + (p ? ': ' + p.name : ''));
-    data.tasks = data.tasks.filter((t) => t.project !== id);
+    const now = new Date().toISOString();
+    data.tasks.forEach((t) => {
+      if (t.project === id) {
+        t.archived = true;
+        t.archivedAt = now;
+        t._preArchiveStatus = t.status;
+        t.status = 'done';
+        if (!t.completedAt) t.completedAt = now;
+      }
+    });
     data.projects = data.projects.filter((x) => x.id !== id);
     saveData(data);
     const pruneStaleMemories = getPruneStaleMemories();
     if (pruneStaleMemories) pruneStaleMemories();
-    showUndoToast('Board deleted (tasks included)');
+    showUndoToast('Board deleted (tasks archived)');
   }
 
   // --- Undo/Redo system ---

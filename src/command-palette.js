@@ -74,8 +74,8 @@ export function createCommandPalette(deps) {
         title: 'AI Features',
         icon: '\u26A1',
         items: [
-          [[mod, 'J'], 'AI Chat'],
-          [[mod, 'D'], 'Brainstorm'],
+          [[mod, '\u21E7', 'J'], 'AI Chat'],
+          [[mod, '\u21E7', 'D'], 'Brainstorm'],
           [[mod, ','], 'Settings'],
         ],
       },

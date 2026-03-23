@@ -2706,7 +2706,7 @@ h3.section-title {
 /* ==================== KANBAN ==================== */
 .kanban {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: 16px;
   margin-bottom: 28px;
 }
@@ -6117,6 +6117,10 @@ h3.section-title {
   border-color: var(--border2);
   transform: translateY(-2px);
   box-shadow: var(--shadow-lg);
+}
+.wb-card.waiting {
+  opacity: 0.55;
+  border-style: dashed;
 }
 .wb-card.done {
   opacity: 0.5;

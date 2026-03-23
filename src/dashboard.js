@@ -21,6 +21,7 @@ export function createDashboard(deps) {
     todayStr,
     PRIORITY_ORDER,
     getData,
+    saveData,
     userKey,
     findTask,
     activeTasks,
@@ -74,6 +75,8 @@ export function createDashboard(deps) {
     getPlanGenerating,
     setPlanGenerating,
     setNudgeFilter,
+    getNudgeFilter,
+    getActiveTagFilter,
     getTodayBriefingExpanded,
     // Render helpers
     renderDump,
@@ -392,6 +395,7 @@ export function createDashboard(deps) {
 
   function _renderProjectKanban(p, active, done) {
     const todo = sortTasks(active.filter((t) => t.status === 'todo'));
+    const waiting = sortTasks(active.filter((t) => t.status === 'waiting'));
     const wip = sortTasks(active.filter((t) => t.status === 'in-progress'));
     const html = `<div class="kanban">
       <div class="kanban-col">
@@ -401,6 +405,19 @@ export function createDashboard(deps) {
             (
               t,
             ) => `<div class="kanban-card" data-task="${t.id}" data-action="toggle-expand" role="button" tabindex="0" aria-label="${esc(t.title)}">
+          <div class="kanban-card-title">${esc(t.title)}</div>
+          <div class="kanban-card-meta">${renderPriorityTag(t.priority)}${t.dueDate ? ` <span class="tag tag-date">${fmtDate(t.dueDate)}</span>` : ''}</div>
+        </div>`,
+          )
+          .join('')}
+      </div>
+      <div class="kanban-col" style="border-color:rgba(168,162,158,0.2)">
+        <div class="kanban-col-header" style="color:var(--text3)">Waiting <span class="kanban-col-count">${waiting.length}</span></div>
+        ${waiting
+          .map(
+            (
+              t,
+            ) => `<div class="kanban-card" style="opacity:0.7" data-task="${t.id}" data-action="toggle-expand" role="button" tabindex="0" aria-label="${esc(t.title)}">
           <div class="kanban-card-title">${esc(t.title)}</div>
           <div class="kanban-card-meta">${renderPriorityTag(t.priority)}${t.dueDate ? ` <span class="tag tag-date">${fmtDate(t.dueDate)}</span>` : ''}</div>
         </div>`,
@@ -437,7 +454,7 @@ export function createDashboard(deps) {
     // Attach drag-and-drop after render via setTimeout
     setTimeout(function () {
       document.querySelectorAll('.kanban-col').forEach(function (col, i) {
-        const s = ['todo', 'in-progress', 'done'][i];
+        const s = ['todo', 'waiting', 'in-progress', 'done'][i];
         col.ondragover = function (e) {
           e.preventDefault();
           col.classList.add('drag-over');
@@ -724,6 +741,10 @@ export function createDashboard(deps) {
       (localStorage.getItem(userKey('whiteboard_plan_' + todayStr())) || '').length +
       '|' +
       (localStorage.getItem(userKey('whiteboard_briefing_' + todayStr())) || '').length +
+      '|' +
+      (getActiveTagFilter ? getActiveTagFilter() : '') +
+      '|' +
+      (getNudgeFilter ? getNudgeFilter() : '') +
       '|' +
       (currentView === 'calendar' ? Date.now() : ''); // calendar always re-renders (offset changes)
     if (contentState === _lastContentState) {

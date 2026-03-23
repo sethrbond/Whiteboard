@@ -45,6 +45,7 @@ describe('chat.js — createChat()', () => {
     const keys = [
       'toggleChat',
       'sendChat',
+      'cancelChat',
       'sendChatChip',
       'updateChatChips',
       'openProjectChat',
@@ -120,8 +121,8 @@ describe('chat.js — createChat()', () => {
   });
 
   // ── saveChatHistory ────────────────────────────────────────────────
-  it('saveChatHistory persists to localStorage (up to 15 entries)', () => {
-    const msgs = Array.from({ length: 20 }, (_, i) => ({
+  it('saveChatHistory persists to localStorage (up to 100 entries)', () => {
+    const msgs = Array.from({ length: 120 }, (_, i) => ({
       role: 'user',
       content: `msg ${i}`,
     }));
@@ -129,7 +130,7 @@ describe('chat.js — createChat()', () => {
     chat.saveChatHistory();
 
     const stored = JSON.parse(localStorage.getItem('user1_chat_hist'));
-    expect(stored).toHaveLength(15);
+    expect(stored).toHaveLength(100);
   });
 
   it('saveChatHistory trims in-memory history to 100', () => {

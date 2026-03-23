@@ -108,19 +108,50 @@ export function createSync(deps) {
             render();
             return;
           }
-          // MERGE by ID — never lose local-only data
-          // MERGE by ID — never lose local-only data
+          // MERGE by ID — compare updatedAt timestamps, keep the NEWER version
           const cloudTasks = (row.tasks || []).filter((t) => t && t.id);
           const cloudProjects = (row.projects || []).filter((p) => p && p.id);
-          if (cloudTasks.length > 0) {
-            const cloudTaskIds = new Set(cloudTasks.map((t) => t.id));
-            const localOnly = data.tasks.filter((t) => t && t.id && !cloudTaskIds.has(t.id));
-            data.tasks = [...cloudTasks, ...localOnly];
+          if (cloudTasks.length > 0 || data.tasks.length > 0) {
+            const cloudTaskMap = new Map(cloudTasks.map((t) => [t.id, t]));
+            const localTaskMap = new Map(data.tasks.filter((t) => t && t.id).map((t) => [t.id, t]));
+            const mergedTasks = [];
+            // All IDs from both sides
+            const allTaskIds = new Set([...cloudTaskMap.keys(), ...localTaskMap.keys()]);
+            for (const id of allTaskIds) {
+              const cloud = cloudTaskMap.get(id);
+              const local = localTaskMap.get(id);
+              if (cloud && !local) {
+                mergedTasks.push(cloud); // only in cloud
+              } else if (local && !cloud) {
+                mergedTasks.push(local); // only in local
+              } else {
+                // Both exist — compare updatedAt, keep newer
+                const cloudTime = cloud.updatedAt ? new Date(cloud.updatedAt).getTime() : 0;
+                const localTime = local.updatedAt ? new Date(local.updatedAt).getTime() : 0;
+                mergedTasks.push(localTime >= cloudTime ? local : cloud);
+              }
+            }
+            data.tasks = mergedTasks;
           }
-          if (cloudProjects.length > 0) {
-            const cloudProjIds = new Set(cloudProjects.map((p) => p.id));
-            const localOnlyProj = data.projects.filter((p) => p && p.id && !cloudProjIds.has(p.id));
-            data.projects = [...cloudProjects, ...localOnlyProj];
+          if (cloudProjects.length > 0 || data.projects.length > 0) {
+            const cloudProjMap = new Map(cloudProjects.map((p) => [p.id, p]));
+            const localProjMap = new Map(data.projects.filter((p) => p && p.id).map((p) => [p.id, p]));
+            const mergedProjects = [];
+            const allProjIds = new Set([...cloudProjMap.keys(), ...localProjMap.keys()]);
+            for (const id of allProjIds) {
+              const cloud = cloudProjMap.get(id);
+              const local = localProjMap.get(id);
+              if (cloud && !local) {
+                mergedProjects.push(cloud);
+              } else if (local && !cloud) {
+                mergedProjects.push(local);
+              } else {
+                const cloudTime = cloud.updatedAt ? new Date(cloud.updatedAt).getTime() : 0;
+                const localTime = local.updatedAt ? new Date(local.updatedAt).getTime() : 0;
+                mergedProjects.push(localTime >= cloudTime ? local : cloud);
+              }
+            }
+            data.projects = mergedProjects;
           }
           // Migrate cloud data to current schema
           const cloudData = migrateData({
@@ -171,6 +202,8 @@ export function createSync(deps) {
           } finally {
             setSuppressCloudSync(false);
           }
+          // Push merged result back to cloud so both sides converge
+          await _doSyncToCloud();
           syncStatus = 'synced';
         } else {
           // First login — push local data up

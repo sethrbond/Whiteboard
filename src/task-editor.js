@@ -202,7 +202,7 @@ export function createTaskEditor(deps) {
       <div class="task-tags">
         ${proj ? `<span class="tag tag-project" style="border-left:2px solid ${proj.color};padding-left:6px">${esc(proj.name)}</span>` : ''}
         ${renderPriorityTag(t.priority)}
-        ${t.status === 'in-progress' ? '<span class="tag" style="background:rgba(59,130,246,0.1);color:var(--blue)">In Progress</span>' : ''}
+        ${t.status === 'waiting' ? '<span class="tag" style="background:rgba(168,162,158,0.15);color:var(--text3)">Waiting</span>' : ''}${t.status === 'in-progress' ? '<span class="tag" style="background:rgba(59,130,246,0.1);color:var(--blue)">In Progress</span>' : ''}
       </div>
       <div style="display:flex;align-items:center;gap:4px">
         <button class="btn btn-ghost btn-sm" data-action="edit-task" data-task-id="${t.id}">Edit</button>
@@ -605,7 +605,7 @@ ONLY return JSON.`;
     const prompt = _buildTaskCmdPrompt(t, input);
 
     try {
-      const content = await callAI(prompt, { maxTokens: 16384, temperature: 0.3 });
+      const content = await callAI(prompt, { maxTokens: 2048, temperature: 0.3 });
       const cmd = JSON.parse(content.match(/\{[\s\S]*\}/)?.[0] || '{}');
       _applyTaskCmd(cmd, taskId, t, input);
       render();
@@ -783,7 +783,7 @@ ONLY return JSON.`;
     <div class="form-group"><label class="form-label" for="fNotes">Notes</label><textarea class="form-textarea" id="fNotes" rows="3">${esc(t.notes)}</textarea></div>
     <fieldset class="form-fieldset"><legend class="sr-only">Priority and Status</legend>
     <div class="form-row">
-      <div class="form-group"><label class="form-label" for="fStatus">Status</label><select class="form-select" id="fStatus"><option value="todo" ${t.status === 'todo' ? 'selected' : ''}>To Do</option><option value="in-progress" ${t.status === 'in-progress' ? 'selected' : ''}>In Progress</option><option value="done" ${t.status === 'done' ? 'selected' : ''}>Done</option></select></div>
+      <div class="form-group"><label class="form-label" for="fStatus">Status</label><select class="form-select" id="fStatus"><option value="todo" ${t.status === 'todo' ? 'selected' : ''}>To Do</option><option value="waiting" ${t.status === 'waiting' ? 'selected' : ''}>Waiting / On Hold</option><option value="in-progress" ${t.status === 'in-progress' ? 'selected' : ''}>In Progress</option><option value="done" ${t.status === 'done' ? 'selected' : ''}>Done</option></select></div>
       <div class="form-group"><label class="form-label" for="fPriority">Priority</label><select class="form-select" id="fPriority"><option value="urgent" ${t.priority === 'urgent' ? 'selected' : ''}>Urgent</option><option value="important" ${t.priority === 'important' ? 'selected' : ''}>Important</option><option value="normal" ${t.priority === 'normal' ? 'selected' : ''}>Normal</option><option value="low" ${t.priority === 'low' ? 'selected' : ''}>Low</option></select></div>
     </div>
     </fieldset>

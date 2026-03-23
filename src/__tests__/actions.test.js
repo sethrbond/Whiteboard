@@ -97,6 +97,8 @@ function makeDeps(overrides = {}) {
     showTerms: vi.fn(),
     signOut: vi.fn(),
     resendVerification: vi.fn(),
+    // Guest mode
+    isGuestMode: vi.fn(() => false),
     // AI / Proactive
     generateAIBriefing: vi.fn(),
     planMyDay: vi.fn(),
@@ -795,13 +797,13 @@ describe('actions.js — createActions()', () => {
       expect(deps.undo).toHaveBeenCalled();
     });
 
-    it('Cmd+D opens brainstorm view', () => {
-      keydown(document.body, { key: 'd', metaKey: true });
+    it('Cmd+Shift+D opens brainstorm view', () => {
+      keydown(document.body, { key: 'd', metaKey: true, shiftKey: true });
       expect(deps.setView).toHaveBeenCalledWith('dump');
     });
 
-    it('Cmd+J toggles chat', () => {
-      keydown(document.body, { key: 'j', metaKey: true });
+    it('Cmd+Shift+J toggles chat', () => {
+      keydown(document.body, { key: 'j', metaKey: true, shiftKey: true });
       expect(deps.toggleChat).toHaveBeenCalled();
     });
 

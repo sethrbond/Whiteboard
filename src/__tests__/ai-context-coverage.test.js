@@ -598,7 +598,7 @@ describe('ai-context.js — additional coverage', () => {
       expect(result.applied).toBe(1);
     });
 
-    it('skips batch_update when targets exceed 20', async () => {
+    it('skips batch_update when targets exceed 20 and pushes insight', async () => {
       for (let i = 0; i < 25; i++) {
         store.tasks.push({
           id: 'bulkx_' + i,
@@ -613,6 +613,9 @@ describe('ai-context.js — additional coverage', () => {
         '```actions\n[{"action":"batch_update","filter":{"status":"todo"},"fields":{"priority":"low"}}]\n```';
       const result = await ctx.executeAIActions(reply);
       expect(result.applied).toBe(0);
+      const limitInsight = result.insights.find((i) => i.text.includes('Batch update limited'));
+      expect(limitInsight).toBeDefined();
+      expect(limitInsight.severity).toBe('warning');
     });
 
     it('handles search_archive with no results', async () => {
