@@ -648,7 +648,7 @@ export function createBrainstorm(deps) {
     return html;
   }
 
-  function approveAllThemes() {
+  async function approveAllThemes() {
     // Collect all clarify answers and enrich tasks before applying
     // Collect clarify answers — enrich task notes with user's answers
     const skipPatterns = /already track|already have|already covered|don't need|dont need|skip this|remove this|not needed|duplicate|covered by/i;
@@ -665,16 +665,46 @@ export function createBrainstorm(deps) {
         if (!skipAnswersByTheme[themeIdx]) skipAnswersByTheme[themeIdx] = [];
         skipAnswersByTheme[themeIdx].push(answer);
       } else {
-        // Enrich all tasks in this theme with the answer
-        (theme.tasks || []).forEach((t) => {
-          t.notes = (t.notes || '') + (t.notes ? ' ' : '') + answer;
-        });
+        // Store answer for AI refinement
+        if (!theme._clarifyAnswers) theme._clarifyAnswers = [];
+        const qIdx = parseInt(inp.dataset.qIdx, 10);
+        const question = theme.questions?.[qIdx] || '';
+        theme._clarifyAnswers.push({ question, answer });
       }
     });
 
-    // Apply all themes — filter out tasks that match skip answers
+    // Refine themes that have clarify answers via AI
     _convState = 'APPLYING';
     _refreshConversationUI();
+
+    if (hasAI()) {
+      const settings = getSettings();
+      const _ep = getAIEndpoint();
+      for (const theme of _convThemes) {
+        if (!theme._clarifyAnswers?.length) continue;
+        try {
+          const refinementPrompt = `You previously extracted these tasks for "${theme.name}":\n${JSON.stringify(theme.tasks, null, 2)}\n\nUser's answers:\n${theme._clarifyAnswers.map((a) => `Q: ${a.question}\nA: ${a.answer}`).join('\n\n')}\n\nUpdate tasks based on answers. Adjust dates, priorities, notes, titles, subtasks. Return ONLY a JSON array of tasks.`;
+          const resp = await fetch(_ep.url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'anthropic-version': '2023-06-01', ..._ep.headers },
+            body: JSON.stringify({ model: settings.aiModel || 'claude-haiku-4-5-20251001', max_tokens: 16384, temperature: 0.2, system: 'Return only valid JSON.', messages: [{ role: 'user', content: refinementPrompt }] }),
+          });
+          if (resp.ok) {
+            const result = await resp.json();
+            const raw = result.content?.[0]?.text || '';
+            const cleaned = raw.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
+            const match = cleaned.match(/\[[\s\S]*\]/);
+            if (match) {
+              const refined = JSON.parse(match[0]);
+              if (Array.isArray(refined) && refined.length > 0) theme.tasks = refined;
+            }
+          }
+        } catch (err) {
+          console.warn('Clarify refinement failed for', theme.name, err.message);
+        }
+        delete theme._clarifyAnswers;
+      }
+    }
 
     _convThemes.forEach((theme, idx) => {
       let tasks = theme.tasks || [];
@@ -1304,26 +1334,97 @@ ${text}${getDumpAttachmentText()}`;
     }, 100);
   }
 
-  function submitThemeClarify() {
+  async function submitThemeClarify() {
     const inputs = document.querySelectorAll('.conv-clarify-input');
     const answers = [];
-    inputs.forEach((inp) => {
-      if (inp.value.trim()) answers.push(inp.value.trim());
+    const theme = _convThemes[_convCurrentTheme];
+    inputs.forEach((inp, i) => {
+      if (inp.value.trim()) {
+        const q = theme?.questions?.[i] || `Question ${i + 1}`;
+        answers.push({ question: q, answer: inp.value.trim() });
+      }
     });
 
-    if (answers.length > 0) {
-      _convMessages.push({ role: 'user', content: answers.join(' \u2022 ') });
-      // Enrich the current theme's task notes with the answers
-      const theme = _convThemes[_convCurrentTheme];
-      if (theme) {
-        const answerText = answers.join('. ');
+    if (answers.length > 0 && theme && hasAI()) {
+      _convMessages.push({ role: 'user', content: answers.map((a) => a.answer).join(' \u2022 ') });
+      _convState = 'ANALYZING';
+      _refreshConversationUI();
+
+      // Send answers back to AI to refine tasks
+      try {
+        const settings = getSettings();
+        const _ep = getAIEndpoint();
+        const refinementPrompt = `You previously extracted these tasks for the theme "${theme.name}":\n${JSON.stringify(theme.tasks, null, 2)}\n\nThe user answered your clarifying questions:\n${answers.map((a) => `Q: ${a.question}\nA: ${a.answer}`).join('\n\n')}\n\nUpdate the tasks based on these answers. Adjust due dates, priorities, notes, titles, add/remove subtasks as needed. Return the FULL updated tasks array in the same JSON format. Return ONLY a JSON array of tasks, no other text.`;
+
+        const resp = await fetch(_ep.url, {
+          method: 'POST',
+          signal: dumpAbort?.signal,
+          headers: { 'Content-Type': 'application/json', 'anthropic-version': '2023-06-01', ..._ep.headers },
+          body: JSON.stringify({
+            model: settings.aiModel || 'claude-haiku-4-5-20251001',
+            max_tokens: 16384,
+            temperature: 0.2,
+            stream: true,
+            system: 'You are a task extraction assistant. Return only valid JSON.',
+            messages: [{ role: 'user', content: refinementPrompt }],
+          }),
+        });
+
+        let rawText = '';
+        const contentType = (resp.headers && resp.headers.get ? resp.headers.get('content-type') : '') || '';
+        if (contentType.includes('text/event-stream')) {
+          const reader = resp.body.getReader();
+          const decoder = new TextDecoder();
+          let buffer = '';
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split('\n');
+            buffer = lines.pop() || '';
+            for (const line of lines) {
+              if (line.startsWith('data: ')) {
+                try {
+                  const event = JSON.parse(line.slice(6).trim());
+                  if (event.type === 'content_block_delta' && event.delta?.text) rawText += event.delta.text;
+                } catch (_) {}
+              }
+            }
+          }
+        } else if (resp.ok) {
+          const result = await resp.json();
+          rawText = result.content?.[0]?.text || '';
+        }
+
+        // Parse refined tasks
+        const cleaned = rawText.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
+        const match = cleaned.match(/\[[\s\S]*\]/);
+        if (match) {
+          const refined = JSON.parse(match[0]);
+          if (Array.isArray(refined) && refined.length > 0) {
+            theme.tasks = refined;
+            _convMessages.push({ role: 'ai', content: `Updated ${refined.length} tasks based on your answers.` });
+          }
+        }
+      } catch (err) {
+        console.warn('Clarify refinement failed, using original tasks:', err.message);
+        // Fall back to appending answers to notes
+        const answerText = answers.map((a) => a.answer).join('. ');
         (theme.tasks || []).forEach((t) => {
           t.notes = (t.notes || '') + (t.notes ? ' ' : '') + answerText;
         });
       }
+    } else if (answers.length > 0 && theme) {
+      // No AI — just append to notes
+      _convMessages.push({ role: 'user', content: answers.map((a) => a.answer).join(' \u2022 ') });
+      const answerText = answers.map((a) => a.answer).join('. ');
+      (theme.tasks || []).forEach((t) => {
+        t.notes = (t.notes || '') + (t.notes ? ' ' : '') + answerText;
+      });
     }
 
     // Now approve the theme with enriched tasks
+    _convState = 'THEME_REVIEW';
     approveTheme(_convCurrentTheme);
   }
 

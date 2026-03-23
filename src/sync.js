@@ -108,11 +108,19 @@ export function createSync(deps) {
             render();
             return;
           }
-          const cloudHasTasks = row.tasks && row.tasks.length > 0;
-          const cloudHasProjects = row.projects && row.projects.length > 0;
-          if (cloudHasTasks || cloudHasProjects) {
-            data.tasks = cloudHasTasks ? row.tasks : data.tasks;
-            data.projects = cloudHasProjects ? row.projects : data.projects;
+          // MERGE by ID — never lose local-only data
+          // MERGE by ID — never lose local-only data
+          const cloudTasks = (row.tasks || []).filter((t) => t && t.id);
+          const cloudProjects = (row.projects || []).filter((p) => p && p.id);
+          if (cloudTasks.length > 0) {
+            const cloudTaskIds = new Set(cloudTasks.map((t) => t.id));
+            const localOnly = data.tasks.filter((t) => t && t.id && !cloudTaskIds.has(t.id));
+            data.tasks = [...cloudTasks, ...localOnly];
+          }
+          if (cloudProjects.length > 0) {
+            const cloudProjIds = new Set(cloudProjects.map((p) => p.id));
+            const localOnlyProj = data.projects.filter((p) => p && p.id && !cloudProjIds.has(p.id));
+            data.projects = [...cloudProjects, ...localOnlyProj];
           }
           // Migrate cloud data to current schema
           const cloudData = migrateData({
