@@ -1097,6 +1097,9 @@ ${text}${getDumpAttachmentText()}`;
                 if (event.type === 'content_block_delta' && event.delta?.text) {
                   rawText += event.delta.text;
                 }
+                if (event.type === 'message_delta' && event.delta?.stop_reason === 'max_tokens') {
+                  showToast('AI response was truncated — try a shorter input or split into sections', true);
+                }
               } catch (_) { /* skip malformed SSE chunks */ }
             }
           }
