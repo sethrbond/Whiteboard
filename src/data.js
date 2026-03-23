@@ -471,6 +471,8 @@ export function createDataLayer(deps) {
     t.archivedAt = new Date().toISOString();
     t.status = 'done';
     if (!t.completedAt) t.completedAt = t.archivedAt;
+    // Kill recurrence — deleted means user doesn't want it coming back
+    if (t.recurrence) t.recurrence = '';
     // Clean up orphaned blockedBy references
     data.tasks.forEach((x) => {
       if (x.blockedBy) x.blockedBy = x.blockedBy.filter((bid) => bid !== id);
