@@ -139,6 +139,8 @@ export function createActions(deps) {
     acceptReschedule,
     skipReschedule,
     acceptAllReschedules,
+    shareTodaysPlan,
+    shareFocusRecommendation,
     showOnboardingExperience,
     // State getters/setters
     getExpandedTask,
@@ -1261,6 +1263,12 @@ export function createActions(deps) {
         break;
       case 'replan-day':
         replanDay();
+        break;
+      case 'share-plan':
+        if (shareTodaysPlan) shareTodaysPlan();
+        break;
+      case 'share-focus':
+        if (shareFocusRecommendation) shareFocusRecommendation(actionEl?.dataset?.taskId);
         break;
       case 'dismiss-plan-prompt':
         localStorage.setItem(userKey('whiteboard_plan_dismissed_' + todayStr()), '1');
