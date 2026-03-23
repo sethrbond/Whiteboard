@@ -67,3 +67,5 @@ export const TAG_COLORS = [
   { bg: 'rgba(236,72,153,0.12)', color: '#ec4899' }, // pink
   { bg: 'rgba(20,184,166,0.12)', color: '#14b8a6' }, // teal
 ];
+
+export const VAGUE_WORDS = ['organize', 'figure out', 'look into', 'deal with', 'work on'];

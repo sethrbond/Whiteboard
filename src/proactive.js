@@ -15,7 +15,8 @@ import { createProactiveBriefing } from './proactive-briefing.js';
 import { createProactiveNudges } from './proactive-nudges.js';
 import { createProactivePlanning } from './proactive-planning.js';
 
-export const VAGUE_WORDS = ['organize', 'figure out', 'look into', 'deal with', 'work on'];
+// Re-export from constants to break circular dep with proactive-nudges
+export { VAGUE_WORDS } from './constants.js';
 
 const PROACTIVE_PATTERNS = [
   {

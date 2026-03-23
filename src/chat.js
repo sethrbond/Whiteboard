@@ -68,6 +68,7 @@ export function createChat(deps) {
       if (m.classList.contains('chat-welcome-msg')) return;
       const btn = document.createElement('button');
       btn.title = 'Copy text';
+      btn.setAttribute('aria-label', 'Copy message');
       btn.textContent = 'Copy';
       btn.style.cssText = 'position:absolute;top:6px;right:6px;font-size:10px;padding:2px 8px;border-radius:4px;border:1px solid rgba(255,255,255,0.3);background:rgba(0,0,0,0.2);color:#fff;cursor:pointer;opacity:0.7;z-index:10';
       btn.onmouseenter = () => { btn.style.opacity = '1'; };

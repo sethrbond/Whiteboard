@@ -583,9 +583,9 @@ export function createDashboard(deps) {
       const isWait = t.status === 'waiting';
       return `<div class="wb-card${isDone ? ' done' : ''}${isWait ? ' waiting' : ''}" data-task="${t.id}" data-expandable="true" draggable="true" role="listitem" style="border-top:3px solid ${borderColor}">
         <div class="wb-card-actions">
-          ${!isDone ? `<button class="task-action-btn" title="Defer" data-action="defer-task" data-task-id="${t.id}">\u21b7</button>` : ''}
-          <button class="task-action-btn" title="Edit" data-action="edit-task" data-task-id="${t.id}">\u270e</button>
-          ${!isDone ? `<button class="task-action-btn" title="Done" data-action="complete-task" data-task-id="${t.id}">\u2713</button>` : ''}
+          ${!isDone ? `<button class="task-action-btn" title="Defer" aria-label="Defer task" data-action="defer-task" data-task-id="${t.id}">\u21b7</button>` : ''}
+          <button class="task-action-btn" title="Edit" aria-label="Edit task" data-action="edit-task" data-task-id="${t.id}">\u270e</button>
+          ${!isDone ? `<button class="task-action-btn" title="Done" aria-label="Mark task done" data-action="complete-task" data-task-id="${t.id}">\u2713</button>` : ''}
         </div>
         <div class="wb-card-title${isDone ? ' done-text' : ''}">${esc(t.title)}</div>
         ${t.notes ? `<div class="wb-card-notes">${esc(t.notes.slice(0, 80))}${t.notes.length > 80 ? '...' : ''}</div>` : ''}
