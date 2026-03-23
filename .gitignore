@@ -11,6 +11,7 @@ coverage/
 test-results/
 playwright-report/
 supabase/.temp/
+.claude/
 src/cov-tmp/
 ios/
 android/
