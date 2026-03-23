@@ -281,7 +281,7 @@ export function createDashboard(deps) {
         const active = getCurrentView() === 'project' && getCurrentProject() === p.id;
         const count = _activeCounts[p.id] || 0;
         const hasOverdue = (_overdueCounts[p.id] || 0) > 0;
-        return `<div class="project-nav-item ${active ? 'active' : ''}" data-project="${p.id}">
+        return `<div class="project-nav-item ${active ? 'active' : ''}" data-project="${p.id}" draggable="true">
         <div class="project-dot" style="background:${p.color}"></div>
         <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(p.name)}</span>
         ${count > 0 ? `<span class="project-nav-count">${count}</span>` : ''}
@@ -289,6 +289,34 @@ export function createDashboard(deps) {
       </div>`;
       })
       .join('');
+
+    // Drag-to-reorder boards
+    pl.querySelectorAll('.project-nav-item').forEach((el) => {
+      el.addEventListener('dragstart', (e) => {
+        e.dataTransfer.setData('text/plain', el.dataset.project);
+        el.style.opacity = '0.4';
+      });
+      el.addEventListener('dragend', () => { el.style.opacity = ''; });
+      el.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        el.style.borderTop = '2px solid var(--accent)';
+      });
+      el.addEventListener('dragleave', () => { el.style.borderTop = ''; });
+      el.addEventListener('drop', (e) => {
+        e.preventDefault();
+        el.style.borderTop = '';
+        const draggedId = e.dataTransfer.getData('text/plain');
+        const targetId = el.dataset.project;
+        if (draggedId === targetId) return;
+        const fromIdx = data.projects.findIndex((p) => p.id === draggedId);
+        const toIdx = data.projects.findIndex((p) => p.id === targetId);
+        if (fromIdx === -1 || toIdx === -1) return;
+        const [moved] = data.projects.splice(fromIdx, 1);
+        data.projects.splice(toIdx, 0, moved);
+        saveData(data);
+        render();
+      });
+    });
 
     // Guest mode: show sign-up link at bottom of sidebar
     const _guestSignup = document.getElementById('guestSignupSidebar');
