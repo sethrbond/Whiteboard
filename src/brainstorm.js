@@ -1352,7 +1352,10 @@ ${text}${getDumpAttachmentText()}`;
 
       // Create/find the board for this theme
       if (theme.suggestedBoard) {
-        const existing = findSimilarProject(theme.suggestedBoard);
+        // Try exact match first (case-insensitive), then fuzzy
+        const existing = getData().projects.find(
+          (p) => p.name.toLowerCase() === theme.suggestedBoard.toLowerCase(),
+        ) || findSimilarProject(theme.suggestedBoard);
         if (existing) {
           projectMap[theme.suggestedBoard] = existing.id;
           // Update background if provided
@@ -1379,7 +1382,9 @@ ${text}${getDumpAttachmentText()}`;
 
         // Resolve project
         if (item.suggestedProject && !projectMap[item.suggestedProject]) {
-          const existing = findSimilarProject(item.suggestedProject);
+          const existing = getData().projects.find(
+            (p) => p.name.toLowerCase() === item.suggestedProject.toLowerCase(),
+          ) || findSimilarProject(item.suggestedProject);
           if (existing) {
             projectMap[item.suggestedProject] = existing.id;
           } else {
