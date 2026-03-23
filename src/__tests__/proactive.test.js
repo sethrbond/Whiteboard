@@ -768,10 +768,9 @@ describe('proactive.js — createProactive()', () => {
     expect(deps.addTask).not.toHaveBeenCalled();
   });
 
-  it('processRecurringTasks skips if next date is in the future', () => {
-    // Completed just now — next daily is tomorrow, which is > today
+  it('processRecurringTasks creates next instance immediately even if future', () => {
     const justNow = new Date().toISOString();
-    deps.localISO.mockReturnValue('2026-03-16'); // tomorrow
+    deps.localISO.mockReturnValue('2026-03-16');
     deps.getData.mockReturnValue({
       tasks: [
         {
@@ -786,7 +785,7 @@ describe('proactive.js — createProactive()', () => {
       projects: [],
     });
     proactive.processRecurringTasks();
-    expect(deps.addTask).not.toHaveBeenCalled();
+    expect(deps.addTask).toHaveBeenCalled();
   });
 
   it('processRecurringTasks resets subtasks to undone on new instance', () => {

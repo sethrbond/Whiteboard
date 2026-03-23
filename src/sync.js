@@ -183,7 +183,9 @@ export function createSync(deps) {
     syncStatus = 'syncing';
     updateSyncDot();
     clearTimeout(syncTimer);
-    syncTimer = setTimeout(() => syncToCloud(), 2000);
+    // Short debounce (500ms) to batch rapid edits, but short enough
+    // that data reaches cloud before user can close the tab
+    syncTimer = setTimeout(() => syncToCloud(), 500);
   }
 
   // Inner sync logic — called within the sync lock (from withSyncLock or directly from loadFromCloud)

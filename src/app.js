@@ -184,6 +184,7 @@ const _dataLayer = createDataLayer({
   },
   getGetFollowUpSuggestions: () => (typeof getFollowUpSuggestions === 'function' ? getFollowUpSuggestions : null),
   getShowFollowUpToast: () => showFollowUpToast,
+  getProcessRecurringTasks: () => processRecurringTasks,
   confirmAction: (...args) => confirmAction(...args),
 });
 const loadData = _dataLayer.loadData;
@@ -402,6 +403,7 @@ const _events = createEvents({
   },
   getGetFollowUpSuggestions: () => (typeof getFollowUpSuggestions === 'function' ? getFollowUpSuggestions : null),
   getShowFollowUpToast: () => showFollowUpToast,
+  getProcessRecurringTasks: () => processRecurringTasks,
   getKbIdx: () => kbIdx,
   getData: () => data,
   setData: (d) => {
@@ -495,6 +497,7 @@ const _taskEditor = createTaskEditor({
   },
   getGetFollowUpSuggestions: () => (typeof getFollowUpSuggestions === 'function' ? getFollowUpSuggestions : null),
   getShowFollowUpToast: () => showFollowUpToast,
+  getProcessRecurringTasks: () => processRecurringTasks,
   getBulkMode: () => bulkMode,
   getBulkSelected: () => bulkSelected,
   getProactiveLog: () => proactiveLog,
@@ -1588,6 +1591,7 @@ createActions({
   },
   getGetFollowUpSuggestions: () => (typeof getFollowUpSuggestions === 'function' ? getFollowUpSuggestions : null),
   getShowFollowUpToast: () => showFollowUpToast,
+  getProcessRecurringTasks: () => processRecurringTasks,
   getCurrentProject: () => currentProject,
   getShowCompleted: (k) => showCompleted[k],
   setShowCompleted: (k, v) => {

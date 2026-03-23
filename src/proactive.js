@@ -502,7 +502,6 @@ RULES:
       else return;
 
       const nextStr = localISO(nextDate);
-      if (nextStr > today) return; // Not due yet
 
       // Check if we already created a new instance
       const exists = data.tasks.find(

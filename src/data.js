@@ -50,6 +50,7 @@ export function createDataLayer(deps) {
     setExpandedTask,
     getGetFollowUpSuggestions,
     getShowFollowUpToast,
+    getProcessRecurringTasks,
   } = deps;
 
   // --- Module-local state ---
@@ -392,6 +393,11 @@ export function createDataLayer(deps) {
     if (!getBatchMode()) saveData(data);
     // Trigger reflection on meaningful completions (not every time)
     if (wasNotDone && u.status === 'done' && !getBatchMode()) {
+      // Create next instance of recurring tasks immediately
+      if (t.recurrence) {
+        const processRecurring = getProcessRecurringTasks ? getProcessRecurringTasks() : null;
+        if (processRecurring) setTimeout(processRecurring, 100);
+      }
       const maybeReflect = getMaybeReflect();
       const maybeLearnPattern = getMaybeLearnPattern();
       if (maybeReflect) maybeReflect(t);
