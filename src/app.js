@@ -87,6 +87,15 @@ try {
   console.error('Supabase init failed:', e);
 }
 let currentUser = null;
+
+// Minimal analytics — one pageview per session, no personal data
+if (sb) {
+  const _aKey = 'wb_pv_' + new Date().toISOString().slice(0, 10);
+  if (!sessionStorage.getItem(_aKey)) {
+    sessionStorage.setItem(_aKey, '1');
+    sb.from('analytics').insert({ event: 'pageview' }).then(() => {});
+  }
+}
 function userKey(key) {
   return currentUser ? 'wb_' + currentUser.id + '_' + key : key;
 }
